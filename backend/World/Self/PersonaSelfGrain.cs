@@ -117,6 +117,45 @@ public sealed partial class PersonaSelfGrain(
         await state.WriteStateAsync();
     }
 
+    public async Task<Reserves> LiveBodyAsync(bool away)
+    {
+        var reserves = Bio.Settle(state.State, DateTimeOffset.Now, away);
+        await state.WriteStateAsync();
+        return reserves;
+    }
+
+    public async Task<double> EatAsync(double amount)
+    {
+        var before = Bio.Eat(state.State, amount, DateTimeOffset.Now);
+        await state.WriteStateAsync();
+        return before;
+    }
+
+    public async Task RiseAsync(double sleptHours)
+    {
+        Bio.Rise(state.State, sleptHours, DateTimeOffset.Now);
+        await state.WriteStateAsync();
+    }
+
+    public async Task ExertAsync(double cost)
+    {
+        Bio.Exert(state.State, cost, DateTimeOffset.Now);
+        await state.WriteStateAsync();
+    }
+
+    public async Task<bool> LieDownAsync()
+    {
+        if (!Bio.LieDown(state.State, DateTimeOffset.Now)) return false;
+        await state.WriteStateAsync();
+        return true;
+    }
+
+    public async Task PerkUpAsync()
+    {
+        Bio.PerkUp(state.State, DateTimeOffset.Now);
+        await state.WriteStateAsync();
+    }
+
     public async Task<DayWindow> GetDayWindowAsync()
     {
         var (partyId, personaId) = WorldKeys.ParseLife(this.GetPrimaryKeyString());
@@ -366,6 +405,7 @@ public sealed partial class PersonaSelfGrain(
                 state.State.Valence = 0;
                 state.State.ValenceSource = null;
                 state.State.BatteryAt = now.ToUnixTimeMilliseconds();
+                Bio.Morning(state.State, now);
             }
             await state.WriteStateAsync();
             if (state.State.Whereabouts.Count > 0) _ = ApplyWhereaboutsAsync(partyId, personaId);
@@ -564,6 +604,7 @@ public static class SelfRender
     public static string Presence(SelfState? day, double battery, DateTimeOffset now, IReadOnlyList<string> wear, string? situation = null)
     {
         var lines = new List<string>();
+        var hungry = false;
         if (!string.IsNullOrWhiteSpace(situation)) lines.Add($"Where you are: {situation}");
         if (day is { Beats.Count: > 0 })
         {
@@ -581,7 +622,10 @@ public static class SelfRender
                     : "You're half-busy. Replies come in between other things.");
             if (earlier.Count > 0) lines.Add($"Earlier today: {string.Join("; ", earlier.Select(Beat))}");
             if (next is not null) lines.Add($"Coming up: {Beat(next)}");
-            if (!string.IsNullOrWhiteSpace(day.Mood)) lines.Add($"Mood: {day.Mood}. Energy: {day.Energy}.");
+            var body = Bio.Now(day, now);
+            if (!string.IsNullOrWhiteSpace(day.Mood)) lines.Add($"Mood: {day.Mood}. Energy: {Bio.Energy(day.Energy, body)}.");
+            lines.AddRange(Bio.Lines(body, now));
+            hungry = body.Hunger >= Hunger.Hungry;
             if (SelfRender.Drift(SelfMath.Valence(day, now), day.ValenceSource) is { } drift) lines.Add(drift);
             if (OwnHappenings.Line(day, now) is { } own) lines.Add(own);
             if (!string.IsNullOrWhiteSpace(day.Preoccupation)) lines.Add($"Nagging at you (your own life, not this conversation): {day.Preoccupation}");
@@ -601,6 +645,7 @@ public static class SelfRender
             ? string.Empty
             : $"# Right now\n{string.Join("\n", lines)}\n" + (day is { Beats.Count: > 0 }
                 ? "This is your life outside this conversation. Let it color you (what you'd mention, why you're short or distracted), but don't announce it or recite it."
+                  + (hungry ? " Your body is true too: a meal the day lists that you haven't eaten hasn't happened." : string.Empty)
                   + (string.IsNullOrWhiteSpace(situation) ? "\n" : " Where you are is the 'Where you are' line; the day is what's going on in your life around it."
                       + " Where they disagree (the day puts you elsewhere, or with someone the 'Where you are' line doesn't), 'Where you are' is true and the day went differently.\n")
                 : string.Empty);
@@ -643,6 +688,13 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();
     [Alias("ShiftValenceAsync")] Task ShiftValenceAsync(double better, string where);
 
+    [Alias("LiveBodyAsync")] Task<Reserves> LiveBodyAsync(bool away);
+    [Alias("EatAsync")] Task<double> EatAsync(double amount);
+    [Alias("RiseAsync")] Task RiseAsync(double sleptHours);
+    [Alias("ExertAsync")] Task ExertAsync(double cost);
+    [Alias("LieDownAsync")] Task<bool> LieDownAsync();
+    [Alias("PerkUpAsync")] Task PerkUpAsync();
+
     [AlwaysInterleave, Alias("GetWhereaboutsAsync")] Task<List<Whereabout>> GetWhereaboutsAsync();
 }
 
@@ -677,6 +729,14 @@ public sealed class SelfState
     [Id(22)] public long ThreadsReviewedAt { get; set; }
     [Id(23)] public string? Own { get; set; }
     [Id(24)] public long OwnAt { get; set; }
+    [Id(25)] public double Fed { get; set; } = 1;
+    [Id(26)] public double Rested { get; set; } = 1;
+    [Id(27)] public long BodyAt { get; set; }
+    [Id(28)] public long AteAt { get; set; }
+    [Id(29)] public long UpSince { get; set; }
+    [Id(30)] public long PerkUntil { get; set; }
+    [Id(31)] public long NappedAt { get; set; }
+    [Id(32)] public long LivedAt { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

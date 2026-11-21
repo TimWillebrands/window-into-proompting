@@ -16,6 +16,15 @@ public class SecondThoughtsTest
         => Assert.Equal(Tram.Key, (Tram with { Label = "Take the tram to the centre (the Lobby, Denise, Henkie there)", Priority = 0 }).Key);
 
     [Fact]
+    public void Key_TellsAFoodTripFromAVisit()
+    {
+        var forFood = Tram with { Label = "Take the tram to the centre (to get something to eat)", Meets = PartyTown.World.Self.Bio.Food };
+
+        Assert.NotEqual(Tram.Key, forFood.Key);
+        Assert.Equal(forFood.Key, (forFood with { Label = "Take the tram to the centre", Priority = 4 }).Key);
+    }
+
+    [Fact]
     public void NothingRefused_LeavesThePull()
     {
         var went = new WorldActivity { App = "places", Action = "walk", Affordance = Tram.Key, Ts = Now.AddMinutes(-5).ToUnixTimeMilliseconds() };

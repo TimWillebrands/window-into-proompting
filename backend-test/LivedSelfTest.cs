@@ -52,6 +52,33 @@ public class LivedSelfTest
     }
 
     [Fact]
+    public void Presence_TheBodyShowsOnlyOnceItIsOffItsMiddle_AndEnergyIsLive()
+    {
+        var now = new DateTimeOffset(2026, 10, 21, 14, 10, 0, TimeSpan.Zero);
+        SelfState Day(double fed, double rested, long bodyAt) => new()
+        {
+            Mood = "fine", Energy = "high", Beats = SelfMath.ParseBeats("07:00 up\n13:00 lunch"),
+            Fed = fed, Rested = rested, BodyAt = bodyAt, LivedAt = bodyAt, UpSince = now.AddHours(-7).ToUnixTimeMilliseconds(), AteAt = now.AddHours(-6).ToUnixTimeMilliseconds(),
+        };
+        var lived = now.AddMinutes(-5).ToUnixTimeMilliseconds();
+
+        var well = SelfRender.Presence(Day(0.9, 0.9, lived), 1, now, Array.Empty<string>());
+        var worn = SelfRender.Presence(Day(0.4, 0.3, lived), 1, now, Array.Empty<string>());
+        var unlived = SelfRender.Presence(Day(0.1, 0.1, now.AddHours(-9).ToUnixTimeMilliseconds()), 1, now, Array.Empty<string>());
+        var never = SelfRender.Presence(Day(0.1, 0.1, 0), 1, now, Array.Empty<string>());
+
+        Assert.Contains("Mood: fine. Energy: high.", well);
+        Assert.DoesNotContain("hungry", well);
+        Assert.Contains("Mood: fine. Energy: low.", worn);
+        Assert.Contains("You're hungry: nothing since 08:10.", worn);
+        Assert.Contains("a meal the day lists that you haven't eaten hasn't happened", worn);
+        Assert.DoesNotContain("hasn't happened", well);
+        Assert.Contains("Energy: high.", unlived);
+        Assert.DoesNotContain("famished", unlived);
+        Assert.DoesNotContain("famished", never);
+    }
+
+    [Fact]
     public void Presence_SituationComesFirstAndWinsOverTheDay()
     {
         var day = new SelfState { Beats = SelfMath.ParseBeats("09:00 at the office") };

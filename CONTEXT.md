@@ -304,8 +304,16 @@ A **Player** gets theirs in the tray: DMs waiting, replies and mentions on the B
 _Avoid_: alert, ping, event.
 
 **Lived self**:
-What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by time and sleep), the words that have **gone stale** in the world or in their own mouth, their **Ties** (how well they know each person present, and when they last talked), and the Room's **thermostat** (a System One read of whether the talk has been heavy and circling too long). The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
+What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by time and sleep), their **Reserves**, the words that have **gone stale** in the world or in their own mouth, their **Ties** (how well they know each person present, and when they last talked), and the Room's **thermostat** (a System One read of whether the talk has been heavy and circling too long). The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
 _Avoid_: persona state, stats, needs.
+
+**Reserve**:
+Something a Persona's **Body** runs down by living and a **Place** fills back up: being fed, being rested. Only time lived in **Life** turns counts; between them nothing drains. It reaches a prompt as a fact ("nothing since 08:10") and only once it has left the comfortable middle; a body that works goes unsaid. The **Social battery** is the oldest one. Together they are the bio-economy (Vervaeke's term): being finite forces trade-offs. See [ADR 0060](docs/adr/0060-the-lived-body.md).
+_Avoid_: need, stat, hunger bar, meter.
+
+**Distress**:
+A **Reserve** nearly empty: famished, or dead on their feet. The **Body** takes over: **Initiative** seats what would relieve it first, and shrinks the menu when something does; **Reflex** notices less. Suffering as loss of agency; the Persona still chooses.
+_Avoid_: pain (nothing hurts), critical, starving.
 
 **Wallet**:
 A participant's money in a Party: a balance in credits paid once a day by their **Means** (tight, getting by, comfortable), a ledger, and a **Wardrobe** of clothes they own or were given. Buying, changing clothes and giving presents happen through the Wardrobe app. See [ADR 0024](docs/adr/0024-micro-economy.md).
@@ -391,6 +399,10 @@ _Avoid_: item, object, prop.
 **Situation**:
 The one-line, Body-derived "Where you are" in every prompt that speaks as a Participant. The Body wins for *where*; the off-screen day is the life around it, and where they disagree the day went differently. It says how the place feels (**Arena fit**), what your own Home is, and for half an hour where you came over from.
 _Avoid_: context, location string, environment.
+
+**Sustenance**:
+What a **Place** gives a **Body**, read off what it is and holds: a meal cooked at **Home**, one ordered where food is sold (paid from the **Wallet**), something free from a cart, a coffee, a lie-down. A **Feature** can feed too. See [ADR 0060](docs/adr/0060-the-lived-body.md).
+_Avoid_: food item, consumable, buff.
 
 **Feature**:
 Something to do at a **Place**, pinned to a thing in its scene: "Look through the telescope". Designed with the Place, or what a catalogue thing affords by default. A **Furni** of kind `feature`. See [ADR 0049](docs/adr/0049-places-worth-going-to.md).
@@ -692,6 +704,7 @@ _Avoid_: dev-mode, test-mode, live-session.
 - A **World** (Party) has one **World clock**, one **Board**, one **Diary** per Participant, and any number of **Rooms** and **Messenger threads**.
 - A **Player** is a **Participant** with **Default Driver** = `User`.
 - A **Participant** has exactly one **Body**; a **Body** is in exactly one **Place**, at one **Spot**.
+- A **Participant** has two **Reserves** beside the **Social battery**; a **Place** gives **Sustenance** by what it is and holds.
 - A **Place** has one **Place talk** Room; a **Home** belongs to one **Participant** and has zero or more **Housemates**.
 - A **Relation** is between exactly two **Participants**; a pair has at most one current **Relation** and any number of past ones.
 - An **Ask** comes from one **Persona** and is answered by one other.

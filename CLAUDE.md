@@ -14,6 +14,8 @@ People in Places are Figures: JSON docs an LLM writes, compiled to skinned meshe
 
 Things in Places are models as data (ADR 0049): `backend/World/Places/library.json` and its frontend copy are written by `python3 tools/places/library.py`; edit that, not the JSON. A Feature is something to do there, a Take what someone comes away with.
 
+A Body runs on Reserves (ADR 0060): `backend/World/Self/Reserves.cs` is the math, `backend/World/Places/Sustenance.cs` what a Place gives back; which things feed is `feeds` in `tools/places/library.py`.
+
 Domain terminology and architecture overview: `CONTEXT.md`. Design decisions: `docs/adr/`.
 
 ## Running the app

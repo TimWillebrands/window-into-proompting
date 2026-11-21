@@ -6,6 +6,8 @@ namespace PartyTown.World.Places;
 [GenerateSerializer, Alias("PartyTown.World.Places.Offer")]
 public sealed record Offer([property: Id(0)] string Do, [property: Id(1)] string Gives, [property: Id(2)] bool Leaves);
 
+public sealed record Feed(double Amount, bool Cooks);
+
 public static class Library
 {
     private static readonly Lazy<JsonObject> Doc = new(() =>
@@ -30,7 +32,14 @@ public static class Library
         return offers;
     });
 
+    private static readonly Lazy<Dictionary<string, Feed>> Fed = new(()
+        => (Doc.Value["feeds"] as JsonObject ?? new JsonObject()).Where(f => f.Value is JsonObject).ToDictionary(f => f.Key, f => new Feed(
+            f.Value!["feeds"]?.GetValue<double>() ?? 0,
+            f.Value["cooks"]?.GetValueKind() == JsonValueKind.True)));
+
     public static IReadOnlyDictionary<string, string> Palette => Colours.Value;
+
+    public static IReadOnlyDictionary<string, Feed> Feeds => Fed.Value;
 
     public static IReadOnlyDictionary<string, JsonObject> Models => ByName.Value;
 

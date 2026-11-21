@@ -78,6 +78,7 @@ builder.Configuration
 builder.Services.AddLlmProviderOptions();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<PartyTown.Observability.IAiObservabilityCapture, NoCapture>();
 
 if (memoryConnectionString is not null)
 {

@@ -561,6 +561,9 @@ function ClockBar({ status }: { status: WorldStatus }) {
 function SelfLines({ self }: { self: SelfSummary }) {
     const asleep = self.doing === 'Asleep';
     const battery = Number(self.battery ?? 1);
+    const fed = self.fed == null ? null : Number(self.fed);
+    const hunger =
+        fed === null || fed >= 0.45 ? null : fed < 0.15 ? 'famished' : 'hungry';
     return (
         <div style={{ fontSize: 10, color: '#444' }}>
             <div
@@ -577,6 +580,7 @@ function SelfLines({ self }: { self: SelfSummary }) {
                 {self.mood ? `mood: ${self.mood}` : null}
                 {self.energy ? ` · energy ${self.energy}` : null}
                 {battery < 0.5 ? ' · talked out' : null}
+                {hunger ? ` · ${hunger}` : null}
             </div>
             {self.threads && self.threads.length > 0 ? (
                 <details>

@@ -21,4 +21,14 @@ export interface SelfSummary {
     doing: string | null;
     day: string[];
     threads: string[];
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$
+     */
+    fed?: number | string | null;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$
+     */
+    rested?: number | string | null;
 }

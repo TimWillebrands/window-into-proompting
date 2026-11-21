@@ -270,6 +270,33 @@
    "gives": "one thing visible on deck or through a window that says who lives there"
   }
  },
+ "feeds": {
+  "kitchen": {
+   "feeds": 1.0,
+   "cooks": true
+  },
+  "k-stove": {
+   "feeds": 1.0,
+   "cooks": true
+  },
+  "fridge": {
+   "feeds": 1.0,
+   "cooks": true
+  },
+  "k-fridge": {
+   "feeds": 1.0,
+   "cooks": true
+  },
+  "herring-cart": {
+   "feeds": 0.4
+  },
+  "ice-cream-cart": {
+   "feeds": 0.2
+  },
+  "vending-machine": {
+   "feeds": 0.25
+  }
+ },
  "models": [
   {
    "name": "dining-set",

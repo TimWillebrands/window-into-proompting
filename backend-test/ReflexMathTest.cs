@@ -37,6 +37,7 @@ public class ReflexMathTest
         var shift = ReflexMath.Load(1, onShift: true, away: false, occupied: false, talkingElsewhere: false);
         var shiftAndTalking = ReflexMath.Load(1, onShift: true, away: false, occupied: false, talkingElsewhere: true);
 
+        Assert.Equal(0.4, ReflexMath.Load(1, false, false, false, false, distressed: true), 6);
         Assert.Equal(0, ReflexMath.Load(1, false, false, false, false));
         Assert.True(shiftAndTalking > shift);
         Assert.Equal(ReflexMath.MaxLoad, ReflexMath.Load(0, true, true, true, true));

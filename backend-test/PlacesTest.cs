@@ -504,6 +504,8 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
                     services.AddSingleton<PartyTown.Services.Memory.ConsolidationService>();
                     services.AddSingleton<PartyTown.World.WorldMemory>();
                     services.AddSingleton<PartyTown.World.IWorldLlm>(ScriptedLlm.Instance);
+                    services.AddSingleton<PartyTown.World.Work.Workplaces>();
+                    services.AddSingleton<PartyTown.World.Work.Responsibilities>();
                 });
             }
         }

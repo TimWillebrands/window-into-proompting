@@ -384,6 +384,16 @@ DEFAULTS = {
     "houseboat": {"do": "Look in at the houseboat", "gives": "one thing visible on deck or through a window that says who lives there"},
 }
 
+FEEDS = {
+    "kitchen": {"feeds": 1.0, "cooks": True},
+    "k-stove": {"feeds": 1.0, "cooks": True},
+    "fridge": {"feeds": 1.0, "cooks": True},
+    "k-fridge": {"feeds": 1.0, "cooks": True},
+    "herring-cart": {"feeds": 0.4},
+    "ice-cream-cart": {"feeds": 0.2},
+    "vending-machine": {"feeds": 0.25},
+}
+
 GROUPS = {
     "seating": ["sofa", "armchair", "chair", "stool", "bench", "window-bench", "booth", "beanbag", "hammock", "k-lounge-sofa", "k-chair", "k-desk-chair", "k-bar-stool", "k-park-bench"],
     "tables": ["table", "long-table", "coffee-table", "desk", "counter", "reception", "terrace-table", "k-desk", "k-desk-corner", "k-round-table", "k-kitchen-bar", "k-cloth-table"],
@@ -397,10 +407,10 @@ GROUPS = {
     "buildings": ["k-office-block", "k-low-building", "k-skyscraper", "k-small-building"],
 }
 
-doc = {"palette": PALETTE, "groups": GROUPS, "defaults": DEFAULTS, "models": MODELS}
+doc = {"palette": PALETTE, "groups": GROUPS, "defaults": DEFAULTS, "feeds": FEEDS, "models": MODELS}
 text = json.dumps(doc, indent=1, ensure_ascii=False) + "\n"
 for path in OUT:
     path.write_text(text)
 import subprocess
 subprocess.run(["pnpm", "exec", "biome", "format", "--write", "src/apps/places/scene/library.json"], cwd=ROOT / "frontend", capture_output=True)
-print(f"{len(MODELS)} models, {len(DEFAULTS)} defaults, {len(PALETTE)} colours")
+print(f"{len(MODELS)} models, {len(DEFAULTS)} defaults, {len(FEEDS)} that feed, {len(PALETTE)} colours")

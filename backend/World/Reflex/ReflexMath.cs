@@ -27,10 +27,10 @@ public static class ReflexMath
 
     public static bool Late(Percept p, long now) => p.Deadline is { } deadline && now > deadline;
 
-    public static double Load(double availability, bool onShift, bool away, bool occupied, bool talkingElsewhere)
+    public static double Load(double availability, bool onShift, bool away, bool occupied, bool talkingElsewhere, bool distressed = false)
     {
         var free = Math.Clamp(availability, 0, 1)
-            * (onShift ? 0.4 : 1) * (away ? 0.7 : 1) * (occupied ? 0.65 : 1) * (talkingElsewhere ? 0.5 : 1);
+            * (onShift ? 0.4 : 1) * (away ? 0.7 : 1) * (occupied ? 0.65 : 1) * (talkingElsewhere ? 0.5 : 1) * (distressed ? 0.6 : 1);
         return Math.Min(MaxLoad, 1 - free);
     }
 

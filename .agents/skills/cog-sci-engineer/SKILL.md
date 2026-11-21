@@ -31,6 +31,7 @@ Vocabulary, not knobs: name what you're building in these terms before touching 
 - **Agent–arena**: a Persona's view lives on edges to shared entities, never on the entities. Affordances are relational too: what an App offers *this* Persona *now*.
 - **Consolidation in rest**: Capture writes facts and recollections; beliefs (Stances) form later.
 - **Having ⇄ being**: having-desires want a thing; being-desires want to become someone.
+- **Bio-economy**: a Body is finite, so living costs something a Place has to give back (Reserves, ADR 0060). A working body is absent: say a Reserve only once it has left its middle. Distress is loss of agency: it narrows the menu, it never chooses.
 
 **Four kinds of knowing (4P)** map onto memory layers:
 
@@ -64,6 +65,7 @@ Paths are from the repo root. Find symbols by name, since line numbers drift.
   - room: `ConversationThermostat.cs`
 - **State**:
   - `SelfMath` in `backend/World/Self/PersonaSelfGrain.cs` (battery, valence, availability, threads)
+  - `Bio` in `backend/World/Self/Reserves.cs` (fed, rested, Distress); what a Place gives back in `backend/World/Places/Sustenance.cs`
   - `Ties` in `PersonaTiesGrain.cs`
   - `MomentAppraisal.cs`, `FollowThrough.cs`, `ChatAttention.cs`
   - rendered by `backend/Services/ResponsePipeline/LivedSelf.cs`
@@ -73,7 +75,7 @@ Paths are from the repo root. Find symbols by name, since line numbers drift.
   - `backend/World/Relations/`
 - **Bench**: `tools/bench/Probes/`:
   - `DecisionProbes`, `ReflexProbes`, `RecallScenarioProbes`, `StanceProbes`
-  - `BoardProbes`, `PlacesProbes`, `WorkProbes`
+  - `BoardProbes`, `PlacesProbes`, `WorkProbes`, `BodyProbes`
 
 ## Building
 

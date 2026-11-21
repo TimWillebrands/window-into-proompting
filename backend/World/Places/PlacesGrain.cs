@@ -216,21 +216,26 @@ public sealed partial class PlacesGrain(
         {
             var (bed, wake) = WindowFor(body.ParticipantId, now);
             var night = Sleep.IsNight(minute, bed, wake);
-            if (body.Asleep)
+            if (!night && (body.Asleep || body.AsleepSince is not null))
             {
-                if (!night)
+                var slept = body.AsleepSince is { } since ? Math.Clamp((now - since) / 3_600_000.0, 0, 12) : 8;
+                body.AsleepSince = null;
+                if (body.Asleep)
                 {
                     GetUp(body);
                     await WakeAsync(body, "just got up", TimeSpan.FromMinutes(20));
                 }
+                else await SaveAsync();
+                _ = RiseAsync(body.ParticipantId, slept);
                 continue;
             }
-            if (!night || body.WokenUntil > now) continue;
+            if (body.Asleep || !night || body.WokenUntil > now) continue;
             var home = state.State.Places.HomeOf(body.ParticipantId);
             if (home is null) continue;
             if (!body.IsWalking && body.PlaceId == home.Id && body.SpotId == "bed")
             {
                 body.Asleep = true;
+                body.AsleepSince ??= now;
                 body.Posture = Posture.Lying;
                 body.Activity = "asleep";
                 body.ActivityUntil = null;
@@ -493,6 +498,12 @@ public sealed partial class PlacesGrain(
         }
     }
 
+    private async Task RiseAsync(Guid personaId, double sleptHours)
+    {
+        try { await GrainFactory.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(PartyId, personaId)).RiseAsync(sleptHours); }
+        catch (Exception ex) { logger.LogDebug(ex, "Rising went unfelt for {Persona}", personaId); }
+    }
+
     public Task SetVoiceAsync(Guid participantId, string volume, Guid? to)
     {
         _voices[participantId] = new Voice(volume, to, Now() + (long)VoiceHolds.TotalMilliseconds);
@@ -740,6 +751,25 @@ public sealed partial class PlacesGrain(
         await PublishAsync(body);
         await PublishPlaceAsync(place);
         return $"{done} {AtName(place, Guid.Empty)}";
+    }
+
+    public async Task<bool> EatAsync(Guid participantId, Guid placeId, string? spotId, string busy)
+    {
+        await SettleAsync();
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || body.IsWalking || body.Asleep || body.PlaceId != placeId) return false;
+        if (Find(placeId) is not { } place) return false;
+        var now = Now();
+        if (spotId is not null && body.SpotId != spotId && PickSpot(place, spotId, participantId) is { } spot && spot.Id == spotId)
+        {
+            EndPose(body);
+            body.SpotId = spot.Id;
+            body.Posture = spot.Seat ? Posture.Sitting : Posture.Standing;
+        }
+        body.Activity = WorldStream.Clip(busy, 60);
+        body.ActivityUntil = now + (long)Self.Bio.MealTakes.TotalMilliseconds;
+        await SaveAsync();
+        await PublishAsync(body);
+        return true;
     }
 
     public async Task<string?> DoFeatureAsync(Guid participantId, Guid placeId, string furniId, string take)
@@ -1155,6 +1185,8 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("ActOnFurniAsync")] Task<string?> ActOnFurniAsync(Guid participantId, Guid placeId, string furniId, bool care, string? intent);
 
     [Alias("DoFeatureAsync")] Task<string?> DoFeatureAsync(Guid participantId, Guid placeId, string furniId, string take);
+
+    [Alias("EatAsync")] Task<bool> EatAsync(Guid participantId, Guid placeId, string? spotId, string busy);
     [Alias("DecorateAsync")] Task<string?> DecorateAsync(Guid participantId, string description);
 
     [Alias("SetIdleAsync")] Task SetIdleAsync(Guid participantId, bool idle);

@@ -13,7 +13,8 @@ public sealed record LifeContext(
     IReadOnlyDictionary<Guid, PartyTown.World.Self.AttentionLook> Looks,
     IReadOnlyDictionary<Guid, PartyTown.World.Desires.Desire>? Wanted = null,
     IReadOnlyList<PartyTown.World.Happening>? Happenings = null,
-    PartyTown.World.Places.PlaceFit? Fit = null)
+    PartyTown.World.Places.PlaceFit? Fit = null,
+    PartyTown.World.Self.Reserves? Reserves = null)
 {
     public PartyTown.World.Desires.Desire? WantAbout(Guid? id) => id is { } key ? Wanted?.GetValueOrDefault(key) : null;
 
@@ -43,9 +44,9 @@ public sealed record LifeContext(
         !string.IsNullOrEmpty(text) && text.Contains(Self.Name.Split(' ')[0], StringComparison.OrdinalIgnoreCase);
 }
 
-public sealed record Affordance(string AppId, string Label, int Priority, Guid? TargetId = null, string? Verb = null, bool Look = false)
+public sealed record Affordance(string AppId, string Label, int Priority, Guid? TargetId = null, string? Verb = null, bool Look = false, string? Meets = null)
 {
-    public string Key => $"{AppId}|{Verb}|{TargetId}";
+    public string Key => $"{AppId}|{Verb}|{TargetId}{(Meets is null ? string.Empty : $"|{Meets}")}";
 }
 
 public sealed record AppPerception(string AppId, string Title, string Block, IReadOnlyList<Affordance> Affordances);

@@ -68,5 +68,10 @@ export interface Body {
     leftFrom?: string | null;
     workClothes?: null | WorkClothes;
     ownLook?: null | Appearance;
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+    asleepSince?: number | string | null;
     isWalking?: boolean;
 }

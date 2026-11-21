@@ -164,7 +164,7 @@ public sealed class PersonaReflexGrain(
         catch (Exception ex) { logger.LogDebug(ex, "Shift lookup failed for {Key}", key); }
         var elsewhere = _exchange is { } e && e.Room != p?.RoomId && now.ToUnixTimeMilliseconds() - e.At < ReflexMath.ExchangeHolds.TotalMilliseconds;
         var occupied = ReflexMath.Occupies(body?.Activity, PlacesGrain.OnDevice(body?.Activity), p?.Kind);
-        return ReflexMath.Load(SelfMath.Availability(s, LocalNow), onShift, body?.AwayAs is not null, occupied, elsewhere);
+        return ReflexMath.Load(SelfMath.Availability(s, LocalNow), onShift, body?.AwayAs is not null, occupied, elsewhere, Bio.Distress(Bio.Now(s, now)) is not null);
     }
 
     private async Task<IReadOnlyList<string>> BetweenAsync(Percept p, DateTimeOffset now)

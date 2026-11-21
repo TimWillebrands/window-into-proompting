@@ -45,7 +45,7 @@ public sealed class PersonaLifeGrain(
             await GrainFactory.GetGrain<IWorldClockGrain>(partyId).RecordAsync(activity);
             (activity, _) = await LiveCoreAsync($"You just {activity.Summary}. Now that it's in front of you, what do you do?", turnCts.Token, lookedAlready: true);
         }
-        if (activity.Action is "rest" or "diary")
+        if (activity.Action is "rest" or "diary" or "nap")
         {
             _ = ReviewAtRestAsync(partyId, personaId, wrote: activity.Action == "diary");
             try { await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).RechargeAsync(SelfMath.SolitudeRecharge); }
@@ -89,6 +89,7 @@ public sealed class PersonaLifeGrain(
             .Select(a => HappeningRules.Relate(a, me, snapshot?.Places ?? new List<Places.Place>(), personaId))
             .ToList();
         var own = await clock.GetActivitiesAsync(SecondThoughts.Memory, personaId);
+        var reserves = await ReservesAsync(partyId, personaId, self.Name, me);
         var ctx = new LifeContext(
             partyId, self, cast,
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
@@ -100,7 +101,8 @@ public sealed class PersonaLifeGrain(
                 other => threads.FirstOrDefault(t => t.Kind == ChatGroupKinds.Direct && t.MemberIds?.Contains(other) == true && t.MemberIds.Contains(personaId))?.Id,
                 other => snapshot?.Bodies.FirstOrDefault(b => b.ParticipantId == other)?.PlaceId),
             happenings,
-            _fit);
+            _fit,
+            reserves);
 
         var perceptions = (await Task.WhenAll(apps.Select(a => PerceiveSafeAsync(a, ctx, ct))))
             .Where(p => p is not null).Select(p => p!).ToList();
@@ -113,19 +115,14 @@ public sealed class PersonaLifeGrain(
         int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk, ctx.Owes(a.TargetId))
             - Work.Shifts.Damping(a.AppId, onShift) - SecondThoughts.Seats(Left(a)) + (ctx.WantAbout(a.TargetId) is null ? 0 : 1);
 
-        var options = perceptions
-            .SelectMany(p => p.Affordances
-                .Where(a => !(lookedAlready && a.Look))
-                .OrderByDescending(a => Pull(a) + Random.Shared.NextDouble())
-                .Take(MaxOptionsPerApp))
-            .OrderByDescending(a => Pull(a) + Random.Shared.NextDouble())
-            .Take(MaxOptions)
-            .ToList();
+        var options = LifeMenu.Seat(
+            perceptions.Select(p => p.Affordances.Where(a => !(lookedAlready && a.Look))),
+            a => Pull(a) + Random.Shared.NextDouble(), reserves is { } body ? Bio.Distress(body) : null, MaxOptions, MaxOptionsPerApp);
 
         var anchorText = string.Join(" ", perceptions.Select(p => p.Block));
         var (memories, stances) = await memory.RecallAsync(partyId, personaId, cast.Select(c => c.Id).ToList(), anchorText, ct);
         var presence = await PresenceAsync(partyId, personaId);
-        var rest = onShift ? Hooks.RestOnShift : Hooks.Rest(await BeatAsync(partyId, personaId));
+        var rest = onShift ? Hooks.RestOnShift : Hooks.Rest(reserves is { Hunger: >= Hunger.Hungry } ? null : await BeatAsync(partyId, personaId));
         if (responsibilities is not null)
             presence += await responsibilities.RoleAsync(partyId, personaId) + await responsibilities.RenderAsync(partyId, personaId, ctx.Now);
         presence += await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetKeyLinesAsync(personaId);
@@ -283,6 +280,23 @@ public sealed class PersonaLifeGrain(
         }
     }
 
+    private async Task<Reserves?> ReservesAsync(Guid partyId, Guid personaId, string name, Places.Body? me)
+    {
+        if (me is null or { Asleep: true }) return null;
+        try
+        {
+            var reserves = await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).LiveBodyAsync(away: me.AwayAs is not null);
+            if (Bio.Distress(reserves) is { } distress)
+                logger.LogInformation("Distress {Persona}: {What} (fed {Fed:F2}, rested {Rested:F2})", name, distress, reserves.Fed, reserves.Rested);
+            return reserves;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Reserves failed for {Persona}", personaId);
+            return null;
+        }
+    }
+
     private async Task<Places.PlacesSnapshot?> SnapshotAsync(Guid partyId)
     {
         try { return await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetSnapshotAsync(); }
@@ -377,6 +391,19 @@ public static class LifeChoice
 
     public static string? Refuse(System.Text.Json.Nodes.JsonObject voiced)
         => voiced["intent"]?.ToString() is { Length: > MaxIntent } intent ? $"intent ran on ({intent.Length} chars)" : null;
+}
+
+public static class LifeMenu
+{
+    public static List<Affordance> Seat(IEnumerable<IEnumerable<Affordance>> apps, Func<Affordance, double> pull, string? distress, int seats, int perApp)
+    {
+        bool Relieves(Affordance a) => distress is not null && a.Meets == distress;
+        var ranked = apps
+            .SelectMany(app => app.OrderByDescending(Relieves).ThenByDescending(pull).Take(perApp))
+            .OrderByDescending(Relieves).ThenByDescending(pull)
+            .ToList();
+        return ranked.Take(Bio.Seats(seats, ranked.Any(Relieves))).ToList();
+    }
 }
 
 public static class Settling
