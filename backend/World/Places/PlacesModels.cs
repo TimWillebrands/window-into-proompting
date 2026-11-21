@@ -37,6 +37,8 @@ public sealed class Place
     [Id(31)] public long LatelyAt { get; set; }
     [Id(32)] public List<string> AlsoCalled { get; set; } = new();
     [Id(33)] public Guid? SameAs { get; set; }
+    [Id(34)] public string? Fare { get; set; }
+    [Id(35)] public string? FareFor { get; set; }
 }
 
 public static class PlaceAccess

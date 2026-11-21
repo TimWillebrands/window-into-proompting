@@ -515,10 +515,18 @@ public partial class PlacesTest : IClassFixture<PlacesTest.Fixture>
     {
         public static readonly ScriptedJudge Instance = new();
         public Func<string, double>? Noul { get; set; }
+        public System.Collections.Concurrent.ConcurrentQueue<string> FaresAsked { get; } = new();
 
         public Task<PartyTown.Services.SystemOne.SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion> questions, CancellationToken ct)
         {
             var answers = new PartyTown.Services.SystemOne.SystemOneAnswers();
+            if (questions.ContainsKey(Fares.Key))
+            {
+                FaresAsked.Enqueue(state);
+                if (state.Contains("ramen", StringComparison.OrdinalIgnoreCase))
+                    answers.Choices[Fares.Key] = new Dictionary<string, double> { [Fares.Meal] = 0.9, [Fares.None] = 0.1 };
+                return Task.FromResult(answers);
+            }
             if (questions.TryGetValue("same", out var same) && same is PartyTown.Services.SystemOne.ChoiceQuestion options)
             {
                 var said = System.Text.RegularExpressions.Regex.Match(state, "\"(?:the )?([^\"]+)\"").Groups[1].Value;

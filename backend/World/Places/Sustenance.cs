@@ -43,6 +43,7 @@ public static class Sustenance
     public static double? Sells(Place place)
     {
         if (place.Kind != PlaceKinds.Public) return null;
+        if (Fares.Known(place.Fare)) return Fares.Amount(place.Fare);
         switch (place.Archetype)
         {
             case "restaurant": return Self.Bio.Meal;
@@ -132,6 +133,11 @@ public static class Sustenance
         var pins = scene?["furni"] as JsonObject;
         foreach (var furni in place.Furni)
         {
+            if (furni.Feeds is { } own)
+            {
+                found.Add((furni, new Feed(own, false), furni.SpotId));
+                continue;
+            }
             var prefab = furni.Prefab ?? pins?[furni.Id]?["p"]?.ToString()
                 ?? (furni.Do is { } what ? Library.Offers.FirstOrDefault(o => o.Value.Do == what && Library.Feeds.ContainsKey(o.Key)).Key : null);
             if (prefab is not null && Library.Feeds.TryGetValue(prefab, out var feed)) found.Add((furni, feed, furni.SpotId));

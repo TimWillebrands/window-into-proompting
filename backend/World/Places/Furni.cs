@@ -24,6 +24,7 @@ public sealed class Furni
     [Id(18)] public string? Gives { get; set; }
     [Id(19)] public bool Leaves { get; set; }
     [Id(20)] public List<Take> Takes { get; set; } = new();
+    [Id(21)] public double? Feeds { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Places.Take")]
@@ -86,7 +87,7 @@ public static class Features
         foreach (var f in features)
             place.Furni.Add(new Furni
             {
-                Id = f.Id, Kind = FurniKinds.Feature, Name = f.Name, TendedAt = now, Do = f.Do, Gives = f.Gives, Leaves = f.Leaves,
+                Id = f.Id, Kind = FurniKinds.Feature, Name = f.Name, TendedAt = now, Do = f.Do, Gives = f.Gives, Leaves = f.Leaves, Feeds = f.Feeds,
                 SpotId = place.Spots.Any(s => s.Id == f.SpotId) ? f.SpotId : place.Spots[0].Id,
                 Takes = before.TryGetValue(f.Id, out var old) && old.Do == f.Do ? old.Takes : new List<Take>(),
             });

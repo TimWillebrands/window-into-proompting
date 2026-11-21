@@ -66,4 +66,8 @@ export interface Place {
     alsoCalled?: string[];
     /** @nullable */
     sameAs?: string | null;
+    /** @nullable */
+    fare?: string | null;
+    /** @nullable */
+    fareFor?: string | null;
 }

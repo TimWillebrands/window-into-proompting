@@ -51,4 +51,9 @@ export interface Furni {
     gives?: string | null;
     leaves?: boolean;
     takes?: Take[];
+    /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$
+     */
+    feeds?: number | string | null;
 }

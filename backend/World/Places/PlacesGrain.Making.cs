@@ -171,7 +171,7 @@ public sealed partial class PlacesGrain
         {
             Id = $"thing-{now}-{Random.Shared.Next(1000)}", Kind = FurniKinds.Decor, Style = Decor.StyleOf(description),
             Name = Decor.Label(description), SpotId = spot.Id, TendedAt = now, OwnerId = ownerId, Model = model,
-            Do = offer?.Do, Gives = offer?.Gives, Leaves = offer?.Leaves ?? false,
+            Do = offer?.Do, Gives = offer?.Gives, Leaves = offer?.Leaves ?? false, Feeds = offer?.Feeds,
         };
         place.Furni.Add(furni);
         await SaveAsync();
@@ -340,6 +340,7 @@ public sealed partial class PlacesGrain
         state.State.Places.Add(place);
         await SaveAsync();
         await PublishPlaceAsync(place);
+        SettleFaresSoon();
         return place;
     }
 

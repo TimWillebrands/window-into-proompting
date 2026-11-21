@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using PartyTown.World.Places;
 using PartyTown.World.Self;
 
@@ -172,4 +173,155 @@ public class SustenanceTest
     [Fact]
     public void ALocale_HasNoKitchenOfItsOwn()
         => Assert.Empty(Sustenance.Of(PlaceSeeds.Locale("the office in Zuid"), Denise));
+
+    private static Place Judged(string name, string? purpose, string? fare, string? archetype = null)
+    {
+        var place = Public(name, purpose, archetype);
+        place.Fare = fare;
+        return place;
+    }
+
+    [Theory]
+    [InlineData("Tante Sjaan", "a ramen counter under the tracks", Fares.Meal, Bio.Meal)]
+    [InlineData("het Wafelhuis", "where people queue for stroopwafels", Fares.Light, Bio.LightMeal)]
+    [InlineData("the Tuin", "where people go for a drink outside and unwind", Fares.Snack, Bio.Snack)]
+    [InlineData("the Bar Association", "where lawyers meet", Fares.None, null)]
+    [InlineData("Café Brecht", "where people get coffee and linger", Fares.None, null)]
+    [InlineData("the reading room", "where people read quietly; no food or drinks", Fares.Meal, Bio.Meal)]
+    public void AKnownFare_DecidesWhatIsSold_OverWhatTheWordsSay(string name, string purpose, string fare, double? sold)
+        => Assert.Equal(sold, Sustenance.Sells(Judged(name, purpose, fare)));
+
+    [Fact]
+    public void AnUnknownFare_FallsBackToTheArchetypeAndTheWords()
+    {
+        Assert.Equal(Bio.LightMeal, Sustenance.Sells(Judged("Café Brecht", "where people come and go", null)));
+        Assert.Equal(Bio.Meal, Sustenance.Sells(Judged("Sora", null, null, "restaurant")));
+        Assert.Equal(Bio.Snack, Sustenance.Sells(Judged("the Rooftop Bar", "where people come and go", "maybe")));
+        Assert.Null(Sustenance.Sells(Judged("Tante Sjaan", "a counter under the tracks", null)));
+    }
+
+    [Fact]
+    public void AFareIsAboutPublicPlacesOnly()
+    {
+        var home = PlaceSeeds.Home(Denise, "Denise");
+        home.Fare = Fares.Meal;
+
+        Assert.Null(Sustenance.Sells(home));
+        Assert.False(Fares.Due(home));
+        Assert.False(Fares.Due(PlaceSeeds.Locale("the office in Zuid")));
+        var closed = Public("the studio", "where art gets made");
+        closed.Private = true;
+        Assert.False(Fares.Due(closed));
+    }
+
+    [Theory]
+    [InlineData("restaurant", Fares.Meal)]
+    [InlineData("cafe", Fares.Light)]
+    [InlineData("bar", Fares.Snack)]
+    [InlineData("office", Fares.None)]
+    [InlineData("park", Fares.None)]
+    [InlineData("place", null)]
+    [InlineData(null, null)]
+    public void AKitArchetype_SettlesTheFare_WithoutAJudge(string? archetype, string? fare)
+        => Assert.Equal(fare, Fares.OfKit(Public("the Corner", null, archetype)));
+
+    [Fact]
+    public void AFareIsDue_UntilJudgedForThisNameAndPurpose()
+    {
+        var place = Public("Tante Sjaan", "a ramen counter under the tracks");
+        Assert.True(Fares.Due(place));
+
+        (place.Fare, place.FareFor) = (Fares.Meal, Fares.For(place));
+        Assert.False(Fares.Due(place));
+
+        place.Purpose = "a soup kitchen under the tracks";
+        Assert.True(Fares.Due(place));
+        place.FareFor = Fares.For(place);
+        place.Name = "the Arch";
+        Assert.True(Fares.Due(place));
+
+        var kit = Public("Sora", null, "restaurant");
+        Assert.True(Fares.Due(kit));
+        (kit.Fare, kit.FareFor) = (Fares.Meal, Fares.For(kit));
+        Assert.False(Fares.Due(kit));
+    }
+
+    [Fact]
+    public void TheJudgesFare_IsTheLikeliestOption_WhenItIsLikelyEnough()
+    {
+        PartyTown.Services.SystemOne.SystemOneAnswers Said(params (string Key, double P)[] probs)
+        {
+            var answers = new PartyTown.Services.SystemOne.SystemOneAnswers();
+            answers.Choices[Fares.Key] = probs.ToDictionary(p => p.Key, p => p.P);
+            return answers;
+        }
+
+        Assert.Equal((Fares.Meal, 0.7), Fares.Read(Said((Fares.Meal, 0.7), (Fares.None, 0.3))));
+        Assert.Equal((Fares.None, 0.35), Fares.Read(Said((Fares.Light, 0.4), (Fares.Snack, 0.25), (Fares.None, 0.35))));
+        Assert.Null(Fares.Read(new PartyTown.Services.SystemOne.SystemOneAnswers()));
+    }
+
+    [Fact]
+    public void TheQuestion_NamesThePlace_AndSaysWhatItIsFor()
+    {
+        var place = Public("the Tuin", "where people go for a drink outside and unwind");
+        place.Description = "a beer garden behind the old bathhouse";
+
+        Assert.Equal("A place in town: the Tuin, where people go for a drink outside and unwind.\nWhat it's like: a beer garden behind the old bathhouse.", Fares.State(place));
+        var question = Assert.IsType<PartyTown.Services.SystemOne.ChoiceQuestion>(Fares.Question(place)[Fares.Key]);
+        Assert.Equal("Can anyone who comes in buy something to eat or drink at the Tuin?", question.Instructions);
+        Assert.Equal(new[] { Fares.Meal, Fares.Light, Fares.Snack, Fares.None }, question.Options.Keys);
+    }
+
+    [Fact]
+    public void AThingTheDesignerSaysFeeds_IsAFreeFare_OverTheCatalogue()
+    {
+        var soup = new Furni { Id = "soup", Kind = FurniKinds.Feature, Name = "the soup pot", SpotId = "table", Do = "Get a bowl of soup from the pot", Feeds = Bio.Meal };
+        var offer = Library.Offers["herring-cart"];
+        var cart = new Furni { Id = "herring", Kind = FurniKinds.Feature, Name = "the herring cart", SpotId = "counter", Do = offer.Do, Gives = offer.Gives, Feeds = Bio.Snack };
+        var market = Public("the market", "where people wander between the stalls", null, null, soup, cart);
+
+        var fares = Sustenance.Of(market, Denise);
+
+        Assert.Equal(new (string, double, int, string?)[] { ("thing:soup", Bio.Meal, 0, "table"), ("thing:herring", Bio.Snack, 0, "counter") },
+            fares.Select(f => (f.Key, f.Feeds, f.Cost, f.SpotId)));
+        Assert.Equal(Bio.Meal, Sustenance.Feeds(market, soup)!.Amount);
+        Assert.Equal(Bio.Snack, Sustenance.Feeds(market, cart)!.Amount);
+        Assert.Equal("thing:soup", Sustenance.Best(fares, 0)!.Key);
+    }
+
+    [Fact]
+    public void Featurize_CarriesFeeds_AndTheCheckerDropsNonsense()
+    {
+        var spots = new List<Spot> { new() { Id = "pot", Name = "the soup pot" }, new() { Id = "bar", Name = "the bar" } };
+        var scene = (JsonObject)JsonNode.Parse("""
+            {"props": [
+              {"p": "k-stove", "at": [1, 1], "name": "the soup pot", "do": "Get a bowl of soup from the pot", "gives": "what soup it is today", "feeds": "meal", "spot": "pot"},
+              {"p": "counter", "at": [3, 1], "name": "the crisps", "do": "Take a bag of crisps", "feeds": "Snack", "spot": "bar"},
+              {"p": "plant", "at": [5, 1], "name": "the fern", "do": "Water the fern", "feeds": "lots"},
+              {"p": "sofa", "at": [6, 3], "feeds": "meal"}
+            ]}
+            """)!;
+        var notes = new List<string>();
+
+        var features = PlaceDesign.Featurize(scene, spots, notes);
+
+        Assert.Equal(new double?[] { Bio.Meal, Bio.Snack, null }, features.Select(f => f.Feeds));
+        Assert.Equal(2, notes.Count);
+        Assert.Contains(notes, n => n.Contains("'plant'") && n.Contains("\"lots\""));
+        Assert.Contains(notes, n => n.Contains("'sofa'"));
+        Assert.DoesNotContain("feeds", scene.ToJsonString());
+
+        var place = Public("the canteen", "where people meet");
+        Features.Apply(place, features, 0);
+        Assert.Equal(Bio.Meal, place.Furni.Single(f => f.Name == "the soup pot").Feeds);
+    }
+
+    [Fact]
+    public void AMadeThing_CanFeed_LikeAPlacedOne()
+    {
+        Assert.Equal(Bio.Snack, Library.OfferOf(new JsonObject { ["do"] = "Grab a stroopwafel from the tin", ["feeds"] = "snack" })!.Feeds);
+        Assert.Null(Library.OfferOf(new JsonObject { ["do"] = "Grab a stroopwafel from the tin", ["feeds"] = "a lot" })!.Feeds);
+        Assert.Null(Library.OfferOf(new JsonObject { ["do"] = "Wind up the music box" })!.Feeds);
+    }
 }

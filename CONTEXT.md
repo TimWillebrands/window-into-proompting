@@ -409,7 +409,7 @@ The one-line, Body-derived "Where you are" in every prompt that speaks as a Part
 _Avoid_: context, location string, environment.
 
 **Sustenance**:
-What a **Place** gives a **Body**, read off what it is and holds: a meal cooked at **Home**, one ordered where food is sold (paid from the **Wallet**), something free from a cart, a coffee, a lie-down. A **Feature** can feed too. See [ADR 0060](docs/adr/0060-the-lived-body.md).
+What a **Place** gives a **Body**, read off what it is and holds: a meal cooked at **Home**, one ordered where food is sold (paid from the **Wallet**), something free from a cart, a coffee, a lie-down. A **Feature** can feed too. What a public Place sells is judged once by System One and kept on it as its fare, until it is renamed or its purpose changes; a designer can say a thing feeds (`"feeds": "snack"`). See [ADR 0060](docs/adr/0060-the-lived-body.md), [ADR 0062](docs/adr/0062-what-a-place-sells.md).
 _Avoid_: food item, consumable, buff.
 
 **Feature**:

@@ -50,7 +50,8 @@ fail, so that every moment is a trade-off (Jaeger, Riedl, Djedovic, Vervaeke & W
      can't pay for isn't offered to order. Sold is the kit's archetype (restaurant, café, bar); a Place without one
      sells by a venue noun as a whole word in its name ("Café Brecht", "the Rooftop Bar") or a whole phrase in its
      Purpose ("go out to eat", "get coffee", "go for a drink"). A Purpose that only mentions food ("no food or
-     drinks", "eat their lunch on the grass") sells nothing, and other archetypes (office, park) never do;
+     drinks", "eat their lunch on the grass") sells nothing, and other archetypes (office, park) never do. Since ADR
+     0062 the words are only the fallback: what a Place sells is judged once and kept on it;
    - things that feed (herring cart, ice-cream cart, vending machine), listed under `feeds` in `library.json`, for
      nothing. While a thing's Feature is fresh for them, the Feature is the one offer ("Get a herring at the cart"),
      and doing it feeds. After that it's "Get something to eat at the herring cart";
@@ -139,6 +140,6 @@ Probe `Body_SpeakingAB`, same day, Haiku as the voice: 2 people × 3 openers × 
 - Breaking down: see ADR 0061.
 - Tiredness moving bedtime, or turning in early.
 - Others seeing it: "looks worn out" at the same Spot.
-- Designers saying what their own things feed; counters with someone behind them who earns.
+- Counters with someone behind them who earns.
 - Attachment to the Place where you eat (ADR 0057's open end).
 - The Social battery recharging by who is around: see ADR 0063.

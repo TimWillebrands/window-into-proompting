@@ -208,12 +208,15 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
         [Description(Where)] Guid? placeId = null,
         [Description("Something to do with it, starting with a verb: 'Wind up the music box'. Default: it's just there.")] string? doWhat = null,
         [Description("With doWhat: what someone comes away with, a concrete find: 'the tune it plays and where it sticks'.")] string? gives = null,
-        [Description("With doWhat: what they do stays for the next visitor to find.")] bool leaves = false) => Guard(async () =>
+        [Description("With doWhat: what they do stays for the next visitor to find.")] bool leaves = false,
+        [Description("With doWhat, when what they do is eat or drink it: \"snack\" or \"meal\". It feeds them, for nothing.")] string? feeds = null) => Guard(async () =>
     {
         if (string.IsNullOrWhiteSpace(description) || description.Length > 200) throw new McpException("Describe it in under 200 characters.");
+        if (feeds is not null && (string.IsNullOrWhiteSpace(doWhat) || Library.FeedsOf(JsonValue.Create(feeds)) is null))
+            throw new McpException("feeds is \"snack\" or \"meal\", and only with doWhat.");
         var made = ThingModel.Clean(JsonNode.Parse(model.GetRawText())) ?? throw new McpException("No parts survived cleaning; check the model against get_design_guide thing.");
         var (who, place) = await ActInAsync(user, participantId, placeId);
-        var offer = string.IsNullOrWhiteSpace(doWhat) ? null : Library.OfferOf(new JsonObject { ["do"] = doWhat, ["gives"] = gives, ["leaves"] = leaves });
+        var offer = string.IsNullOrWhiteSpace(doWhat) ? null : Library.OfferOf(new JsonObject { ["do"] = doWhat, ["gives"] = gives, ["leaves"] = leaves, ["feeds"] = feeds });
         return await Places.AddMadeThingAsync(place.Id, who == Guid.Empty ? null : who, description, made, offer) ?? throw new McpException("Couldn't add that.");
     });
 

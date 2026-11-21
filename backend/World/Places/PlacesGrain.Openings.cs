@@ -35,6 +35,7 @@ public sealed partial class PlacesGrain
         if (kit.Archetype == "office" && place.Name.EndsWith(WorkSuffix, StringComparison.Ordinal))
             place.Name = place.Name.Replace(WorkSuffix, "'s office", StringComparison.Ordinal);
         EnsureFurni(place);
+        (place.Fare, place.FareFor) = (Fares.OfKit(place), Fares.For(place));
         foreach (var body in Occupants(place.Id).ToList()) Arrive(body, place);
         await SaveAsync();
         await PublishPlaceAsync(place);

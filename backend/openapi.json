@@ -10924,6 +10924,15 @@
             "items": {
               "$ref": "#/components/schemas/Take"
             }
+          },
+          "feeds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -12533,6 +12542,18 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "fare": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fareFor": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

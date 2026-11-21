@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 namespace PartyTown.World.Places;
 
 [GenerateSerializer, Alias("PartyTown.World.Places.Offer")]
-public sealed record Offer([property: Id(0)] string Do, [property: Id(1)] string Gives, [property: Id(2)] bool Leaves);
+public sealed record Offer([property: Id(0)] string Do, [property: Id(1)] string Gives, [property: Id(2)] bool Leaves, [property: Id(3)] double? Feeds = null);
 
 public sealed record Feed(double Amount, bool Cooks);
 
@@ -65,6 +65,13 @@ public static class Library
     public static Offer? OfferOf(JsonObject? o)
         => o?["do"]?.ToString() is { Length: > 2 } what
             ? new Offer(WorldStream.Clip(what.Trim().TrimEnd('.'), 80), WorldStream.Clip(o["gives"]?.ToString() ?? "one small, specific thing they notice or find", 200),
-                o["leaves"]?.GetValueKind() == JsonValueKind.True)
+                o["leaves"]?.GetValueKind() == JsonValueKind.True, FeedsOf(o["feeds"]))
             : null;
+
+    public static double? FeedsOf(JsonNode? feeds) => feeds?.GetValueKind() == JsonValueKind.String ? feeds.ToString().Trim().ToLowerInvariant() switch
+    {
+        "snack" => Self.Bio.Snack,
+        "meal" => Self.Bio.Meal,
+        _ => null,
+    } : null;
 }

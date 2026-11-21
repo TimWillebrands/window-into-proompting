@@ -72,6 +72,7 @@ public static partial class PlaceDesign
         4. Something to do: things marked ★ come with something to do there; place one or two. Or give any prop its own:
            {"p": "k-shelves", "at": [3, 1], "name": "the seed drawers", "do": "Open one of the seed drawers", "gives": "which seed is in it and what the packet says", "leaves": false}
            "do" starts with a verb, one action. "gives" says what someone comes away with: a concrete find, never a feeling. "leaves": true when what they do stays for the next visitor to find (a wish, a note, a move).
+           "feeds": "snack" or "meal" when what they do is eat or drink it ("do": "Get a bowl of soup from the pot", "feeds": "meal").
            Up to {{{MaxFeatures}}} per place. This is what makes people come back, so make it fit what the place is for.
         5. Mood: "floor", "wall", "accent": "#rrggbb"; "floorStyle": {{{string.Join(" | ", Styles["floorStyle"])}}}; "wallStyle": {{{string.Join(" | ", Styles["wallStyle"])}}};
            "light": {{{string.Join(" | ", Styles["light"])}}} (dim, candle and neon keep it night inside, lamps on); "ambience": {{{string.Join(" | ", Styles["ambience"])}}}.

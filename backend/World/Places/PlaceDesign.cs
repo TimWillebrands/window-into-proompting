@@ -9,7 +9,7 @@ public sealed record PrefabInfo(string Name, int[] Size, bool Solid, bool Wall, 
 
 [GenerateSerializer, Alias("PartyTown.World.Places.Feature")]
 public sealed record Feature([property: Id(0)] string Id, [property: Id(1)] string Name, [property: Id(2)] string SpotId,
-    [property: Id(3)] string Do, [property: Id(4)] string Gives, [property: Id(5)] bool Leaves);
+    [property: Id(3)] string Do, [property: Id(4)] string Gives, [property: Id(5)] bool Leaves, [property: Id(6)] double? Feeds = null);
 
 public sealed record DesignCheck(PlaceDraft? Draft, List<string> Errors, List<string> Notes, string Preview);
 
@@ -320,7 +320,7 @@ public static partial class PlaceDesign
         return own;
     }
 
-    public static List<Feature> Featurize(JsonObject scene, IReadOnlyList<Spot> spots)
+    public static List<Feature> Featurize(JsonObject scene, IReadOnlyList<Spot> spots, List<string>? notes = null)
     {
         var features = new List<Feature>();
         if (scene["props"] is not JsonArray props || spots.Count == 0) return features;
@@ -328,7 +328,12 @@ public static partial class PlaceDesign
         var spotDefs = scene["spots"] as JsonObject ?? new JsonObject();
         var picked = new List<(JsonObject Prop, Offer Offer)>();
         foreach (var prop in props.OfType<JsonObject>())
-            if (Library.OfferOf(prop) is { } own) picked.Add((prop, own));
+        {
+            var own = Library.OfferOf(prop);
+            if (prop["feeds"] is { } feeds && (own is null || own.Feeds is null))
+                notes?.Add($"prop '{prop["p"]}': \"feeds\": {feeds.ToJsonString()} left out; it's \"snack\" or \"meal\", on a prop with a \"do\"");
+            if (own is not null) picked.Add((prop, own));
+        }
         var seen = new HashSet<string>();
         foreach (var prop in props.OfType<JsonObject>())
         {
@@ -345,13 +350,13 @@ public static partial class PlaceDesign
             var name = prop["name"]?.ToString()?.Trim() is { Length: > 0 } given ? WorldStream.Clip(given, 40) : $"the {(prefab.StartsWith("k-") ? prefab[2..] : prefab).Replace('-', ' ')}";
             var spot = spots.FirstOrDefault(s => s.Id == prop["spot"]?.ToString())?.Id ?? Nearest(prop, spots, spotDefs);
             var pin = (JsonObject)prop.DeepClone();
-            foreach (var key in new[] { "do", "gives", "leaves", "name", "id" }) pin.Remove(key);
+            foreach (var key in new[] { "do", "gives", "leaves", "feeds", "name", "id" }) pin.Remove(key);
             furni[id] = pin;
             props.Remove(prop);
-            features.Add(new Feature(id, name, spot, offer.Do, offer.Gives, offer.Leaves));
+            features.Add(new Feature(id, name, spot, offer.Do, offer.Gives, offer.Leaves, offer.Feeds));
         }
         foreach (var prop in props.OfType<JsonObject>())
-            foreach (var key in new[] { "do", "gives", "leaves" }) prop.Remove(key);
+            foreach (var key in new[] { "do", "gives", "leaves", "feeds" }) prop.Remove(key);
         if (features.Count > 0) scene["furni"] = furni;
         return features;
     }
@@ -477,7 +482,7 @@ public static partial class PlaceDesign
         var preview = Preview(scene, spots, own);
         if (errors.Count > 0) return new DesignCheck(null, errors, notes, preview);
         if (outdoor) scene["outdoor"] = true;
-        var features = Featurize(scene, spots);
+        var features = Featurize(scene, spots, notes);
         return new DesignCheck(new PlaceDraft(json.ToJsonString(), Store(scene), spots, features), errors, notes, preview);
     }
 

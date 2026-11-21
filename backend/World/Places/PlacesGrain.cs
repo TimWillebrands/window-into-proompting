@@ -951,6 +951,7 @@ public sealed partial class PlacesGrain(
     private async Task SettleAsync()
     {
         if (await StoppedAsync()) return;
+        SettleFaresSoon();
         var now = Now();
         foreach (var b in state.State.Bodies.Values.Where(b => b.ActivityUntil <= now))
         {
