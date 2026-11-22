@@ -29,9 +29,10 @@ public readonly record struct Reserves(
     [property: Id(5)] bool Felt,
     [property: Id(6)] bool Napped,
     [property: Id(7)] bool Ailing = false,
-    [property: Id(8)] double Battery = 1)
+    [property: Id(8)] double Battery = 1,
+    [property: Id(9)] double Strain = 0)
 {
-    public static readonly Reserves Unfelt = new(1, 1, 0, 0, false, false, false, false, 1);
+    public static readonly Reserves Unfelt = new(1, 1, 0, 0, false, false, false, false, 1, 0);
 
     public Hunger Hunger => Felt ? Bio.HungerOf(Fed) : Hunger.None;
 
@@ -114,7 +115,7 @@ public static class Bio
         var ailing = Ailing(s, ms);
         var rested = Math.Min(1, s.Rested + (perked ? Perk : 0));
         return new Reserves(s.Fed, ailing ? Math.Min(rested, AilingRested) : rested, s.AteAt, s.UpSince, perked,
-            ms - s.LivedAt < FeltFor.TotalMilliseconds, s.NappedAt >= s.UpSince && s.NappedAt != 0, ailing, SelfMath.Battery(s, now));
+            ms - s.LivedAt < FeltFor.TotalMilliseconds, s.NappedAt >= s.UpSince && s.NappedAt != 0, ailing, SelfMath.Battery(s, now), s.Strain);
     }
 
     public static bool Ailing(SelfState s, long ms) => s.AilingSince != 0 && ms - s.AilingSince < AilsAtMost.TotalMilliseconds;
@@ -245,13 +246,26 @@ public static class Bio
     public static bool Helps(Reserves r, DateTimeOffset local)
         => (r.Felt && r.Ailing) || r.Tiredness == Tiredness.Spent || (r.Tiredness == Tiredness.Flagging && local.Hour is >= 6 and < SiestaBefore);
 
+    public static IReadOnlyCollection<string> Needs(Reserves? reserves)
+    {
+        var needs = new List<string>();
+        if (reserves is not { Felt: true } r) return needs;
+        if (r.Hunger >= Hunger.Hungry) needs.Add(Food);
+        if (r.Tiredness == Tiredness.Spent || r.Ailing) needs.Add(Rest);
+        return needs;
+    }
+
     public static string? Distress(Reserves r)
         => !r.Felt ? null
             : r.Hunger == Hunger.Famished ? Food
             : r.Tiredness == Tiredness.Spent ? Rest
             : null;
 
-    public static int Seats(int usual, bool relief) => relief ? Math.Min(usual, Narrowed) : usual;
+    public const int NarrowedAfterAnHour = 4;
+    public const int NarrowedWhenBreaking = 3;
+
+    public static int Seats(int usual, bool relief, double strain = 0)
+        => !relief ? usual : Math.Min(usual, strain >= Breaks ? NarrowedWhenBreaking : strain >= Breaks / 2 ? NarrowedAfterAnHour : Narrowed);
 
     public static int Pull(Hunger hunger) => hunger switch
     {
@@ -345,7 +359,7 @@ public static class Bio
         var woke = new DateTimeOffset(now.Year, now.Month, now.Day, 7, 30, 0, now.Offset);
         if (woke > now) woke = now;
         s.UpSince = woke.ToUnixTimeMilliseconds();
-        s.Rested = Math.Clamp(Cap(s.Energy) - (now - woke).TotalHours * TiringPerHour, 0.3, 1);
+        s.Rested = Math.Clamp(Cap(null) - (now - woke).TotalHours * TiringPerHour, 0.3, 1);
         s.Fed = 0.7;
         s.AteAt = 0;
         s.NappedAt = 0;

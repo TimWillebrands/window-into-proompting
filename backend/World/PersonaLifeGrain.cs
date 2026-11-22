@@ -121,7 +121,7 @@ public sealed class PersonaLifeGrain(
 
         var options = LifeMenu.Seat(
             perceptions.Select(p => p.Affordances.Where(a => !(lookedAlready && a.Look))),
-            a => Pull(a) + Random.Shared.NextDouble(), distress, MaxOptions, MaxOptionsPerApp);
+            a => Pull(a) + Random.Shared.NextDouble(), distress, MaxOptions, MaxOptionsPerApp, Bio.Needs(reserves), reserves?.Strain ?? 0);
         if (distress is not null)
             logger.LogInformation("Relief {Persona}: {Options}", self.Name,
                 options.Where(o => o.Meets == distress).Select(o => o.Label).DefaultIfEmpty("nothing on the menu").Aggregate((a, b) => $"{a} | {b}"));
@@ -413,14 +413,18 @@ public static class LifeChoice
 
 public static class LifeMenu
 {
-    public static List<Affordance> Seat(IEnumerable<IEnumerable<Affordance>> apps, Func<Affordance, double> pull, string? distress, int seats, int perApp)
+    public static List<Affordance> Seat(IEnumerable<IEnumerable<Affordance>> apps, Func<Affordance, double> pull, string? distress, int seats, int perApp,
+        IReadOnlyCollection<string>? needs = null, double strain = 0)
     {
         bool Relieves(Affordance a) => distress is not null && a.Meets == distress;
-        var ranked = apps
-            .SelectMany(app => app.OrderByDescending(Relieves).ThenByDescending(pull).Take(perApp))
-            .OrderByDescending(Relieves).ThenByDescending(pull)
-            .ToList();
-        return ranked.Take(Bio.Seats(seats, ranked.Any(Relieves))).ToList();
+        List<(Affordance A, double P)> Rank(IEnumerable<(Affordance A, double P)> scored)
+        {
+            var byPull = scored.OrderByDescending(x => Relieves(x.A)).ThenByDescending(x => x.P).ToList();
+            var kept = (needs ?? Array.Empty<string>()).Select(need => byPull.FindIndex(x => x.A.Meets == need)).Where(i => i >= 0).ToHashSet();
+            return byPull.Select((x, i) => (x, Kept: kept.Contains(i))).OrderByDescending(x => x.Kept).Select(x => x.x).ToList();
+        }
+        var ranked = Rank(apps.SelectMany(app => Rank(app.Select(a => (a, pull(a)))).Take(perApp))).Select(x => x.A).ToList();
+        return ranked.Take(Bio.Seats(seats, ranked.Any(Relieves), strain)).ToList();
     }
 }
 

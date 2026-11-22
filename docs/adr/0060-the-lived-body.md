@@ -65,10 +65,14 @@ fail, so that every moment is a trade-off (Jaeger, Riedl, Djedovic, Vervaeke & W
    it off for lunch. A full stomach is offered no food. A lie-down and the coffee stand out between 06:00 and 17:00 when
    flagging, at any hour when spent, and then Home pulls from elsewhere. A tired body explores less: restlessness stops
    pulling once they're flagging.
+   From hungry on, the best way to eat always has a seat on the menu: on the first day live it was missing on 69% of
+   hungry turns (three seats per App, and talk took them), though the judge put 0.59–0.80 on it when it was there.
 8. **Distress narrows.** With a Reserve under 0.15, what would relieve it is seated first, in its app and on the menu,
    and if anything does, Initiative's menu shrinks from ten options to six. With nothing that relieves it, the menu
    stays whole. Reflex has 40% less free attention. Still sampled, still free to decline. It is logged as
    `Distress <name>: hunger|tiredness`.
+   The longer it goes unanswered, the less else there is: six options, four once Strain (ADR 0061) passes 0.25, about
+   an hour of it, and three once the body is breaking.
 9. **Relief is felt by how much it was needed.** Eating appraises at `0.5 + 0.3 × need × amount`: nothing on a full
    stomach, +0.14 valence for a meal when hungry, +0.22 when famished (a Take gives +0.08). The Place is the source.
    Eating by way of a Feature is felt as its Take or as the relief, whichever is more.
@@ -128,6 +132,31 @@ Probe `Body_SpeakingAB`, same day, Haiku as the voice: 2 people × 3 openers × 
 - Spent shortens by a quarter and says little about it. "Running on fumes" came from both voices, six times in
   eighteen: one for the stale words to watch.
 - One reply in eighteen still squared the Day with the body ("only just got to eat lunch, and I'm starving still").
+
+## In production: the first Sunday
+
+PostHog holds every Life voicing call, judge call and spoken line. Sunday 22 Nov, 07:00–14:36 UTC, against the three
+weekend mornings before, same hours.
+
+- **Meals.** In the fourteen days before: none (ten coffees, at most fifteen herrings). In 7.6 hours: 15 meals by 12 of
+  13 Personas: 8 ordered at the Café, 6 cooked at home, 1 from a vending machine. Eleven breakfasts between 08:18 and
+  10:59, five lunches. Both trips made to eat ended in a meal within nine minutes.
+- **What it cost.** Spoken lines held (361 against 372). The Board fell from 16.1% of voiced turns to 7.6% and the
+  Calendar from 7.8% to 3.7%; DMs rose from 20% to 26%. Declines stayed at 12.6%; walks were declined 44% of the
+  time, 54% before.
+- **Speech.** Food came up no more often (13.0% of lines before, 9.1% after). "Starving", "famished" and "running on
+  fumes" were said by nobody. No line contradicted the speaker's own hunger line. Three meals in talk were still never
+  eaten by a Body.
+- **Hunger.** 16 episodes, 15 ended in a meal: 48 minutes and five turns at the median, 96 minutes at most. The wait
+  was the menu, not the judge: hence the seat in point 7.
+- **Eiko.** Famished from 11:06 with food on her menu on 36 of 37 turns: 0.04 from the judge against 0.91 for work.
+  Hence point 12, and the narrowing that grows in point 8.
+- **Energy** read low in 62% of morning prompts (14% before): a new body started from yesterday's energy and was
+  capped by today's as well. It now starts neutral; from the second morning the rise decides.
+- **The judge is two judges.** Jev answered 98% of that morning, d1:3b 86% of the turns after the next restart, and
+  d1's probabilities are flat: the same break read 0.82 in the probe (Jev) and 0.15 live (d1). Every probe number here
+  is Jev's.
+- One Sunday morning against three weekend mornings. No evening, dinner or bedtime in it yet.
 
 ## Considered
 

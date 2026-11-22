@@ -109,6 +109,22 @@ public class BioEconomyTest
     }
 
     [Fact]
+    public void ANewBody_DoesNotStartFromYesterdaysEnergy_AndNeedsAreNamedFromHungryOn()
+    {
+        var low = new SelfState { Energy = "low" };
+        var high = new SelfState { Energy = "high" };
+        Bio.Settle(low, Noon, away: false);
+        Bio.Settle(high, Noon, away: false);
+
+        Assert.Equal(low.Rested, high.Rested);
+        Assert.Empty(Bio.Needs(null));
+        Assert.Empty(Bio.Needs(Bio.Now(Lived(Noon, fed: 0.55), Noon)));
+        Assert.Equal(new[] { Bio.Food }, Bio.Needs(Bio.Now(Lived(Noon, fed: 0.4), Noon)));
+        Assert.Equal(new[] { Bio.Food, Bio.Rest }, Bio.Needs(Bio.Now(Lived(Noon, fed: 0.1, rested: 0.1), Noon)));
+        Assert.Empty(Bio.Needs(Bio.Now(Lived(Noon.AddHours(-5), fed: 0.1), Noon)));
+    }
+
+    [Fact]
     public void Eating_FillsUp_AndSaysHowHungryTheyWere()
     {
         var s = Lived(Noon, fed: 0.4);

@@ -43,6 +43,9 @@ that lasts (Jaeger et al. 2024). A body that bounces back the moment it is fed h
    on the next Life turn. `AiledAt` is set and logged as `Well again <name>`. Then 3 days before the next.
 7. **It shows.** `SelfSummary.ailing`; the World app says "unwell" beside hungry or famished.
 
+Strain also narrows: Initiative's menu in Distress has six options, four from Strain 0.25 and three once the body is
+breaking (ADR 0060 point 8).
+
 ## Considered
 
 - **Illness as a random event with no cause.** That is what the body kind already was: a draw that happened to anyone.
