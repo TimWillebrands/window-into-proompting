@@ -35,14 +35,15 @@ public partial class PlacesTest
         var made = (await places.CreatePlaceAsync(denise, "a ramen counter", Draft("Tante Sjaan", "a ramen counter under the tracks")))!;
 
         var judged = await FareSettledAsync(partyId, made.Id, p => p.Fare is not null);
-        Assert.Equal((Fares.Meal, "Tante Sjaan\na ramen counter under the tracks"), (judged.Fare, judged.FareFor));
+        Assert.Equal((Fares.Meal, Fares.For(judged)), (judged.Fare, judged.FareFor));
+        Assert.EndsWith("Tante Sjaan\na ramen counter under the tracks", judged.FareFor);
         Assert.Equal(Bio.Meal, Sustenance.Sells(judged));
         Assert.Contains(ScriptedJudge.Instance.FaresAsked, s => s.StartsWith("A place in town: Tante Sjaan, a ramen counter under the tracks."));
 
         await places.ClaimAsync(made.Id, denise, "the Noodle Arch");
         await places.GetSnapshotAsync();
 
-        var renamed = await FareSettledAsync(partyId, made.Id, p => p.FareFor?.StartsWith("the Noodle Arch") == true);
+        var renamed = await FareSettledAsync(partyId, made.Id, p => p.FareFor?.Contains("the Noodle Arch") == true);
         Assert.Equal(Fares.Meal, renamed.Fare);
         Assert.Contains(ScriptedJudge.Instance.FaresAsked, s => s.StartsWith("A place in town: the Noodle Arch"));
     }

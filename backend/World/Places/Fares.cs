@@ -30,7 +30,7 @@ public static class Fares
 
     public static bool Known(string? fare) => fare is None or Meal or Light or Snack;
 
-    public static string? OfKit(Place place) => place.Kind != PlaceKinds.Public ? null : place.Archetype switch
+    public static string? OfKit(Place place) => place.Kind != PlaceKinds.Public ? null : (place.Archetype ?? (place.Scene == "cafe" ? "cafe" : null)) switch
     {
         null or "place" => null,
         "restaurant" => Meal,
@@ -41,7 +41,7 @@ public static class Fares
 
     public static bool Judged(Place place) => place is { Kind: PlaceKinds.Public, Private: false } && OfKit(place) is null;
 
-    public static string For(Place place) => $"{place.Name}\n{place.Purpose}";
+    public static string For(Place place) => $"2\n{place.Name}\n{place.Purpose}";
 
     public static bool Due(Place place)
         => OfKit(place) is { } kit ? place.Fare != kit || place.FareFor != For(place)
@@ -63,7 +63,9 @@ public static class Fares
     public static (string Fare, double P)? Read(SystemOneAnswers answers)
     {
         if (!answers.Choices.TryGetValue(Key, out var probs) || probs.Count == 0) return null;
-        var best = probs.MaxBy(kv => kv.Value);
-        return best.Value >= TakenAt && Known(best.Key) ? (best.Key, best.Value) : (None, probs.GetValueOrDefault(None));
+        var no = probs.GetValueOrDefault(None);
+        var sold = probs.Where(kv => kv.Key is Meal or Light or Snack).ToList();
+        var yes = sold.Sum(kv => kv.Value);
+        return sold.Count > 0 && yes >= TakenAt && yes > no ? (sold.MaxBy(kv => kv.Value).Key, yes) : (None, no);
     }
 }

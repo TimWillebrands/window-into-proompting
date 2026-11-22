@@ -256,8 +256,12 @@ public class SustenanceTest
             return answers;
         }
 
+        Assert.Equal(Fares.Light, Fares.OfKit(new Place { Kind = PlaceKinds.Public, Name = "the Café", Scene = "cafe" }));
         Assert.Equal((Fares.Meal, 0.7), Fares.Read(Said((Fares.Meal, 0.7), (Fares.None, 0.3))));
-        Assert.Equal((Fares.None, 0.35), Fares.Read(Said((Fares.Light, 0.4), (Fares.Snack, 0.25), (Fares.None, 0.35))));
+        Assert.Equal(Fares.Light, Fares.Read(Said((Fares.Light, 0.46), (Fares.Snack, 0.43), (Fares.Meal, 0.02), (Fares.None, 0.09)))!.Value.Fare);
+        Assert.Equal(Fares.Light, Fares.Read(Said((Fares.Light, 0.4), (Fares.Snack, 0.25), (Fares.None, 0.35)))!.Value.Fare);
+        Assert.Equal((Fares.None, 0.55), Fares.Read(Said((Fares.Light, 0.3), (Fares.Snack, 0.15), (Fares.None, 0.55))));
+        Assert.Equal(Fares.None, Fares.Read(Said((Fares.Light, 0.3), (Fares.None, 0.3)))!.Value.Fare);
         Assert.Null(Fares.Read(new PartyTown.Services.SystemOne.SystemOneAnswers()));
     }
 

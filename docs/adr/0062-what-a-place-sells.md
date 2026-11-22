@@ -20,13 +20,14 @@ food truck in a Place could not say that it fed anyone.
 1. **What a Place sells is a fact on it.** `Place.Fare` is unknown or one of `none`, `meal`, `light`, `snack`.
    `Place.FareFor` is the name and Purpose it was judged for.
 2. **A kit settles it without a judge.** Restaurant gives meal, café gives light, bar gives snack, and any other
-   archetype gives none. It is set when the Place opens and checked again on every settle.
+   archetype gives none. The seeded Café counts as a café by its scene. It is set when the Place opens and checked
+   again on every settle.
 3. **Otherwise System One judges it once.** This applies to a public Place (not a Home, a Locale or a private Place)
    whose fare is unknown or was judged for another name or Purpose. The judge gets the name, the Purpose, the
    description and what is in it, and one choice question: "Can anyone who comes in buy something to eat or drink at
    {name}?" The options are proper meals; coffee and something light to eat; drinks and snacks; or nothing ("coffee
-   only for the people who work there doesn't count"). The most probable option is taken when its p is 0.5 or more,
-   and none otherwise. A failed judge or no answer leaves the fare unknown, and that Place is not asked again for 10
+   only for the people who work there doesn't count"). Food is sold when the three yes-answers together reach 0.5 and
+   outweigh the no; the kind is the likeliest of the three. A failed judge or no answer leaves the fare unknown, and that Place is not asked again for 10
    minutes. It is logged as `Fare {Place}: {Fare} (p=…)`.
 4. **Judging happens in the background.** Every settle of the Places grain (each grain call, and the timer once a
    minute) looks for a Place that needs it. If one does, a loop judges one Place at a time and saves and publishes
@@ -71,7 +72,12 @@ Places from production. The rest are traps and two that should sell.
   "grab coffee between meetings". "Anyone who comes in" took it to 0.73. The clause about staff coffee then made it
   none at 0.53. The other thirteen did not change across runs.
 - Two Places land near the line. The Works is a kit office in production, so it never reaches the judge. The city
-  centre's 0.45 for none wins only through the 0.5 rule; its herring cart feeds anyway.
+  centre's 0.45 for none loses to the yes-answers together: it sells something light, which a square with a herring
+  cart and a coffee cart can bear.
+- The first rule took the likeliest single option at 0.5 or more, and none otherwise. On its first minute live it
+  read the Café as selling nothing: the judge was 91% sure food was sold there and split that between "light" and
+  "snack", so no option reached 0.5 and none won with 0.09. The yes-answers are now weighed together, and what was
+  judged under the old rule is judged again.
 
 ## Considered
 

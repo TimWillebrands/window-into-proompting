@@ -122,6 +122,9 @@ public sealed class PersonaLifeGrain(
         var options = LifeMenu.Seat(
             perceptions.Select(p => p.Affordances.Where(a => !(lookedAlready && a.Look))),
             a => Pull(a) + Random.Shared.NextDouble(), distress, MaxOptions, MaxOptionsPerApp);
+        if (distress is not null)
+            logger.LogInformation("Relief {Persona}: {Options}", self.Name,
+                options.Where(o => o.Meets == distress).Select(o => o.Label).DefaultIfEmpty("nothing on the menu").Aggregate((a, b) => $"{a} | {b}"));
 
         var anchorText = string.Join(" ", perceptions.Select(p => p.Block));
         var (memories, stances) = await memory.RecallAsync(partyId, personaId, cast.Select(c => c.Id).ToList(), anchorText, ct);
