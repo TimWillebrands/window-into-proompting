@@ -502,6 +502,10 @@ _Avoid_: rank, permission, membership.
 What a Participant does for a living in one Party: a job title, a workplace, hours and pay per shift. Onscreen when the workplace is a Place in the Party (the Body goes to a Staff spot), offscreen otherwise (the Body is away at a **Locale**, and the shift is a fixed beat in the **Day**). Started and ended by the **World clock**, not chosen. Pays into the **Wallet**; **Means** is the fallback for people with no Occupation.
 _Avoid_: job (fine in prose), career, class.
 
+**Shift memory**:
+What a shift leaves behind: at most one **Recollection** per shift, in the worker's own words, written when it ends from what was in it. A day like any other leaves none. The same for every **Occupation**; a **Cytheurgist**'s is held as work on the World, not on the machine. See [ADR 0066](docs/adr/0066-work-is-remembered.md).
+_Avoid_: work log, shift report, standup.
+
 **Work clothes**:
 What an **Occupation** has you wear: garments only, laid over your own **Appearance** from the start of a shift to its end, so face, hair and body stay yours. Many jobs ask nothing ("their own clothes"). Designed once per job title, a Persona's by the World, a Player's only from their own words. While you're in them your own look waits on the **Body**, and anything you buy or restyle lands there for after work. See [ADR 0058](docs/adr/0058-work-clothes.md).
 _Avoid_: uniform (a Company's shared one doesn't exist yet), outfit, costume.
@@ -608,14 +612,18 @@ _Avoid_: task, action item, assignment.
 
 ### The CDU
 
-See [ADR 0039](docs/adr/0039-the-cdu.md). A **Company** whose product is this codebase. Staff know the World is made and keep it to themselves: it comes to mind when someone says the words.
+See [ADR 0039](docs/adr/0039-the-cdu.md) and [ADR 0066](docs/adr/0066-work-is-remembered.md). A **Company** whose product is this codebase. To its staff the work is the World: how it functions, where it fails the people in it, and the power to make it otherwise. Engineering is the means. They keep it to themselves.
+
+**Form**:
+A part of the order the World runs by, as a **Cytheurgist** holds it: why sleep restores, what a **Place** gives back, what can be done here. To the **CDU** it is code.
+_Avoid_: feature, module, the simulation.
 
 **CDU**:
 The Central Demiurge Unit: one persistent coding agent next to the deployment, with the repo, the database and a GitHub token. Has memory and a temperament, and acts only when a **Cytheurgist** speaks to it. Its Company has kind `cdu`.
 _Avoid_: builder, bot, assistant, AI, harness.
 
 **Cytheurgist**:
-A **Participant** on the CDU Company's staff, whose work moves the **CDU** to act: one move per on-shift **Life** turn (talk, answer, look). Supplies intent and taste; doesn't code.
+A **Participant** on the CDU Company's staff, whose work moves the **CDU** to act: one move per on-shift **Life** turn (talk, answer, look). Wants to know how the World works and to change it; supplies intent and taste, doesn't code.
 _Avoid_: architect, developer, operator, prompter.
 
 **The One**:

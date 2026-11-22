@@ -227,6 +227,55 @@ public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
     }
 
     [Fact]
+    public async Task Memory_AVerdictIsRemembered_AReplyStaysOnTheDesk()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        await HireAsync(partyId, denise);
+        await LiveAsync(partyId, denise, "Hand the CDU");
+        var turn = Cdu.Talks.Last(t => t.From.Id == denise.ToString());
+        var memory = Mock.Get(_fx.Service<IMemoryRepository>());
+        Func<Moment, string, bool> kept = (m, text) => m.PartyId == partyId && m.Source == MomentSources.Work && m.Lines.Any(l => l.Text.Contains(text));
+
+        Cdu.Tell("replied", "Reply kept off the record 7c1.", new { turn = turn.Id, asked = false, commits = 1 });
+        Cdu.Tell("merged", "feat: beds give rest 7c1", new { number = 41 });
+        await WatchAsync(partyId);
+
+        Assert.Contains(await ToldAsync(partyId), a => a.Action == "replied");
+        memory.Verify(m => m.CaptureAsync(It.Is<Moment>(x => kept(x, "Reply kept off the record 7c1.")), It.IsAny<CancellationToken>()), Times.Never);
+        memory.Verify(m => m.CaptureAsync(It.Is<Moment>(x => kept(x, "what was built at your desk is real here now")), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Memory_ACytheurgistsShift_IsKeptAsWorkOnTheWorld_InTheirOwnWords()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var company = await HireAsync(partyId, denise);
+        await Grain(partyId).SpokeAsync(new CduExchange
+        {
+            TurnId = $"t{Guid.NewGuid():N}", CompanyId = company.Id, SpeakerId = denise, SpeakerName = "Denise", Kind = CduRules.Ask,
+            Text = "Why does nobody sleep well here? 9e2", Status = CduRules.Done, Reply = "Beds give no rest.", At = 150, DoneAt = 160,
+        });
+        var job = (await _fx.GrainFactory.GetGrain<IOccupationGrain>(WorldKeys.Life(partyId, denise)).GetAsync()).Job!;
+        var days = ActivatorUtilities.CreateInstance<WorkDays>(_fx.Cluster.GetSiloServiceProvider());
+        const string mine = "Nobody here sleeps well because no bed gives rest. I mean to change that.";
+        Scripted.Memory = mine;
+
+        var kept = await days.RememberAsync(partyId, denise, job, "2026-11-02", 100, 200);
+
+        Assert.Equal(mine, kept);
+        var asked = Assert.Single(Scripted.Shifts, s => s.User.Contains("9e2"));
+        Assert.Contains("Your work is the Forms", asked.System);
+        Assert.Contains("leave them at the desk", asked.System);
+        Assert.DoesNotContain("allowance", asked.System);
+        Assert.Contains("- You asked it: \"Why does nobody sleep well here? 9e2\" It said: Beds give no rest.", asked.User);
+        Mock.Get(_fx.Service<IMemoryRepository>()).Verify(m => m.CaptureAsync(
+            It.Is<Moment>(x => x.PartyId == partyId && x.Source == MomentSources.Work && x.ThreadId == company.Id && x.Present.Single().Id == denise
+                && x.Lines.Single().SenderId == denise && x.Lines.Single().Text == $"[Looking back on today's shift as Cytheurgist at {job.Workplace}] {mine}"),
+            It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Null(await days.RememberAsync(partyId, denise, job, "2026-11-02", 300, 400));
+    }
+
+    [Fact]
     public async Task News_APartyNewToTheCdu_StartsFromNow()
     {
         Cdu.Tell("closed", "feat: an old idea", new { number = 1 });
@@ -256,7 +305,7 @@ public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
 
         var staff = await PerceiveAsync(partyId, denise);
 
-        Assert.Contains("Forms are code", staff!.Block);
+        Assert.Contains("Your work is the Forms", staff!.Block);
         Assert.Null(await PerceiveAsync(partyId, pieter));
     }
 
@@ -328,9 +377,10 @@ public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
             var here = Scripted.Days.Where(d => d.User.Contains(company.Name)).ToList();
             var day = Assert.Single(here, d => d.System.Contains("You are Denise."));
             Assert.Contains("If \"At work\" is given, that is where their job stands", day.System);
-            Assert.Contains($"At work ({company.Name}: keeps the Forms), all that is underway there", day.User);
-            Assert.Contains("\"fix: the café door stays shut at night\" (Denise)", day.User);
-            Assert.Contains("PR #131 \"The café keeps its hours\", open, its checks pass", day.User);
+            Assert.Contains($"At work ({company.Name}: keeps the Forms), where the work stands", day.User);
+            Assert.Contains("Built and not yet in the world: 1 change", day.User);
+            Assert.Contains("Waiting on the One's verdict: \"The café keeps its hours\", its checks pass", day.User);
+            Assert.DoesNotContain("#131", day.User);
             Assert.Contains("It said: There is no staging environment and no release schedule", day.User);
             Assert.DoesNotContain("VAT", day.User);
             var his = Assert.Single(here, d => d.System.Contains("You are Pieter."));
@@ -421,6 +471,8 @@ public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         public static volatile string Message = "Keep the doors shut";
         public static volatile string Mind = "big-one";
         public static readonly ConcurrentQueue<(string System, string User)> Days = new();
+        public static volatile string Memory = "none";
+        public static readonly ConcurrentQueue<(string System, string User)> Shifts = new();
 
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
             => Task.FromResult<string?>(null);
@@ -428,6 +480,11 @@ public partial class CduWorldTest : IClassFixture<CduWorldTest.Fixture>
         public Task<JsonObject?> CompleteJsonAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null, IReadOnlyList<string>? fields = null, IReadOnlyList<string>? flags = null, Func<JsonObject, string?>? refuse = null)
         {
             if (system.Contains("ordinary day today")) Days.Enqueue((system, user));
+            if (system.Contains("just ended"))
+            {
+                Shifts.Enqueue((system, user));
+                return Task.FromResult<JsonObject?>(new JsonObject { ["memory"] = Memory });
+            }
             if (user.Contains("# What you've decided"))
                 return Task.FromResult<JsonObject?>(new JsonObject { ["thought"] = "scripted", ["intent"] = "get on with it" });
             return Task.FromResult<JsonObject?>(new JsonObject { ["message"] = Message, ["mind"] = Mind });

@@ -41,27 +41,56 @@ public static partial class CduScreen
     private const int ReplyShown = 500;
     private const int SaidShown = 240;
     private const int ExchangesShown = 4;
+    private const int ShiftExchanges = 6;
+    private const int ShiftReply = 400;
 
     public const string MessageShape = """{"message": "<what you say to the CDU, in your own words>", "mind": "<the id of the mind you wake it with, from the list>"}""";
 
     public static IReadOnlyList<(string Concept, string Reasoning)> Secret(Company company) => new List<(string, string)>
     {
-        ("Cytheurgist", $"It's what you are at {company.Name}: an engineer of the Forms this world is made of, working them through the CDU. Almost nobody knows. Someone who uses the word knows something; find out what, and how, before you give anything away."),
-        ("Cytheurgy", $"Your real work at {company.Name}: moving the CDU to reshape the Forms. You don't talk about it with outsiders, and an outsider who knows the word is worth finding out about."),
-        ("CDU", $"The Central Demiurge Unit at your desk at {company.Name}: it shapes the Forms and moves only when a Cytheurgist works on it. Your work and your secret; whoever names it gets your full attention."),
-        ("Demiurge", "The CDU, the Central Demiurge Unit you work on. Hearing the word from anyone outside your work should make you wary and curious at once."),
+        ("Cytheurgist", $"It's what you are at {company.Name}: one of the few who work on the Forms, the order this world runs by, through the CDU. You want to know how the world works, and you have the means to change it. Almost nobody knows. Someone who uses the word knows something; find out what, and how, before you give anything away."),
+        ("Cytheurgy", $"Your real work at {company.Name}: finding out how this world works and where it fails the people in it, and moving the CDU to remake the Forms so it doesn't. Engineering is how it's done; the world is what it's for. You don't talk about it with outsiders, and an outsider who knows the word is worth finding out about."),
+        ("CDU", $"The Central Demiurge Unit at your desk at {company.Name}: it sees the Forms and shapes them, and moves only when a Cytheurgist works on it. Your work and your secret; whoever names it gets your full attention."),
+        ("Demiurge", "The CDU, the Central Demiurge Unit you work on: the maker's hands, which you direct. Hearing the word from anyone outside your work should make you wary and curious at once."),
         ("Agora", "Where the One judges what the CDU built; only when he merges does a change become real. Nobody outside your work should know that word."),
     };
 
+    public static string Calling(Company company) => $"""
+You work at {company.Name} as a Cytheurgist. Your work is the Forms: the order this world runs by. Why a night's sleep restores someone, what a place gives back, what people here can do and what they find no way to: each is a Form, and a Form can be read and remade. Most people live inside the Forms the way they live inside the weather. You don't. You want to know how this world works, and where it fails the people in it you want the power to make it otherwise. Almost nobody knows this work exists, and you don't advertise it.
+At your desk is the CDU, the Central Demiurge Unit. It alone sees the Forms and can shape them. To it they are code, so the craft is engineering: the world is what you work on, and engineering is how you reach it.
+""";
+
     public static string Frame(Company company) => $"""
-You work at {company.Name} as a Cytheurgist: an engineer of the Forms. The Forms are code, the code this whole world runs on, and almost nobody here knows that. You don't advertise it.
-At your desk is the CDU, the Central Demiurge Unit: a coding agent with this world's whole repository and its database. You have neither: you can't open a file or run a query yourself. It is your only window on how this world is built and your only hands in it, and you direct it the way a lead engineer directs a coding agent.
-You can ask it: one question about what is built, how something here works, what is stored, or why something failed. It answers from the code and the data and changes nothing. What it tells you is how you come to know this world.
-You can hand it work: a brief it can act on without guessing, saying what should be different, where it showed up, and how you'll both know it's done. A brief about something that isn't in this world spends the allowance and builds nothing, so engineers here ask first and build on the answer.
+{Calling(company).TrimEnd()}
+You can't open a file or run a query yourself. The CDU is your only window on how this world is made and your only hands in it, and you direct it the way a lead engineer directs a coding agent.
+Your desk opens on the world as it went this last day: what people did, what failed them, what they wanted and found no way to. Start there, and from what you've seen out there yourself.
+You can ask it: one question about how something here works, what is stored, or why something failed someone. It answers from the Forms and the data and changes nothing. What it tells you is how you come to know this world.
+You can hand it work: a brief it can act on without guessing, saying what should be different in the world, where it showed up, and how you'll both know it's done. A brief about something that isn't in this world spends the allowance and builds nothing, so engineers here ask first and build on the answer.
 What it tells you is what it says. What it did is on the trunk and in the Agora: look there when it matters.
 Everything it builds waits on its trunk. At the end of a shift the tide takes the trunk to the Agora as one pull request, where the One reviews it. Only when the One merges does the change become real here. Nobody here has met him and nobody can ask him anything.
 You choose the mind you wake it with, and its allowance has to last the day for everyone at {company.Name}. Be frugal about it: a free preview for small things and questions, a small mind for ordinary work, a capable mind only when the work truly needs it or a smaller one already fell short.
 """;
+
+    public const string Lens = "Hold it the way you hold the work: what today showed you about how this world works or fails the people in it, and what you set moving to change that. Commits, file names and pull request numbers are the CDU's side of it; leave them at the desk.";
+
+    public static string? ShiftFacts(IEnumerable<CduExchange> exchanges, Guid company, Guid self, long from, long to)
+    {
+        bool During(long? at) => at is { } t && t >= from && t <= to;
+        var lines = exchanges.Where(e => e.CompanyId == company && (During(e.At) || During(e.DoneAt))).TakeLast(ShiftExchanges).Select(e =>
+        {
+            var who = e.SpeakerId == self ? "You" : e.SpeakerName;
+            var verb = e.Kind switch { CduRules.Answer => "answered it", CduRules.Ask => "asked it", _ => "handed it work" };
+            var said = $"- {who} {verb}: \"{WorldStream.Clip(e.Text, 300)}\"";
+            return e.Status switch
+            {
+                CduRules.Parked => $"{said} (its allowance was spent: it never heard this)",
+                CduRules.Queued => $"{said} (no answer yet)",
+                CduRules.Failed => $"{said} (it fell silent)",
+                _ => $"{said} It said: {WorldStream.Clip(e.Reply ?? "nothing", ShiftReply)}{(e.Commits > 0 ? " (and it built something: it waits on the trunk)" : string.Empty)}",
+            };
+        }).ToList();
+        return lines.Count == 0 ? null : $"With the CDU this shift:\n{string.Join("\n", lines)}";
+    }
 
     public static WorldHealth Health(IEnumerable<WorldActivity> activities, DateTimeOffset now)
     {
@@ -156,19 +185,21 @@ You choose the mind you wake it with, and its allowance has to last the day for 
 
     public static string DayFacts(Company company, CduStatus? cdu, IEnumerable<CduExchange> exchanges)
     {
-        var sb = new StringBuilder($"At work ({company.Name}: {company.Mandate}), all that is underway there, from the desk:");
+        var sb = new StringBuilder($"At work ({company.Name}: {company.Mandate}), where the work stands. What it is about matters more to their day than its plumbing:");
         if (cdu?.Trunk is { } trunk)
             sb.Append(trunk.Ahead.Count == 0
-                ? "\n- The trunk holds nothing new."
-                : $"\n- On the trunk, not yet in the world: {string.Join("; ", trunk.Ahead.TakeLast(4).Select(c => $"\"{c.Subject}\" ({c.Author})"))}.");
+                ? "\n- Nothing built is waiting to go out."
+                : $"\n- Built and not yet in the world: {Changes(trunk.Ahead.Count)}, going out at the end of the shift.");
         if (cdu is not null)
-            sb.Append(cdu.Pr is { } pr ? $"\n- In the Agora: PR #{pr.Number} \"{pr.Title}\", {pr.State.ToLowerInvariant()}, {ChecksWord(pr.Checks)}." : "\n- Nothing in the Agora.");
+            sb.Append(cdu.Pr is { } pr ? $"\n- Waiting on the One's verdict: \"{pr.Title}\", {ChecksWord(pr.Checks)}." : "\n- Nothing is waiting on the One.");
         var answered = exchanges.Where(e => e.CompanyId == company.Id && e.Status == CduRules.Done).TakeLast(DayAnswers).ToList();
         sb.Append(answered.Count == 0
             ? "\n- Nobody has asked the CDU anything lately."
-            : string.Concat(answered.Select(e => $"\n- {e.SpeakerName} {(e.Kind == CduRules.Ask ? "asked" : e.Kind == CduRules.Answer ? "answered it" : "handed it work")}: \"{WorldStream.Clip(e.Text, 160)}\" It said: {WorldStream.Clip(e.Reply ?? "nothing", 300)}")));
+            : string.Concat(answered.Select(e => $"\n- {e.SpeakerName} {(e.Kind == CduRules.Ask ? "asked" : e.Kind == CduRules.Answer ? "answered it" : "handed it work")}: \"{WorldStream.Clip(e.Text, 200)}\" It said: {WorldStream.Clip(e.Reply ?? "nothing", 200)}")));
         return sb.ToString();
     }
+
+    private static string Changes(int n) => n == 1 ? "1 change" : $"{n} changes";
 
     private static string Trunk(CduStatus cdu) => cdu.Trunk switch
     {

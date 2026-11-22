@@ -3,7 +3,7 @@ using PartyTown.World.Economy;
 
 namespace PartyTown.World.Work;
 
-public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
+public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger, WorkDays? days = null)
 {
     public async Task<WorldActivity?> ApplyAsync(Guid partyId, CastMember who, ShiftChange change)
     {
@@ -21,6 +21,7 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
             {
                 var pay = await PayAsync(partyId, who.Id, job, record);
                 await LeaveAsync(partyId, who.Id, job);
+                days?.Close(partyId, who.Id, job, record);
                 if (job.Practice is null && !string.IsNullOrWhiteSpace(job.Title))
                     await Skills.Practising.NoteAsync(grains, partyId, who.Id, Skills.Practising.Work(job.Title, $"worked a shift as {job.Title} at {job.Workplace}"), logger);
                 return Activity(who, "finish", $"finished work at {job.Workplace} (+{pay} credits)");
@@ -35,6 +36,7 @@ public sealed class Workplaces(IGrainFactory grains, ILogger<Workplaces> logger)
     {
         var pay = await PayAsync(partyId, who, job, record);
         await LeaveAsync(partyId, who, job);
+        days?.Close(partyId, who, job, record);
         return pay;
     }
 

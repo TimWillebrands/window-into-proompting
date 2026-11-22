@@ -161,7 +161,53 @@ public class CduScreenTest
         var glance = CduScreen.Glance(Shop);
         Assert.DoesNotContain("Forms", glance);
         Assert.DoesNotContain("CDU", glance);
-        Assert.Contains("Forms are code", CduScreen.Frame(Shop));
+        Assert.Contains("Your work is the Forms", CduScreen.Frame(Shop));
+    }
+
+    [Fact]
+    public void Frame_TheWorldIsTheWork_AndEngineeringTheMeans()
+    {
+        var frame = CduScreen.Frame(Shop);
+        Assert.StartsWith(CduScreen.Calling(Shop).TrimEnd(), frame);
+        Assert.Contains("the order this world runs by", frame);
+        Assert.Contains("you want the power to make it otherwise", frame);
+        Assert.Contains("To it they are code, so the craft is engineering", frame);
+        Assert.DoesNotContain("repository", frame);
+        Assert.DoesNotContain("simulation", frame);
+        Assert.DoesNotContain("the way a lead engineer", CduScreen.Calling(Shop));
+    }
+
+    [Fact]
+    public void Secret_SaysWhatTheWorkIsFor_NotOnlyThatItIsHidden()
+    {
+        var held = CduScreen.Secret(Shop).ToDictionary(s => s.Concept, s => s.Reasoning);
+        Assert.Contains("where it fails the people in it", held["Cytheurgy"]);
+        Assert.Contains("the means to change it", held["Cytheurgist"]);
+        Assert.Contains("find out what, and how", held["Cytheurgist"]);
+    }
+
+    [Fact]
+    public void ShiftFacts_OnlyThisShift_InWhatWasAskedAndSaid()
+    {
+        CduExchange At(CduExchange e, long at, long? done = null) { e.At = at; e.DoneAt = done; return e; }
+        var before = At(Said(Justin, turn: "old"), 50, 60);
+        var asked = At(Said(Denise, kind: CduRules.Ask, turn: "a"), 110, 120);
+        asked.Commits = 0;
+        var built = At(Said(Justin, turn: "b"), 130, 140);
+        built.Commits = 2;
+        var late = At(Said(Justin, turn: "c"), 90, 150);
+        var parked = At(Said(Denise, CduRules.Parked, turn: "p"), 160);
+        var elsewhere = At(Said(Denise, turn: "x"), 115, 125);
+        elsewhere.CompanyId = Guid.NewGuid();
+
+        var facts = CduScreen.ShiftFacts(new[] { before, late, asked, built, parked, elsewhere }, Shop.Id, Denise, 100, 200)!;
+
+        Assert.StartsWith("With the CDU this shift:\n- Justin handed it work", facts);
+        Assert.Equal(4, facts.Split("\n- ").Length - 1);
+        Assert.Contains("- You asked it: \"The timeouts are killing us\" It said: Done.", facts);
+        Assert.Contains("(and it built something: it waits on the trunk)", facts);
+        Assert.Contains("(its allowance was spent: it never heard this)", facts);
+        Assert.Null(CduScreen.ShiftFacts(new[] { before }, Shop.Id, Denise, 100, 200));
     }
 
     [Fact]
@@ -245,9 +291,14 @@ public class CduScreenTest
     {
         var facts = CduScreen.DayFacts(Shop, null, new[] { Said(Denise, kind: CduRules.Ask), Said(Justin, CduRules.Queued), Said(Justin, CduRules.Parked) });
 
-        Assert.Equal($"At work (Vormwerk: keeps the Forms), all that is underway there, from the desk:\n- Denise asked: \"The timeouts are killing us\" It said: Done.", facts);
+        Assert.Equal($"At work (Vormwerk: keeps the Forms), where the work stands. What it is about matters more to their day than its plumbing:\n- Denise asked: \"The timeouts are killing us\" It said: Done.", facts);
         Assert.EndsWith("Nobody has asked the CDU anything lately.", CduScreen.DayFacts(Shop, Up(), Array.Empty<CduExchange>()));
-        Assert.Contains("The trunk holds nothing new.\n- Nothing in the Agora.", CduScreen.DayFacts(Shop, Up(), Array.Empty<CduExchange>()));
+        Assert.Contains("Nothing built is waiting to go out.\n- Nothing is waiting on the One.", CduScreen.DayFacts(Shop, Up(), Array.Empty<CduExchange>()));
+        var waiting = CduScreen.DayFacts(Shop, Up(2, new CduPr(12, "u", "fix: thing 1", "OPEN", "h", "passing")), Array.Empty<CduExchange>());
+        Assert.Contains("Built and not yet in the world: 2 changes", waiting);
+        Assert.Contains("Waiting on the One's verdict: \"fix: thing 1\", its checks pass.", waiting);
+        Assert.DoesNotContain("#12", waiting);
+        Assert.DoesNotContain("fix: thing 2", waiting);
     }
 
     [Fact]

@@ -27,7 +27,7 @@ public sealed class CduApp(IGrainFactory grains, IWorldLlm llm, Cytheurgy site) 
             CduScreen.VerbAsk => await SayAsync(ctx, company, CduRules.Ask, intent, ct),
             CduScreen.VerbTalk => await SayAsync(ctx, company, CduRules.Talk, intent, ct),
             CduScreen.VerbAnswer => await SayAsync(ctx, company, CduRules.Answer, intent, ct),
-            CduScreen.VerbLook => new ActOutcome("look", await site.LookAsync(ctx.PartyId, company, ctx.ViewOf(ctx.Self.Id), ct), company.Id),
+            CduScreen.VerbLook => new ActOutcome("look", await site.LookAsync(ct), company.Id),
             _ => null,
         };
     }
@@ -49,7 +49,7 @@ public sealed class CduApp(IGrainFactory grains, IWorldLlm llm, Cytheurgy site) 
         var mind = CduScreen.ReadMind(json, desk.Cdu.Models);
         if (CduScreen.Spent(desk.Cdu))
         {
-            await site.ParkAsync(ctx.PartyId, company, ctx.ViewOf(ctx.Self.Id), message, kind, mind, CduScreen.SpendLine(desk));
+            await site.ParkAsync(ctx.PartyId, company, ctx.ViewOf(ctx.Self.Id), message, kind, mind);
             return new ActOutcome("park", $"wrote to the CDU at {company.Name}, but its allowance for today was spent: the message stays parked, unsent", company.Id);
         }
         var said = await site.SayAsync(ctx.PartyId, company, ctx.ViewOf(ctx.Self.Id), message, kind, mind, ct);

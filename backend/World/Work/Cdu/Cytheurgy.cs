@@ -75,15 +75,13 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         }
     }
 
-    public async Task ParkAsync(Guid partyId, Company company, ParticipantView speaker, string text, string kind, string? model, string? spend)
+    public async Task ParkAsync(Guid partyId, Company company, ParticipantView speaker, string text, string kind, string? model)
     {
         await Grain(partyId).SpokeAsync(new CduExchange
         {
             TurnId = $"parked-{Guid.NewGuid():N}", CompanyId = company.Id, SpeakerId = speaker.Id, SpeakerName = speaker.Name, Kind = kind, Text = text, Model = model,
             Status = CduRules.Parked, At = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
         });
-        Remember(partyId, company.Id, new List<ParticipantView> { speaker },
-            $"You wrote to the CDU, but it had already spent today's allowance, so it never heard you: your message stays parked on your desk, unsent.{(spend is null ? string.Empty : $" {spend}")}");
     }
 
     public async Task<List<(string Name, bool OnShift)>> ColleaguesAsync(Guid partyId, Guid companyId, Guid self)
@@ -97,12 +95,7 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
     public async Task<string> DayFactsAsync(Guid partyId, Company company, CancellationToken ct)
         => CduScreen.DayFacts(company, await StatusAsync(ct, fresh: true), (await Grain(partyId).GetAsync()).Exchanges);
 
-    public async Task<string> LookAsync(Guid partyId, Company company, ParticipantView looker, CancellationToken ct)
-    {
-        var seen = CduScreen.Look(await StatusAsync(ct, fresh: true));
-        Remember(partyId, company.Id, new List<ParticipantView> { looker }, seen);
-        return seen;
-    }
+    public async Task<string> LookAsync(CancellationToken ct) => CduScreen.Look(await StatusAsync(ct, fresh: true));
 
     public async Task WatchAsync(Guid partyId, CancellationToken ct)
     {
@@ -169,7 +162,7 @@ public sealed class Cytheurgy(IGrainFactory grains, ICdu cdu, Desks desks, World
         if (told.Count == 0) return;
         if (word.Lifts is { } lifts) await MoveMoodsAsync(partyId, told, lifts, word.Text);
         await clock.NotifyAsync(told.Select(s => s.Id).ToList());
-        Remember(partyId, word.CompanyId ?? companies[0].Id, told, word.Text);
+        if (word.Lifts is not null) Remember(partyId, word.CompanyId ?? companies[0].Id, told, word.Text);
     }
 
     private void Remember(Guid partyId, Guid companyId, List<ParticipantView> who, string text)

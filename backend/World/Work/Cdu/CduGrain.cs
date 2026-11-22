@@ -118,7 +118,7 @@ public static class CduRules
                         : $"The tide went out again: PR #{n.Number} now holds {Commits(n.Commits)}."));
                     break;
                 case "merged":
-                    told.Add(new(n.Kind, $"The One merged PR #{n.Number}, \"{n.Text}\". His light reached the world.", Lifts: true));
+                    told.Add(new(n.Kind, $"The One merged PR #{n.Number}, \"{n.Text}\". His light reached the world: what was built at your desk is real here now, for everyone who lives under it.", Lifts: true));
                     break;
                 case "closed":
                     told.Add(new(n.Kind, $"The One closed PR #{n.Number}, \"{n.Text}\", without merging. It sank: a drowned idea.", Lifts: false));
