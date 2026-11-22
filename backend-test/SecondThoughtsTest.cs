@@ -25,6 +25,28 @@ public class SecondThoughtsTest
     }
 
     [Fact]
+    public void ANoSaidWhenTheyCouldAffordIt_DoesNotHoldOnceItIsDistress()
+    {
+        var forFood = Tram with { Meets = PartyTown.World.Self.Bio.Food };
+        var own = new[] { Refused(forFood, 5), Refused(Tram, 5) };
+
+        Assert.True(SecondThoughts.Left(forFood, null, own, Now) < 0.2);
+        Assert.Equal(1, SecondThoughts.Left(forFood, PartyTown.World.Self.Bio.Food, own, Now));
+        Assert.True(SecondThoughts.Left(forFood, PartyTown.World.Self.Bio.Rest, own, Now) < 0.2);
+        Assert.True(SecondThoughts.Left(Tram, PartyTown.World.Self.Bio.Food, own, Now) < 0.2);
+    }
+
+    [Fact]
+    public void ABreakToEat_IsNotDampedByTheShift()
+    {
+        var forFood = Tram with { Meets = PartyTown.World.Self.Bio.Food };
+
+        Assert.Equal(1, PartyTown.World.Work.Shifts.Damping(Tram, onShift: true));
+        Assert.Equal(0, PartyTown.World.Work.Shifts.Damping(forFood, onShift: true));
+        Assert.Equal(0, PartyTown.World.Work.Shifts.Damping(Tram, onShift: false));
+    }
+
+    [Fact]
     public void NothingRefused_LeavesThePull()
     {
         var went = new WorldActivity { App = "places", Action = "walk", Affordance = Tram.Key, Ts = Now.AddMinutes(-5).ToUnixTimeMilliseconds() };

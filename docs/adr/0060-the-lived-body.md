@@ -76,6 +76,14 @@ fail, so that every moment is a trade-off (Jaeger, Riedl, Djedovic, Vervaeke & W
 11. **It shows.** The Body is "making lunch", "having lunch", "having a lie-down". `GET selves` gives fed, rested and
     the live Energy; the World app says hungry or famished.
 
+12. **A shift has a break in it.** On the first day live, Eiko kept her shrine from morning into the afternoon at fed
+    0.00, picking "Get on with work" turn after turn: where nothing feeds, the way to eat read as walking off the job,
+    and "that wins over whatever your day had planned" settled it. So on shift a trip to eat is a break ("Take your
+    break at the Café", "Go home for your break"), the shift line adds "A break to eat is part of a shift: you go, you
+    eat, you come back", and the shift doesn't damp it. "Head back to work" was already there for after. And a "no"
+    said earlier (ADR 0050) no longer damps what would relieve a Distress: second thoughts are for what they can
+    afford to refuse.
+
 ## Measured
 
 Probe `Body_Reserves`, 21 Nov, Jev through OpenRouter, 3 samples: two people at home on the same seven-option menu.
@@ -94,6 +102,17 @@ Only the Reserves differ, and so only the body's line and the label.
 - Two things were fixed on the way. As "carry on with your day (…)", rest took 0.82 from a hungry Inês and lunch
   0.04: the Day stood in for eating. As "Do nothing for now" it took 0.36. And before the label carried since-when,
   hungry read 0.05 and 0.22: System One picks from labels (ADR 0021 #17).
+
+Probe `Body_OnShift`, 22 Nov, same judge, 4 samples: on shift where nothing feeds, p(go and eat) by wording.
+
+| | as it was | break on the labels | and in the shift line |
+| --- | --- | --- | --- |
+| Eiko (dutiful), hungry | 0.13 | 0.26 | 0.47 |
+| Eiko, famished | 0.43 | 0.64 | 0.82 |
+| Pieter, hungry | 0.58 | 0.81 | 0.88 |
+| Pieter, famished | 0.84 | 0.95 | 0.96 |
+
+"Leave work early" stayed at 0.00 throughout: a break is not leaving.
 
 Probe `Body_SpeakingAB`, same day, Haiku as the voice: 2 people × 3 openers × 3 samples per body, one reply each.
 

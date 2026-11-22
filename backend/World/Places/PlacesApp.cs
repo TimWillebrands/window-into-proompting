@@ -231,9 +231,10 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 : null;
             var todo = there.Count > 0 || mine || fed is not null ? null
                 : place.Furni.Where(f => Features.Fresh(f, ctx.Self.Id, ctx.Now.ToUnixTimeMilliseconds())).OrderBy(_ => Random.Shared.Next()).FirstOrDefault();
-            var label = mine ? "Head home"
-                : there.Count == 0 ? $"Go to {name}{(todo is null ? string.Empty : $" (to {Features.Lower(todo.Do!)})")}"
-                : $"Go to {name} ({string.Join(", ", there.Take(3))} there)";
+            var onBreak = fed is not null && ctx.OnShift;
+            var label = mine ? onBreak ? "Go home for your break" : "Head home"
+                : there.Count == 0 ? $"{(onBreak ? "Take your break at" : "Go to")} {name}{(todo is null ? string.Empty : $" (to {Features.Lower(todo.Do!)})")}"
+                : $"{(onBreak ? "Take your break at" : "Go to")} {name} ({string.Join(", ", there.Take(3))} there)";
             if (keyed) label += " (you have a key)";
             var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0) + (stale ? 2 : 0) - (awayHere ? 1 : 0);
             string? meets = null;

@@ -40,4 +40,6 @@ public static class Hooks
     public const string RestOnShift = "Do nothing in particular for a moment; you're still on shift";
 
     public const string ShiftWins = "You're on shift right now: that wins over whatever your day had planned for this hour.";
+
+    public const string BreakToEat = "A break to eat is part of a shift: you go, you eat, you come back.";
 }

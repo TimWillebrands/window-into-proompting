@@ -92,6 +92,8 @@ public sealed class PersonaLifeGrain(
             .ToList();
         var own = await clock.GetActivitiesAsync(SecondThoughts.Memory, personaId);
         var reserves = await ReservesAsync(partyId, personaId, self.Name, me, snapshot);
+        var onShift = await OnShiftAsync(partyId, personaId);
+        var distress = reserves is { } lived ? Bio.Distress(lived) : null;
         var ctx = new LifeContext(
             partyId, self, cast,
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
@@ -104,7 +106,8 @@ public sealed class PersonaLifeGrain(
                 other => snapshot?.Bodies.FirstOrDefault(b => b.ParticipantId == other)?.PlaceId),
             happenings,
             _fit,
-            reserves);
+            reserves,
+            onShift);
 
         var perceptions = (await Task.WhenAll(apps.Select(a => PerceiveSafeAsync(a, ctx, ct))))
             .Where(p => p is not null).Select(p => p!).ToList();
@@ -112,14 +115,13 @@ public sealed class PersonaLifeGrain(
         var recentApps = ctx.RecentOwn.Where(a => a.Action != LookAction).Take(3).Select(a => a.App).ToList();
         var lastWalk = ctx.RecentOwn.FirstOrDefault(a => a.App == "places" && a.Action == "walk");
         var sinceWalk = lastWalk is null ? (TimeSpan?)null : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(lastWalk.Ts);
-        var onShift = await OnShiftAsync(partyId, personaId);
-        double Left(Affordance a) => SecondThoughts.Left(a.Key, own, ctx.Now);
+        double Left(Affordance a) => SecondThoughts.Left(a, distress, own, ctx.Now);
         int Pull(Affordance a) => a.Priority - recentApps.Count(app => app == a.AppId) - Settling.Penalty(a, sinceWalk, ctx.Owes(a.TargetId))
-            - Work.Shifts.Damping(a.AppId, onShift) - SecondThoughts.Seats(Left(a)) + (ctx.WantAbout(a.TargetId) is null ? 0 : 1);
+            - Work.Shifts.Damping(a, onShift) - SecondThoughts.Seats(Left(a)) + (ctx.WantAbout(a.TargetId) is null ? 0 : 1);
 
         var options = LifeMenu.Seat(
             perceptions.Select(p => p.Affordances.Where(a => !(lookedAlready && a.Look))),
-            a => Pull(a) + Random.Shared.NextDouble(), reserves is { } body ? Bio.Distress(body) : null, MaxOptions, MaxOptionsPerApp);
+            a => Pull(a) + Random.Shared.NextDouble(), distress, MaxOptions, MaxOptionsPerApp);
 
         var anchorText = string.Join(" ", perceptions.Select(p => p.Block));
         var (memories, stances) = await memory.RecallAsync(partyId, personaId, cast.Select(c => c.Id).ToList(), anchorText, ct);
@@ -128,7 +130,7 @@ public sealed class PersonaLifeGrain(
         if (responsibilities is not null)
             presence += await responsibilities.RoleAsync(partyId, personaId) + await responsibilities.RenderAsync(partyId, personaId, ctx.Now);
         presence += await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetKeyLinesAsync(personaId);
-        if (onShift) presence += "\n" + Hooks.ShiftWins;
+        if (onShift) presence += "\n" + Hooks.ShiftWins + (reserves is { Hunger: >= Hunger.Hungry } ? " " + Hooks.BreakToEat : string.Empty);
         presence += Desires.DesireRules.Render(wants);
         if (reflex is not null) presence += await reflex.MindAsync(partyId, personaId);
         var ties = await GrainFactory.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(partyId, personaId))
@@ -444,6 +446,9 @@ public static class SecondThoughts
     public const int Memory = 40;
 
     public static bool Is(WorldActivity a) => a is { Action: "rest", Affordance: not null };
+
+    public static double Left(Affordance a, string? distress, IEnumerable<WorldActivity> own, DateTimeOffset now)
+        => distress is not null && a.Meets == distress ? 1 : Left(a.Key, own, now);
 
     public static double Left(string key, IEnumerable<WorldActivity> own, DateTimeOffset now)
     {

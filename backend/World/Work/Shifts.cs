@@ -80,6 +80,8 @@ public static class Shifts
 
     public static int Damping(string appId, bool onShift) => onShift && !IsWork(appId) ? 1 : 0;
 
+    public static int Damping(Apps.Affordance a, bool onShift) => a.Meets is null ? Damping(a.AppId, onShift) : 0;
+
     public static bool IsWork(string appId) => appId is WorkApp.AppId or Companies.DeskApp.AppId or Practices.PracticeApp.AppId or Cdu.CduScreen.AppId;
 
     public static double HourlyRate(string? means) => Money.DailyPay(means) * 7 / 40.0;

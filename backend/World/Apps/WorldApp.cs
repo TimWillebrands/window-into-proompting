@@ -14,7 +14,8 @@ public sealed record LifeContext(
     IReadOnlyDictionary<Guid, PartyTown.World.Desires.Desire>? Wanted = null,
     IReadOnlyList<PartyTown.World.Happening>? Happenings = null,
     PartyTown.World.Places.PlaceFit? Fit = null,
-    PartyTown.World.Self.Reserves? Reserves = null)
+    PartyTown.World.Self.Reserves? Reserves = null,
+    bool OnShift = false)
 {
     public PartyTown.World.Desires.Desire? WantAbout(Guid? id) => id is { } key ? Wanted?.GetValueOrDefault(key) : null;
 

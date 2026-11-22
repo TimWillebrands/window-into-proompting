@@ -138,6 +138,26 @@ public partial class PlacesTest
     }
 
     [Fact]
+    public async Task OnShift_WhereNothingFeeds_GoingToEatIsABreak()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var app = new PlacesApp(_fx.GrainFactory);
+        var lobby = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Lobby");
+        await places.MoveAsync(denise, lobby.Id, "sofas");
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+
+        var hungry = (await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt(fed: 0.25)) with { OnShift = true }, default))!.Affordances;
+        var fine = (await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt()) with { OnShift = true }, default))!.Affordances;
+
+        Assert.Equal("Take your break at the Café (to get something to eat)", hungry.Single(a => a.Label.StartsWith("Take your break at the Café")).Label);
+        Assert.Equal("Go home for your break (to make something to eat)", hungry.Single(a => a.Label.StartsWith("Go home")).Label);
+        Assert.All(hungry.Where(a => a.Label.Contains("your break")), a => Assert.Equal(Bio.Food, a.Meets));
+        Assert.DoesNotContain(fine, a => a.Label.Contains("your break"));
+        Assert.Contains(fine, a => a.Label == "Head home");
+    }
+
+    [Fact]
     public async Task ATiredBody_IsNoLongerRestless()
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
