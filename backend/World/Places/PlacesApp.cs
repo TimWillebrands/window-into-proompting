@@ -127,7 +127,7 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                 affordances.Add(new Affordance(Id, label, close ? 1 : 0, here!.Id, $"do:{f.Id}"));
             }
             var rests = Self.Bio.Helps(reserves, ctx.Now.ToLocalTime());
-            var perks = rests && !reserves.Perked && !reserves.Ailing;
+            var perks = rests && !reserves.Perked && !reserves.Ailing && tired == Self.Tiredness.Flagging;
             if (here?.Furni.Where(f => f.Do is null).Select(f => (Furni: f, Use: FurniRules.UseOf(f, nowMs)))
                     .Where(x => x.Use is not null)
                     .OrderByDescending(x => perks && x.Furni.Kind == FurniKinds.Coffee)

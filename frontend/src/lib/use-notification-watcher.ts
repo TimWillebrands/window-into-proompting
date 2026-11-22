@@ -1,18 +1,35 @@
 import { useEffect, useRef } from 'react';
 import { useDesktopContext } from './desktop-context';
 import {
+    type DesktopNotification,
+    fromWorld,
+    summaryFor,
+    useNotificationCenter,
+} from './notification-center';
+import {
     arrivals,
-    balloonFor,
     type PlayerNotification,
     tabTitle,
     targetWindowId,
     useMarkNotificationsRead,
     useNotifications,
-    useTrayBalloons,
 } from './notifications';
 
 const AWAY_MS = 5 * 60_000;
-const NOTIFICATIONS_WINDOW = 'notifications';
+
+function showAll(
+    show: (n: DesktopNotification) => void,
+    arrived: PlayerNotification[],
+    away: boolean,
+) {
+    const cards = arrived.map(fromWorld);
+    if (away) {
+        const summary = summaryFor(cards, true);
+        if (summary) show(summary);
+        return;
+    }
+    for (const n of [...cards].sort((a, b) => a.at - b.at)) show(n);
+}
 
 export function useNotificationWatcher(
     worldId: string,
@@ -20,8 +37,8 @@ export function useNotificationWatcher(
 ) {
     const { feed, unread, loaded } = useNotifications(worldId, !!playerId);
     const markRead = useMarkNotificationsRead(worldId);
-    const show = useTrayBalloons((s) => s.show);
-    const clear = useTrayBalloons((s) => s.clear);
+    const show = useNotificationCenter((s) => s.show);
+    const reset = useNotificationCenter((s) => s.reset);
     const { desktopState } = useDesktopContext();
 
     const known = useRef<Set<string> | null>(null);
@@ -39,8 +56,7 @@ export function useNotificationWatcher(
             );
             const back = pending.current.filter((n) => unreadNow.has(n.id));
             pending.current = [];
-            const balloon = balloonFor(back, true);
-            if (balloon) show(balloon);
+            showAll(show, back, true);
         };
         const active = () => {
             const wasAway = Date.now() - lastInput.current > AWAY_MS;
@@ -59,9 +75,9 @@ export function useNotificationWatcher(
         return () => {
             for (const e of events) window.removeEventListener(e, active);
             document.removeEventListener('visibilitychange', visibility);
-            clear();
+            reset();
         };
-    }, [show, clear]);
+    }, [show, reset]);
 
     useEffect(() => {
         if (!loaded) return;
@@ -73,10 +89,7 @@ export function useNotificationWatcher(
             known.current = new Set(items.map((n) => n.id));
             const waiting = items.filter((n) => n.unread);
             if (document.hidden) pending.current = waiting;
-            else {
-                const balloon = balloonFor(waiting, true);
-                if (balloon) show(balloon);
-            }
+            else showAll(show, waiting, waiting.length > 1);
             return;
         }
 
@@ -88,9 +101,10 @@ export function useNotificationWatcher(
         const focused = desk.focusedId;
         const looking = (n: PlayerNotification) =>
             !document.hidden &&
-            !!focused &&
-            !desk.windows[focused]?.minimized &&
-            (focused === NOTIFICATIONS_WINDOW || focused === targetWindowId(n));
+            (useNotificationCenter.getState().open ||
+                (!!focused &&
+                    !desk.windows[focused]?.minimized &&
+                    focused === targetWindowId(n)));
         const seen = arrived.filter(looking);
         if (seen.length > 0) void mark({ ids: seen.map((n) => n.id) });
         const rest = arrived.filter((n) => !looking(n));
@@ -99,8 +113,7 @@ export function useNotificationWatcher(
             pending.current.push(...rest);
             return;
         }
-        const balloon = balloonFor(rest, false);
-        if (balloon) show(balloon);
+        showAll(show, rest, false);
     }, [feed, loaded, show]);
 
     useEffect(() => {

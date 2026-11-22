@@ -63,7 +63,9 @@ fail, so that every moment is a trade-off (Jaeger, Riedl, Djedovic, Vervaeke & W
    the Places nearby that would feed them say so and pull: "Go to the Café (to get something to eat)", in place of the
    Feature hook. That trip is an option of its own: second thoughts about the Café for company (ADR 0050) don't put
    it off for lunch. A full stomach is offered no food. A lie-down and the coffee stand out between 06:00 and 17:00 when
-   flagging, at any hour when spent, and then Home pulls from elsewhere. A tired body explores less: restlessness stops
+   flagging; once spent only the lie-down does, at any hour, and Home pulls from elsewhere. (The first evening live,
+   the coffee was relief at any hour too: Yusuf, dead on his feet, made six coffees between 18:03 and 19:37, each one
+   seated first and lifting nothing.) A tired body explores less: restlessness stops
    pulling once they're flagging.
    From hungry on, the best way to eat always has a seat on the menu: on the first day live it was missing on 69% of
    hungry turns (three seats per App, and talk took them), though the judge put 0.59–0.80 on it when it was there.

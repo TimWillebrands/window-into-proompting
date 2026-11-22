@@ -37,13 +37,18 @@ public sealed class PlayerInbox(IGrainFactory grains)
                 all.Add(n);
         }
 
-        var read = await readTask;
-        return Inbox.Feed(all, read.SeenAt, read.Read);
+        return Inbox.Feed(all, await readTask);
     }
 
     public async Task<NotificationFeed> MarkReadAsync(Guid partyId, Guid playerId, List<string>? ids, bool all, DateTimeOffset now)
     {
         await Grain(partyId, playerId).MarkReadAsync(ids ?? new List<string>(), all ? now.ToUnixTimeMilliseconds() : null);
+        return await ForAsync(partyId, playerId, now);
+    }
+
+    public async Task<NotificationFeed> DismissAsync(Guid partyId, Guid playerId, List<string>? ids, bool all, DateTimeOffset now)
+    {
+        await Grain(partyId, playerId).DismissAsync(ids ?? new List<string>(), all ? now.ToUnixTimeMilliseconds() : null);
         return await ForAsync(partyId, playerId, now);
     }
 

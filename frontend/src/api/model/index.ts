@@ -47,6 +47,7 @@ export * from './desireStatusRequest';
 export * from './desireSummary';
 export * from './diaryEntry';
 export * from './directChatSummary';
+export * from './dismissNotificationsRequest';
 export * from './district';
 export * from './doorRow';
 export * from './driverKind';

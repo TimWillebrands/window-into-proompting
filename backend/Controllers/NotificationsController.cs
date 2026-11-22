@@ -16,6 +16,13 @@ public sealed class NotificationsController(PlayerInbox inbox, Actors actors) : 
     [AllowWhenStopped]
     public async Task<ActionResult<NotificationFeed>> MarkRead(Guid partyId, [FromBody] MarkNotificationsReadRequest request)
         => Ok(await inbox.MarkReadAsync(partyId, await actors.PlayerAsync(User, partyId), request.Ids, request.All, DateTimeOffset.UtcNow));
+
+    [HttpPost("dismiss")]
+    [AllowWhenStopped]
+    public async Task<ActionResult<NotificationFeed>> Dismiss(Guid partyId, [FromBody] DismissNotificationsRequest request)
+        => Ok(await inbox.DismissAsync(partyId, await actors.PlayerAsync(User, partyId), request.Ids, request.All, DateTimeOffset.UtcNow));
 }
+
+public sealed record DismissNotificationsRequest(List<string>? Ids, bool All = false);
 
 public sealed record MarkNotificationsReadRequest(List<string>? Ids, bool All = false);

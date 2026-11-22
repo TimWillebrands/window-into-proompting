@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
     arrivals,
-    balloonFor,
     type PlayerNotification,
     tabTitle,
     targetWindowId,
@@ -32,43 +31,6 @@ describe('arrivals', () => {
             n('c', 3, { unread: false }),
         ]);
         expect(found.map((x) => x.id)).toEqual(['b']);
-    });
-});
-
-describe('balloonFor', () => {
-    it('shows a single arrival as itself', () => {
-        const b = balloonFor([n('a', 1)], false);
-        expect(b).toMatchObject({
-            title: 'title a',
-            body: 'body a',
-            icon: '💬',
-        });
-    });
-
-    it('says while you were away for one that came in while gone', () => {
-        expect(balloonFor([n('a', 1)], true)?.title).toBe(
-            'While you were away: title a',
-        );
-    });
-
-    it('sums up several, newest first, three lines and the rest counted', () => {
-        const b = balloonFor(
-            [n('a', 1), n('b', 4), n('c', 3), n('d', 2), n('e', 0)],
-            true,
-        );
-        expect(b?.title).toBe('While you were away');
-        expect(b?.body).toBe('• title b\n• title c\n• title d\n…and 2 more');
-        expect(b?.items).toHaveLength(5);
-    });
-
-    it('counts several that came in during play', () => {
-        expect(balloonFor([n('a', 1), n('b', 2)], false)?.title).toBe(
-            '2 new notifications',
-        );
-    });
-
-    it('is nothing for nothing', () => {
-        expect(balloonFor([], true)).toBeNull();
     });
 });
 

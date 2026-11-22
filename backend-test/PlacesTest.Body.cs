@@ -277,6 +277,22 @@ public partial class PlacesTest
     }
 
     [Fact]
+    public async Task DeadOnTheirFeet_ACoffeeIsNoRelief_ALieDownIs()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var app = new PlacesApp(_fx.GrainFactory);
+        await places.GetSnapshotAsync();
+        await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
+
+        var spent = (await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt(rested: 0.1)), default))!.Affordances;
+
+        Assert.All(spent.Where(a => a.Verb == "use:coffee"), a => Assert.Null(a.Meets));
+        Assert.Equal(Bio.Rest, Assert.Single(spent, a => a.Meets == Bio.Rest).Meets);
+        Assert.Equal("nap", spent.Single(a => a.Meets == Bio.Rest).Verb);
+    }
+
+    [Fact]
     public async Task Hungry_AtTheHerringCart_TheFeatureIsTheOneOffer_AndItFeeds()
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();

@@ -26,9 +26,17 @@ import type { WorldActivity } from '../api/model/worldActivity';
 import { usePlayerIdle } from '../apps/places/use-player-idle';
 import { ROOT_PARTY_ID } from './chat-api';
 import {
+    type DesktopNotification,
+    fromWorld,
+    notify,
+    useNotificationCenter,
+} from './notification-center';
+import {
     notificationsKey,
     type PlayerNotification,
+    useDismissNotifications,
     useMarkNotificationsRead,
+    useNotifications,
 } from './notifications';
 import { useNotificationWatcher } from './use-notification-watcher';
 import { type WorldEnvelope, type WorldEventData, worldBus } from './world-bus';
@@ -181,47 +189,17 @@ export function useCanOpen() {
         !access || (access === 'admin' ? isAdmin : signedIn);
 }
 
-export interface WorldToast {
-    id: string;
-    title: string;
-    body: string;
-    icon?: string;
-    onOpen?: () => void;
-}
-
-interface ToastStore {
-    toasts: WorldToast[];
-    push: (toast: Omit<WorldToast, 'id'>) => void;
-    dismiss: (id: string) => void;
-}
-
-export const useWorldToasts = create<ToastStore>((set) => ({
-    toasts: [],
-    push: (toast) => {
-        const id = crypto.randomUUID();
-        set((s) => ({ toasts: [...s.toasts.slice(-3), { ...toast, id }] }));
-        window.setTimeout(
-            () => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
-            9000,
-        );
-    },
-    dismiss: (id) =>
-        set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
-}));
-
-export function toastOnAuto(error: unknown) {
+export function notifyOnRefusal(error: unknown) {
     if (!(error instanceof ProblemDetailsError)) return;
     if (error.title === 'This World is stopped.')
-        useWorldToasts.getState().push({
+        notify({
             title: 'This World is stopped',
             body: 'You can look around, but nothing here changes any more. Switch World from the Start menu.',
-            icon: '🏚️',
         });
     else if (error.title === 'Your character is on auto.')
-        useWorldToasts.getState().push({
+        notify({
             title: 'Your character is on auto',
             body: 'Take over from the Start menu to act yourself.',
-            icon: '🤖',
         });
 }
 
@@ -248,6 +226,41 @@ export function useOpenNotification() {
                 props: n.targetId ? { threadId: n.targetId } : undefined,
             });
         else openWindow(n.app);
+    };
+}
+
+export function useCenterItems(): DesktopNotification[] {
+    const playerId = usePlayerId();
+    const { feed } = useNotifications(WORLD_ID, !!playerId);
+    const local = useNotificationCenter((s) => s.local);
+    return [...local, ...feed.items.map(fromWorld)].sort((a, b) => b.at - a.at);
+}
+
+export function useNotificationActions() {
+    const openWorld = useOpenNotification();
+    const dismissWorld = useDismissNotifications(WORLD_ID);
+    const readWorld = useMarkNotificationsRead(WORLD_ID);
+    const center = useNotificationCenter;
+    return {
+        open(n: DesktopNotification) {
+            if (n.world) openWorld(n.world);
+            else if (n.onOpen) n.onOpen();
+            else center.getState().setOpen(true);
+        },
+        dismiss(ns: DesktopNotification[]) {
+            const world = ns.filter((n) => n.world).map((n) => n.id);
+            const local = ns.filter((n) => !n.world).map((n) => n.id);
+            if (world.length) void dismissWorld({ ids: world });
+            if (local.length) center.getState().dismissLocal(local);
+        },
+        clearAll() {
+            void dismissWorld({ all: true });
+            center.getState().dismissLocal('all');
+        },
+        readAll() {
+            void readWorld({ all: true });
+            center.getState().readLocal();
+        },
     };
 }
 

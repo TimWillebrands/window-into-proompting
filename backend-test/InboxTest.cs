@@ -175,6 +175,18 @@ public class InboxTest
         Assert.Equal(2, feed.Unread);
     }
 
+    [Fact]
+    public void Feed_LeavesOutWhatWasDismissedOrCleared()
+    {
+        PlayerNotification N(string id, long at) => new(id, NotificationKinds.Dm, at, "t", "b", "messenger");
+        var state = new NotificationsState { ClearedAt = 150, Dismissed = new List<string> { "c" } };
+
+        var feed = Inbox.Feed(new[] { N("a", 100), N("b", 300), N("c", 200), N("d", 400) }, state);
+
+        Assert.Equal(new[] { "d", "b" }, feed.Items.Select(n => n.Id));
+        Assert.Equal(2, feed.Unread);
+    }
+
     [Theory]
     [InlineData("Al", "also", false)]
     [InlineData("Al", "hey Al!", true)]

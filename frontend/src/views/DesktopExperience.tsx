@@ -5,14 +5,12 @@ import CreateCharacterScreen from '../components/desktop/CreateCharacterScreen';
 import DesktopIcon from '../components/desktop/DesktopIcon';
 import DesktopTaskbar from '../components/desktop/DesktopTaskbar';
 import DesktopWallpaper from '../components/desktop/DesktopWallpaper';
-import {
-    NotificationBalloons,
-    NotificationTray,
-} from '../components/desktop/NotificationArea';
+import NotificationBanners from '../components/desktop/notifications/NotificationBanners';
+import NotificationCenter from '../components/desktop/notifications/NotificationCenter';
+import NotificationTray from '../components/desktop/notifications/NotificationTray';
 import StartMenu from '../components/desktop/StartMenu';
 import WelcomeScreen from '../components/desktop/WelcomeScreen';
 import WindowFrame from '../components/desktop/WindowFrame';
-import WorldToasts from '../components/desktop/WorldToasts';
 import { WindowInstanceProvider } from '../components/desktop/window-instance-context';
 import { DesktopProvider, useDesktopContext } from '../lib/desktop-context';
 import { DESKTOP_ICONS, WINDOW_PRESETS } from '../lib/window-presets';
@@ -221,7 +219,8 @@ function DesktopWindowLayer() {
                 onStartClick={toggleStartMenu}
                 tray={<NotificationTray />}
             />
-            <NotificationBalloons />
+            <NotificationBanners />
+            <NotificationCenter />
         </>
     );
 }
@@ -246,7 +245,6 @@ export default function DesktopExperience() {
                 <DesktopProvider>
                     <DesktopWindowLayer />
                     <WorldRealtimeBridge key={playerId ?? 'visitor'} />
-                    <WorldToasts />
                 </DesktopProvider>
             </section>
         );

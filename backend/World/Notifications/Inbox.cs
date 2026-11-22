@@ -37,8 +37,13 @@ public static class Inbox
     public const int Max = 50;
 
     public static NotificationFeed Feed(IEnumerable<PlayerNotification> all, long seenAt, IReadOnlyCollection<string> read)
+        => Feed(all, new NotificationsState { SeenAt = seenAt, Read = read.ToList() });
+
+    public static NotificationFeed Feed(IEnumerable<PlayerNotification> all, NotificationsState state)
     {
+        var (seenAt, read) = (state.SeenAt, state.Read);
         var items = all
+            .Where(n => n.At > state.ClearedAt && !state.Dismissed.Contains(n.Id))
             .OrderByDescending(n => n.At)
             .Take(Max)
             .Select(n => n with { Unread = IsUnread(n, seenAt, read) })

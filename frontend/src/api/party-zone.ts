@@ -53,6 +53,7 @@ import type {
     DesireSummary,
     DiaryEntry,
     DirectChatSummary,
+    DismissNotificationsRequest,
     DoorRow,
     DriverOverrideEntry,
     FoundCompanyRequest,
@@ -10243,6 +10244,132 @@ export const usePostWorldsPartyIdNotificationsRead = <
 > => {
     return useMutation(
         getPostWorldsPartyIdNotificationsReadMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdNotificationsDismissResponse200TextPlain = {
+    data: NotificationFeed;
+    status: 200;
+};
+
+export type postWorldsPartyIdNotificationsDismissResponse200ApplicationJson = {
+    data: NotificationFeed;
+    status: 200;
+};
+
+export type postWorldsPartyIdNotificationsDismissResponse200TextJson = {
+    data: NotificationFeed;
+    status: 200;
+};
+
+export type postWorldsPartyIdNotificationsDismissResponseSuccess = (
+    | postWorldsPartyIdNotificationsDismissResponse200TextPlain
+    | postWorldsPartyIdNotificationsDismissResponse200ApplicationJson
+    | postWorldsPartyIdNotificationsDismissResponse200TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdNotificationsDismissResponse =
+    postWorldsPartyIdNotificationsDismissResponseSuccess;
+
+export const getPostWorldsPartyIdNotificationsDismissUrl = (
+    partyId: string,
+) => {
+    return `/api/worlds/${partyId}/notifications/dismiss`;
+};
+
+export const postWorldsPartyIdNotificationsDismiss = async (
+    partyId: string,
+    dismissNotificationsRequest: DismissNotificationsRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdNotificationsDismissResponse> => {
+    return customFetch<postWorldsPartyIdNotificationsDismissResponse>(
+        getPostWorldsPartyIdNotificationsDismissUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(dismissNotificationsRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdNotificationsDismissMutationOptions = <
+    TError = unknown,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdNotificationsDismiss>>,
+        TError,
+        { partyId: string; data: DismissNotificationsRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdNotificationsDismiss>>,
+    TError,
+    { partyId: string; data: DismissNotificationsRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdNotificationsDismiss'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdNotificationsDismiss>>,
+        { partyId: string; data: DismissNotificationsRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdNotificationsDismiss(
+            partyId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdNotificationsDismissMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdNotificationsDismiss>>
+>;
+export type PostWorldsPartyIdNotificationsDismissMutationBody =
+    DismissNotificationsRequest;
+export type PostWorldsPartyIdNotificationsDismissMutationError = unknown;
+
+export const usePostWorldsPartyIdNotificationsDismiss = <
+    TError = unknown,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdNotificationsDismiss>>,
+            TError,
+            { partyId: string; data: DismissNotificationsRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdNotificationsDismiss>>,
+    TError,
+    { partyId: string; data: DismissNotificationsRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdNotificationsDismissMutationOptions(options),
         queryClient,
     );
 };
