@@ -41,5 +41,6 @@ and boredom is a pull to look elsewhere (Danckert & Eastwood), not a slide into 
   3-hour half-life and the novelty damper keep it from compounding.
 - What was felt is kept per Life activation, like the Lack baseline. A deploy forgets it, so each Persona takes in
   where they are once more. Home is damped to near nothing, so that costs little.
-- Not yet: attachment to a Place (the "third place"), fed by good Moments there, as an edge on the Persona's side. And
+- Not yet: attachment to a Place (the "third place"), fed by good Moments there, as an edge on the Persona's side: see
+  ADR 0065. And
   the fixed +0.6 lift for a Take could fold into this appraisal.

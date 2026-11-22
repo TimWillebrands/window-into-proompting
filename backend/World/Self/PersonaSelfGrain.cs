@@ -32,8 +32,18 @@ public sealed partial class PersonaSelfGrain(
         var wear = await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetReportAsync();
         var situation = await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetSituationAsync(personaId);
         var own = await GrainFactory.GetGrain<IWorldVoiceGrain>(partyId).GetOwnLinesAsync(personaId, 3);
-        return SelfRender.Presence(withDay ? state.State : null, SelfMath.Battery(state.State, now), now, VoiceWear.RenderFor(wear, personaId), situation)
+        var at = withDay ? await WhereAsync(partyId, personaId, now) : null;
+        return SelfRender.Presence(withDay ? state.State : null, SelfMath.Battery(state.State, now), now, VoiceWear.RenderFor(wear, personaId), situation, at)
             + VoiceWear.RenderOwnRecent(own, now);
+    }
+
+    private async Task<SelfRender.At?> WhereAsync(Guid partyId, Guid personaId, DateTimeOffset now)
+    {
+        var places = GrainFactory.GetGrain<Places.IPlacesGrain>(partyId);
+        if (await places.GetPlaceOfAsync(personaId) is not { } placeId) return null;
+        if (Belonging.Line(Belonging.Warmth(state.State.Places, placeId, now), home: false) is null) return new SelfRender.At(placeId, false);
+        var place = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == placeId);
+        return new SelfRender.At(placeId, place is not null && Places.Homes.LivesIn(place, personaId));
     }
 
     private async Task EnsureLivedSheetAsync(Guid partyId, Guid personaId)
@@ -110,11 +120,23 @@ public sealed partial class PersonaSelfGrain(
 
     public async Task ShiftValenceAsync(double better, string where)
     {
+        Shift(better, where, DateTimeOffset.Now);
+        await state.WriteStateAsync();
+    }
+
+    public async Task FeelAtAsync(Guid placeId, string placeName, double mood, double belonging)
+    {
         var now = DateTimeOffset.Now;
+        Shift(mood, placeName, now);
+        Belonging.Feel(state.State.Places, placeId, belonging, now);
+        await state.WriteStateAsync();
+    }
+
+    private void Shift(double better, string where, DateTimeOffset now)
+    {
         state.State.Valence = SelfMath.Shift(SelfMath.Valence(state.State, now), better);
         state.State.ValenceAt = now.ToUnixTimeMilliseconds();
         if (Math.Abs(better - 0.5) >= 0.15) state.State.ValenceSource = where;
-        await state.WriteStateAsync();
     }
 
     public async Task<Reserves> LiveBodyAsync(bool away, int company)
@@ -655,11 +677,16 @@ public static class SelfRender
     public static string? Beat(SelfState? day, DateTimeOffset now)
         => day?.Beats.LastOrDefault(b => b.Minute <= now.Hour * 60 + now.Minute)?.Text;
 
-    public static string Presence(SelfState? day, double battery, DateTimeOffset now, IReadOnlyList<string> wear, string? situation = null)
+    public sealed record At(Guid PlaceId, bool Home);
+
+    public static string Presence(SelfState? day, double battery, DateTimeOffset now, IReadOnlyList<string> wear, string? situation = null, At? at = null)
     {
         var lines = new List<string>();
         var hungry = false;
         if (!string.IsNullOrWhiteSpace(situation)) lines.Add($"Where you are: {situation}");
+        if (!string.IsNullOrWhiteSpace(situation) && day is { Beats.Count: > 0 } && at is not null
+            && Belonging.Line(Belonging.Warmth(day.Places, at.PlaceId, now), at.Home) is { } belonging)
+            lines.Add(belonging);
         if (day is { Beats.Count: > 0 })
         {
             var minute = now.Hour * 60 + now.Minute;
@@ -741,6 +768,7 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("GetAvailabilityAsync")] Task<double> GetAvailabilityAsync();
     [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();
     [Alias("ShiftValenceAsync")] Task ShiftValenceAsync(double better, string where);
+    [Alias("FeelAtAsync")] Task FeelAtAsync(Guid placeId, string placeName, double mood, double belonging);
 
     [Alias("LiveBodyAsync")] Task<Reserves> LiveBodyAsync(bool away, int company);
     [Alias("EatAsync")] Task<double> EatAsync(double amount);
@@ -797,6 +825,7 @@ public sealed class SelfState
     [Id(34)] public long AilingSince { get; set; }
     [Id(35)] public long AiledAt { get; set; }
     [Id(39)] public double BatteryRate { get; set; } = SelfMath.AlonePerHour;
+    [Id(45)] public Dictionary<Guid, PlaceTie> Places { get; set; } = new();
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

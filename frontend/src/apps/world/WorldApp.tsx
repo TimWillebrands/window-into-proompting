@@ -583,6 +583,11 @@ function SelfLines({ self }: { self: SelfSummary }) {
                 {hunger ? ` · ${hunger}` : null}
                 {self.ailing ? ' · unwell' : null}
             </div>
+            {self.haunts && self.haunts.length > 0 ? (
+                <div style={{ color: '#666' }}>
+                    haunts: {self.haunts.join(', ')}
+                </div>
+            ) : null}
             {self.threads && self.threads.length > 0 ? (
                 <details>
                     <summary style={{ cursor: 'pointer', color: '#003399' }}>

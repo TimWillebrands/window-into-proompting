@@ -140,5 +140,5 @@ Probe `Body_SpeakingAB`, same day, Haiku as the voice: 2 people × 3 openers × 
 - Breaking down: see ADR 0061.
 - Others seeing it, and turning in early: see ADR 0064.
 - Counters with someone behind them who earns.
-- Attachment to the Place where you eat (ADR 0057's open end).
+- Attachment to the Place where you eat (ADR 0057's open end): see ADR 0065.
 - The Social battery recharging by who is around: see ADR 0063.

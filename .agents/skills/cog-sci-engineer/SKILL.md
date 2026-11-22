@@ -67,6 +67,7 @@ Paths are from the repo root. Find symbols by name, since line numbers drift.
   - `SelfMath` in `backend/World/Self/PersonaSelfGrain.cs` (battery, valence, availability, threads)
   - `Bio` in `backend/World/Self/Reserves.cs` (fed, rested, Distress); what a Place gives back in `backend/World/Places/Sustenance.cs`
   - `Ties` in `PersonaTiesGrain.cs`
+  - `Belonging` in `backend/World/Self/Belonging.cs` (warmth per Place on the Persona's side, Haunts, ADR 0065)
   - `MomentAppraisal.cs`, `FollowThrough.cs`, `ChatAttention.cs`
   - rendered by `backend/Services/ResponsePipeline/LivedSelf.cs`
 - **Slow learning**:

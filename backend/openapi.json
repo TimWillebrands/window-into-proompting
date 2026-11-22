@@ -13410,6 +13410,15 @@
           "ailing": {
             "type": "boolean",
             "default": false
+          },
+          "haunts": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

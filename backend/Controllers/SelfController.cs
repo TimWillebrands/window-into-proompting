@@ -24,6 +24,10 @@ public sealed class SelfController(IGrainFactory grains) : ControllerBase
             grains.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, c.Id)).GetStateAsync()));
         var places = grains.GetGrain<World.Places.IPlacesGrain>(partyId);
         var asleep = await Task.WhenAll(personas.Select(c => places.IsAsleepAsync(c.Id)));
+        var known = (await places.GetSnapshotAsync()).Places.ToDictionary(p => p.Id);
+        List<string> Haunts(Guid personaId, SelfState s) => Belonging
+            .Haunts(s.Places, now, id => !known.TryGetValue(id, out var place) || World.Places.Homes.LivesIn(place, personaId))
+            .Select(id => known[id].Name).ToList();
         return Ok(personas.Select((c, i) => (c, s: states[i], sleeping: asleep[i], body: Bio.Now(states[i], now))).Select(x => new SelfSummary(
                 x.c.Id, x.c.Name, x.s.Mood, Bio.Energy(x.s.Energy, x.body), x.s.Preoccupation,
                 Math.Round(SelfMath.Battery(x.s, now), 2),
@@ -33,7 +37,8 @@ public sealed class SelfController(IGrainFactory grains) : ControllerBase
                 x.s.Threads,
                 x.body.Felt && !x.sleeping ? Math.Round(x.body.Fed, 2) : null,
                 x.body.Felt && !x.sleeping ? Math.Round(x.body.Rested, 2) : null,
-                x.body.Felt && !x.sleeping && x.body.Ailing))
+                x.body.Felt && !x.sleeping && x.body.Ailing,
+                Haunts(x.c.Id, x.s)))
             .ToList());
     }
 
@@ -63,4 +68,5 @@ public sealed record SelfSummary(
     List<string> Threads,
     double? Fed = null,
     double? Rested = null,
-    bool Ailing = false);
+    bool Ailing = false,
+    List<string>? Haunts = null);

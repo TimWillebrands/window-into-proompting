@@ -65,7 +65,7 @@ public sealed class PersonaLifeGrain(
             var days = await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).GetFamiliarityAsync(personaId, here.Id);
             var shift = Places.ArenaFit.Felt(better, Places.ArenaFit.Novelty(days, changed));
             logger.LogInformation("Arena {Persona} at {Place}: p={Better:F2} known {Days} d{Changed} → {Shift:F2}", name, here.Name, better, days, changed ? ", changed" : "", shift);
-            await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).ShiftValenceAsync(shift, here.Name);
+            await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).FeelAtAsync(here.Id, here.Name, shift, better);
         }
         catch (Exception ex) { logger.LogDebug(ex, "Taking in {Place} failed for {Persona}", here.Name, name); }
     }

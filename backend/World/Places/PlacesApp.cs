@@ -147,7 +147,12 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
 
         var stayed = self.IsWalking ? TimeSpan.Zero : ctx.Now - DateTimeOffset.FromUnixTimeMilliseconds(self.ArrivedAt);
         var awayHere = !self.IsWalking && here is { Kind: PlaceKinds.Locale };
-        var restless = stayed > ArenaFit.Restless(ctx.Fit is { } fit && fit.PlaceId == self.PlaceId ? fit.Better : null) && !awayHere && tired < Self.Tiredness.Flagging;
+        var lived = await SelfOf(ctx).GetStateAsync();
+        var feltAt = DateTimeOffset.Now;
+        var valence = Self.SelfMath.Valence(lived, feltAt);
+        var stay = ArenaFit.Restless(ctx.Fit is { } fit && fit.PlaceId == self.PlaceId ? fit.Better : null);
+        if (here is not null && !here.LivesIn(ctx.Self.Id)) stay = Self.Belonging.Stay(stay, Self.Belonging.Warmth(lived.Places, here.Id, feltAt));
+        var restless = stayed > stay && !awayHere && tired < Self.Tiredness.Flagging;
         if (awayHere) sb.AppendLine($"Heading off now means you're no longer {self.AwayAs ?? "away"}.");
         else if (stayed > TimeSpan.FromMinutes(20)) sb.AppendLine($"You've been {(here?.LivesIn(ctx.Self.Id) == true ? "at home" : "here")} for {WorldStream.Ago(self.ArrivedAt, ctx.Now).Replace(" ago", "")}.");
         var nowMsG = ctx.Now.ToUnixTimeMilliseconds();
@@ -179,6 +184,10 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         var myDistrict = here?.DistrictId ?? snapshot.Places.FirstOrDefault(p => p.Id == self.CameFrom)?.DistrictId ?? Districts.Centre;
         var further = new List<(Place Place, List<string> There)>();
         var peopledOut = !self.IsWalking && reserves.Battery < Self.SelfMath.PeopledOut && others.Any(o => !o.IsWalking && !o.Asleep);
+        var runDown = Self.Belonging.RunDown(valence, reserves);
+        var well = Self.Belonging.Well(valence, reserves);
+        var visited = well ? await places.GetVisitDaysAsync(ctx.Self.Id) : null;
+        var unknown = new List<int>();
         foreach (var place in snapshot.Places.Where(p => p.Id != (self.DestPlaceId ?? self.PlaceId)))
         {
             if (place.Kind == PlaceKinds.Locale || place.Dormant || place.Vacated) continue;
@@ -228,30 +237,49 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
             if (keyed) label += " (you have a key)";
             var pull = (there.Count > 0 ? 1 : 0) + (!mine && restless ? 1 : 0) + (stale ? 2 : 0) - (awayHere ? 1 : 0);
             string? meets = null;
+            var bodily = false;
             if (fed is not null)
             {
                 label += $" ({Sustenance.Why(fed)})";
                 pull += Self.Bio.Pull(hunger) - 1;
                 meets = Self.Bio.Food;
+                bodily = true;
             }
             if (mine && tired == Self.Tiredness.Spent && !self.IsWalking)
             {
                 label += " (you're dead on your feet)";
                 pull += Self.Bio.Pull(tired) - 1;
                 meets ??= Self.Bio.Rest;
+                bodily = true;
             }
             else if (mine && reserves is { Felt: true, Ailing: true } && !self.IsWalking)
             {
                 label += " (you're not well)";
                 pull += 2;
                 meets ??= Self.Bio.Rest;
+                bodily = true;
             }
             else if (mine && peopledOut)
             {
                 label += " (you're peopled out)";
                 pull += 1;
+                bodily = true;
             }
+            var warmth = mine ? 0 : Self.Belonging.Warmth(lived.Places, place.Id, feltAt);
+            if (Self.Belonging.IsPutOff(warmth)) pull -= 1;
+            else if (!bodily && !mine && Self.Belonging.IsHaunt(warmth))
+            {
+                label += Self.Belonging.YoursHook;
+                if (runDown) pull += 1;
+            }
+            else if (!bodily && visited is not null && !mine && place.Kind == PlaceKinds.Public && !visited.ContainsKey(place.Id) && !lived.Places.ContainsKey(place.Id))
+                unknown.Add(affordances.Count);
             affordances.Add(new Affordance(Id, label, pull, place.Id, "go", Meets: meets));
+        }
+        if (unknown.Count > 0)
+        {
+            var i = unknown[Random.Shared.Next(unknown.Count)];
+            affordances[i] = affordances[i] with { Label = affordances[i].Label + Self.Belonging.NewHook, Priority = affordances[i].Priority + 1 };
         }
         if (elsewhere.Count > 0) sb.AppendLine($"Elsewhere — {string.Join("; ", elsewhere)}.");
         var (furtherLine, trams) = FurtherAway(Id, further, snapshot.Districts);
@@ -388,12 +416,13 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
                     && at.Furni.FirstOrDefault(f => f.Id == verb[3..]) is { } thing && Sustenance.Feeds(at, thing) is { } feed
                     ? Self.Bio.Relief(await SelfOf(ctx).EatAsync(feed.Amount), feed.Amount)
                     : 0.5;
-                if (done.Take.Length == 0 && relief > 0.5) await SelfOf(ctx).ShiftValenceAsync(relief, done.Place);
+                if (done.Take.Length == 0 && relief > 0.5) await SelfOf(ctx).FeelAtAsync(target, done.Place, relief, relief);
                 if (done.Take.Length > 0)
                 {
                     var self = grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id));
                     await self.AddOpenerAsync($"{done.Take} ({done.Thing}, {done.Place})");
-                    await self.ShiftValenceAsync(Math.Max(0.6, relief), done.Place);
+                    var took = Math.Max(0.6, relief);
+                    await self.FeelAtAsync(target, done.Place, took, took);
                     if (memory is not null)
                         _ = memory.CaptureAsync(new Services.Memory.Moment(ctx.PartyId, Services.Memory.MomentSources.Places, Guid.NewGuid(),
                             new List<Services.Memory.MomentLine> { new(ctx.Self.Id, $"[{ctx.Self.Name} {done.Summary}]", ctx.Now.ToUnixTimeMilliseconds()) }, 0,
@@ -449,7 +478,8 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         }
         var me = SelfOf(ctx);
         var before = await me.EatAsync(fare.Feeds);
-        await me.ShiftValenceAsync(Self.Bio.Relief(before, fare.Feeds), fare.Cooked && place.LivesIn(ctx.Self.Id) ? "your kitchen" : place.Name);
+        var relief = Self.Bio.Relief(before, fare.Feeds);
+        await me.FeelAtAsync(place.Id, fare.Cooked && place.LivesIn(ctx.Self.Id) ? "your kitchen" : place.Name, relief, relief);
         var cook = ctx.Self.Name.Split(' ')[0];
         foreach (var guest in guests.Where(g => !g.IsHuman))
         {

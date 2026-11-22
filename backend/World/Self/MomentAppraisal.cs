@@ -24,11 +24,16 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
         ["worse"] = "more distant or put off",
     };
 
-    private async Task<string> WhereAsync(Moment moment)
+    private async Task<(string Where, Guid? PlaceId)> WhereAsync(Moment moment)
     {
-        if (moment.Source == MomentSources.Board) return "the Board";
+        if (moment.Source == MomentSources.Board) return ("the Board", null);
         var room = (await grains.GetGrain<IPartyGrain>(moment.PartyId).GetChatGroups()).FirstOrDefault(r => r.Id == moment.ThreadId);
-        return room is null ? "a conversation" : room.Kind == "dm" ? $"your chat with {room.Name}" : $"#{room.Name}";
+        if (room is null) return ("a conversation", null);
+        if (room.Kind == ChatGroupKinds.Direct) return ($"your chat with {room.Name}", null);
+        var placeId = room.Kind == ChatGroupKinds.Place
+            ? await grains.GetGrain<Places.IPlacesGrain>(moment.PartyId).GetPlaceOfTalkRoomAsync(room.Id)
+            : null;
+        return ($"#{room.Name}", placeId);
     }
 
     public async Task AppraiseAsync(Moment moment, IReadOnlySet<Guid> who)
@@ -40,7 +45,7 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
         appraised[moment.ThreadId] = Appraisal.Key(moment.Lines[^1]);
         try
         {
-            var where = await WhereAsync(moment);
+            var (where, placeId) = await WhereAsync(moment);
             var names = moment.Present.ToDictionary(p => p.Id, p => p.Name);
             var transcript = string.Join("\n", lines.TakeLast(MaxLines)
                 .Select(l => $"{names.GetValueOrDefault(l.SenderId, "Someone")}: {WorldStream.Clip(l.Text, 240)}"));
@@ -59,7 +64,11 @@ public sealed class MomentAppraisal(ISystemOneJudge judge, IGrainFactory grains,
             var answers = await judge.AskAsync(transcript, questions, cts.Token);
             var shifts = personas.Select(p => (p, Better: Appraisal.Better(answers.Choices.GetValueOrDefault(p.Id.ToString("N"))))).ToList();
             foreach (var (p, better) in shifts)
-                await grains.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(moment.PartyId, p.Id)).ShiftValenceAsync(better, where);
+            {
+                var self = grains.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(moment.PartyId, p.Id));
+                if (placeId is { } at) await self.FeelAtAsync(at, where, better, better);
+                else await self.ShiftValenceAsync(better, where);
+            }
             foreach (var (p, q) in pairs)
                 await grains.GetGrain<IPersonaTiesGrain>(WorldKeys.Life(moment.PartyId, p.Id))
                     .ShiftWarmthAsync(q.Id, Appraisal.Better(answers.Choices.GetValueOrDefault($"{p.Id:N}-{q.Id:N}")));

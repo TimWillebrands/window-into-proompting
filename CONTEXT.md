@@ -168,6 +168,14 @@ _Avoid_: missing feature, request, complaint.
 How a **Place** sits with *this* **Persona**: System One reads it off the person and the place together, so the same bare room lifts one and wears on another. Taken in once per arrival, or when the place has changed, in **Initiative**'s own call. It moves mood by as much as it's unexpected (a new place fully, home barely) and sets how soon staying makes them restless. Its facts are the **Situation**'s feel: light, air, what's in it. See [ADR 0057](docs/adr/0057-arena-fit.md).
 _Avoid_: room quality, comfort score, ambience.
 
+**Belonging**:
+How a **Place** has come to sit with *this* **Persona** over time, kept on their side as a warmth that good and bad times there move (an **Arena fit**, a **Take**, a meal, a talk in its room), saturating and fading over about ten days. Unlike **Arena fit** (one arrival) it accumulates; unlike **Role** (counted visits) it says how it went. Said where they are, it shapes which places pull and how long staying holds them. See [ADR 0065](docs/adr/0065-places-become-yours.md).
+_Avoid_: attachment score, place rating, loyalty.
+
+**Haunt**:
+A **Place** a **Persona**'s **Belonging** is strong for: "one of your places". A run-down body is pulled back to it; a well one is only reminded, and offered somewhere it has never been. Their own **Home** is never one.
+_Avoid_: favourite, regular spot, third place.
+
 **Recall**:
 Surfacing past knowing into a **Persona**'s present beat — the backward-facing instance of **Relevance Realization**, ranked by **Salience**. The **Decision phase** receives what surfaces and carries at most one **Recollection** into the **Speaking phase**.
 _Avoid_: retrieval, query, lookup, RAG.

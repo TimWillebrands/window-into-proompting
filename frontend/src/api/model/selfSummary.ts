@@ -32,4 +32,6 @@ export interface SelfSummary {
      */
     rested?: number | string | null;
     ailing?: boolean;
+    /** @nullable */
+    haunts?: string[] | null;
 }
