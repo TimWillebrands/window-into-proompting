@@ -25,7 +25,13 @@ export default function NotificationTrayButton({
             className="nc-tray-button"
             data-unread={unread > 0 || undefined}
         >
-            <svg aria-hidden="true" fill="currentColor" viewBox="0 0 16 16" width="14" height="14">
+            <svg
+                aria-hidden="true"
+                fill="#fff"
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+            >
                 <rect x="2" y="2.5" width="12" height="3" rx="1" />
                 <rect x="2" y="6.5" width="12" height="3" rx="1" opacity=".8" />
                 <rect

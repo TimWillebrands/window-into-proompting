@@ -576,6 +576,10 @@ body {
         opacity: 0;
         transform: translateY(-10px) scale(0.97);
     }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .nc-center {
@@ -727,6 +731,10 @@ body {
         opacity: 0;
         transform: translateX(28px);
     }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .nc-banners[data-fanned] .nc-banner-list {
@@ -736,6 +744,7 @@ body {
 }
 
 .nc-banners[data-fanned] .nc-banner {
+    align-self: stretch;
     transform: none;
     opacity: 1;
     pointer-events: auto;
