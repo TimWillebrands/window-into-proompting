@@ -56,7 +56,7 @@ public partial class PlacesTest
     }
 
     [Fact]
-    public async Task FromElsewhere_ARunDownBodyIsPulledToItsHaunt_AndAWellOneOnlyReminded()
+    public async Task FromElsewhere_ARunDownBodyIsPulledToItsHaunt_AndAWellOrTalkedOutOneOnlyReminded()
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
         var (_, app, cafe) = await AtTheLobbyAsync(partyId, denise);
@@ -64,7 +64,8 @@ public partial class PlacesTest
 
         await FeelAsync(partyId, denise, cafe, 1, 4, mood: 0.9);
         var well = GoTo(await SeenAsync(app, partyId, denise, Felt()), cafe);
-        var runDown = GoTo(await SeenAsync(app, partyId, denise, Felt() with { Battery = 0.3 }), cafe);
+        var runDown = GoTo(await SeenAsync(app, partyId, denise, Felt(rested: 0.3)), cafe);
+        var talkedOut = GoTo(await SeenAsync(app, partyId, denise, Felt() with { Battery = 0.1 }), cafe);
 
         Assert.DoesNotContain(Belonging.YoursHook, before.Label);
         Assert.StartsWith("Go to the Café", well.Label);
@@ -72,10 +73,12 @@ public partial class PlacesTest
         Assert.EndsWith(Belonging.YoursHook, runDown.Label);
         Assert.Equal(before.Priority, well.Priority);
         Assert.Equal(well.Priority + 1, runDown.Priority);
+        Assert.EndsWith(Belonging.YoursHook, talkedOut.Label);
+        Assert.Equal(well.Priority, talkedOut.Priority);
     }
 
     [Fact]
-    public async Task AWellBody_IsOfferedExactlyOnePlaceItHasNeverBeen()
+    public async Task AWellBody_IsOfferedExactlyOnePlaceItHasNotBeenToInAWhile()
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
         var (places, app, _) = await AtTheLobbyAsync(partyId, denise);
@@ -88,7 +91,7 @@ public partial class PlacesTest
         Assert.DoesNotContain(flat, a => a.Label.Contains(Belonging.NewHook));
         Assert.DoesNotContain(tired, a => a.Label.Contains(Belonging.NewHook));
         var fresh = Assert.Single(well, a => a.Label.Contains(Belonging.NewHook));
-        Assert.EndsWith(Belonging.NewHook, fresh.Label);
+        Assert.EndsWith(" (you haven't been in a while)", fresh.Label);
         Assert.Equal(flat.Single(a => a.Verb == "go" && a.TargetId == fresh.TargetId).Priority + 1, fresh.Priority);
         var visited = await places.GetVisitDaysAsync(denise);
         Assert.False(visited.ContainsKey(fresh.TargetId!.Value));
@@ -124,6 +127,21 @@ public partial class PlacesTest
 
         Assert.Equal("Go to the Café (to get something to eat)", after.Label);
         Assert.Equal(before.Priority, after.Priority);
+    }
+
+    [Fact]
+    public async Task LivesIn_IsTrueOnlyForTheirOwnHome()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var snapshot = await places.GetSnapshotAsync();
+        var home = snapshot.Places.Single(p => p.OwnerId == denise);
+        var cafe = snapshot.Places.Single(p => p.Name == "the Café");
+
+        Assert.True(await places.LivesInAsync(home.Id, denise));
+        Assert.False(await places.LivesInAsync(home.Id, pieter));
+        Assert.False(await places.LivesInAsync(cafe.Id, denise));
+        Assert.False(await places.LivesInAsync(Guid.NewGuid(), denise));
     }
 
     [Fact]

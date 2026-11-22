@@ -173,7 +173,7 @@ How a **Place** has come to sit with *this* **Persona** over time, kept on their
 _Avoid_: attachment score, place rating, loyalty.
 
 **Haunt**:
-A **Place** a **Persona**'s **Belonging** is strong for: "one of your places". A run-down body is pulled back to it; a well one is only reminded, and offered somewhere it has never been. Their own **Home** is never one.
+A **Place** a **Persona**'s **Belonging** is strong for: "one of your places". A run-down body is pulled back to it; a well one is only reminded, and offered somewhere it hasn't been in a while. Their own **Home** is never one.
 _Avoid_: favourite, regular spot, third place.
 
 **Recall**:
@@ -447,7 +447,7 @@ How a Persona comes across to whoever stands right next to them: one line of up 
 _Avoid_: vibe, presence, reputation (that's earned, an Aura is declared).
 
 **Bearing**:
-What a **Body** gives away about itself to whoever stands right next to them: "looks unwell", "looks dead on their feet", "looks like they haven't eaten all day". An **Aura** is declared, a Bearing is given away; both reach only the same Spot. Only **Distress** and Ailing show, and a Bearing fades after two hours unless a Life turn finds it still true. See [ADR 0064](docs/adr/0064-bodies-read-each-other.md).
+What a **Body** gives away about itself to whoever stands right next to them: "looks unwell", "looks dead on their feet", "looks like they haven't eaten all day". An **Aura** is declared, a Bearing is given away; both reach only the same Spot. Only **Distress** and Ailing show, and a Bearing fades after two hours unless a Life turn finds it still true. Eating clears looking famished, and a lie-down or turning in clears looking dead on their feet; a sleeper shows none. See [ADR 0064](docs/adr/0064-bodies-read-each-other.md).
 _Avoid_: status, condition, health bar.
 
 **Figure**:

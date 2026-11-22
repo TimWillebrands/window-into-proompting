@@ -205,6 +205,9 @@ public sealed partial class PlacesGrain(
     public Task<bool> IsAsleepAsync(Guid participantId)
         => Task.FromResult(state.State.Bodies.TryGetValue(participantId, out var b) && b.Asleep);
 
+    public Task<bool> LivesInAsync(Guid placeId, Guid participantId)
+        => Task.FromResult(Find(placeId) is { } place && place.LivesIn(participantId));
+
     public async Task<bool> TurnInAsync(Guid participantId)
     {
         await SettleAsync();
@@ -215,8 +218,24 @@ public sealed partial class PlacesGrain(
         var (bed, wake) = WindowFor(participantId, now);
         body.TurnedInUntil = Sleep.TurnInUntil(now, local.Hour * 60 + local.Minute, bed, wake);
         body.WokenUntil = null;
+        Ease(body, Bearing.Spent);
         await SaveAsync();
         if (body.SpotId != "bed") await MoveAsync(participantId, home.Id, "bed");
+        return true;
+    }
+
+    public async Task EaseAsync(Guid participantId, string bearing)
+    {
+        if (!state.State.Bodies.TryGetValue(participantId, out var body) || !Ease(body, bearing)) return;
+        await SaveAsync();
+        await PublishAsync(body);
+    }
+
+    private static bool Ease(Body body, string bearing)
+    {
+        if (body.Bearing != bearing) return false;
+        body.Bearing = null;
+        body.BearingUntil = null;
         return true;
     }
 
@@ -798,6 +817,7 @@ public sealed partial class PlacesGrain(
         }
         body.Activity = WorldStream.Clip(busy, 60);
         body.ActivityUntil = now + (long)Self.Bio.MealTakes.TotalMilliseconds;
+        Ease(body, Bearing.Famished);
         await SaveAsync();
         await PublishAsync(body);
         return true;
@@ -1127,7 +1147,7 @@ public sealed partial class PlacesGrain(
             sb.Append(home ? " Nobody else is home." : " Nobody else is here.");
         else
             sb.Append(" Here: ").Append(string.Join(", ", others.Select(o => o.SpotId == body.SpotId
-                ? $"{o.Name} (right next to you{(o.Pose is null ? string.Empty : $", {PostureAt(place, o, body.ParticipantId)}")}{Doing(o)}{(o.Aura is { Length: > 0 } aura ? $"; up close: {aura.TrimEnd('.')}" : string.Empty)}{(Bearing.Shown(o, Now()) is { } bearing ? $"; {bearing}" : string.Empty)})"
+                ? $"{o.Name} (right next to you{(o.Pose is null ? string.Empty : $", {PostureAt(place, o, body.ParticipantId)}")}{Doing(o)}{(o.Aura is { Length: > 0 } aura ? $"; up close: {aura.TrimEnd('.')}" : string.Empty)}{(!o.Asleep && Bearing.Shown(o, Now()) is { } bearing ? $"; {bearing}" : string.Empty)})"
                 : $"{o.Name} ({PostureAt(place, o, body.ParticipantId)}{Doing(o)})"))).Append('.');
         var notable = place?.Furni.Select(f => FurniRules.Notable(f, Now())).OfType<string>().Take(2).ToList();
         if (notable is { Count: > 0 }) sb.Append(" Around you: ").Append(string.Join("; ", notable)).Append('.');
@@ -1240,10 +1260,12 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("GetAsleepAsync")] Task<List<Guid>> GetAsleepAsync();
 
     [AlwaysInterleave, Alias("IsAsleepAsync")] Task<bool> IsAsleepAsync(Guid participantId);
+    [AlwaysInterleave, Alias("LivesInAsync")] Task<bool> LivesInAsync(Guid placeId, Guid participantId);
 
     [Alias("TurnInAsync")] Task<bool> TurnInAsync(Guid participantId);
 
     [Alias("SetBearingAsync")] Task SetBearingAsync(Guid participantId, string? bearing);
+    [Alias("EaseAsync")] Task EaseAsync(Guid participantId, string bearing);
     [AlwaysInterleave, Alias("GetBodyAsync")] Task<Body?> GetBodyAsync(Guid participantId);
 
     [Alias("SetVoiceAsync")] Task SetVoiceAsync(Guid participantId, string volume, Guid? to);

@@ -27,16 +27,19 @@ what has stopped working.
 2. **It is kept on the Body** (`Body.Bearing`, `BearingUntil`) for 2 hours (`Bio.FeltFor`). A Life turn works it out
    right after settling the Reserves and writes it (`IPlacesGrain.SetBearingAsync`) only when it differs from what
    shows or has under an hour left. A Body that shows nothing and has nothing to show costs no call. Past
-   `BearingUntil` it counts as absent everywhere, so a paused World shows no stale one.
+   `BearingUntil` it counts as absent everywhere, so a paused World shows no stale one. Meeting the need clears it
+   at once: eating, or being fed as a guest, clears the famished one; a lie-down or turning in clears the spent one.
+   Looking unwell stays until a Life turn finds it gone. If writing it fails, the turn keeps its Reserves.
 3. **It reaches only the same Spot**, like an Aura: "Hana (right next to you, sitting on the sofa; up close: …; looks
-   dead on their feet)". Nothing across the room.
+   dead on their feet)". Nothing across the room, and nothing from someone asleep.
 4. **It is something to ask about.** With nobody talking lately, the talk option for someone next to you with a
-   Bearing is "Ask Hana if they're all right, right here (looks dead on their feet)". It replaces only the generic
+   Bearing who is awake is "Ask Hana if they're all right, right here (looks dead on their feet)". It replaces only the generic
    "Ask … what they're up to"; picking up what was just said, a witnessed Happening and an opener still come first.
 5. **A host can cook for a guest.** At their own Home, not hungry themself, with someone in the Place awake, not
    walking and showing the famished Bearing: "Make something to eat for Hana (they look like they haven't eaten all
    day)", pull 2, no `Meets` (it isn't the host's Distress). It is the home-cooking fare, so it feeds everyone there
-   as cooking always did. The cook eats too; the summary reads "makes lunch for Hana at home".
+   as cooking always did. The cook eats too; the summary reads "makes lunch for Hana at home". The guest's Bearing
+   clears, so the offer isn't made again.
 6. **Bed follows the body.** At their own Home, awake, spent or ailing, from 20:00 to 05:00: "Turn in early", meets
    tiredness, pull 5 (`Bio.Seated`) when spent and 3 when only ailing. It walks them to bed and sets
    `Body.TurnedInUntil` to tonight's own bedtime plus 15 minutes, at most 6 hours away. Until then it is night for
@@ -61,8 +64,8 @@ what has stopped working.
 
 - One Places call on the Life turns where a Bearing appears, changes, clears or is renewed (about once an hour while it
   lasts). No new model call.
-- On the wire: `Body.bearing`, `bearingUntil`, `turnedInUntil`. In code: `Bearing`, `Hooks.AllRight`,
-  `Sleep.TurnInUntil`, `Sleep.TurnedIn`, `Sustenance.Summary(…, forThem)`.
+- On the wire: `Body.bearing`, `bearingUntil`, `turnedInUntil`. In code: `Bearing`, `IPlacesGrain.EaseAsync`,
+  `Hooks.AllRight`, `Sleep.TurnInUntil`, `Sleep.TurnedIn`, `Sustenance.Summary(…, forThem)`.
 - A Bearing can now steer talk: "are you all right?" could become a motif in a house where someone is ill for days.
   Stale words should catch it; watch the first week of `say` labels.
 - A host who keeps cooking for a famished guest keeps the guest from ever looking for food elsewhere. That is the

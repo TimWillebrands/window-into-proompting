@@ -9,10 +9,9 @@ public static class Belonging
     public const double PutOff = -0.4;
     public const double RunDownValence = -0.2;
     public const double WellValence = 0.2;
-    public const double LowBattery = 0.5;
     public const int ShownHaunts = 3;
     public const string YoursHook = " (one of your places)";
-    public const string NewHook = " (you've never been)";
+    public const string NewHook = " (you haven't been in a while)";
     public const string HauntLine = "This has become one of your places.";
     public const string PutOffLine = "You haven't had good times here lately.";
 
@@ -36,7 +35,7 @@ public static class Belonging
         tie.Warmth = Step(Warmth(tie, now), better);
         tie.At = now.ToUnixTimeMilliseconds();
         while (places.Count > Kept)
-            places.Remove(places.MinBy(p => Math.Abs(Warmth(p.Value, now))).Key);
+            places.Remove(places.Where(p => p.Key != placeId).MinBy(p => Math.Abs(Warmth(p.Value, now))).Key);
     }
 
     public static bool IsHaunt(double warmth) => warmth >= Haunt;
@@ -47,7 +46,7 @@ public static class Belonging
         => home ? null : IsHaunt(warmth) ? HauntLine : IsPutOff(warmth) ? PutOffLine : null;
 
     public static bool RunDown(double valence, Reserves body)
-        => valence <= RunDownValence || body.Battery < LowBattery || body.Tiredness >= Tiredness.Flagging || body is { Felt: true, Ailing: true };
+        => valence <= RunDownValence || body.Tiredness >= Tiredness.Flagging || body is { Felt: true, Ailing: true };
 
     public static bool Well(double valence, Reserves body)
         => valence >= WellValence && body.Tiredness <= Tiredness.Fine && body.Hunger <= Hunger.Peckish && !(body is { Felt: true, Ailing: true });

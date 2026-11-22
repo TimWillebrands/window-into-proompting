@@ -27,10 +27,11 @@ that lasts (Jaeger et al. 2024). A body that bounces back the moment it is fed h
 3. **A strained body breaks down.** `Bio.Breaking`: Strain at least 0.5, not ailing, and at least 3 days since they
    last got well. Among those due an own Happening (the 6-hour rest and the exclusion of claimed Players stay), a
    breaking body is picked first, its kind is the body kind, and the writer is told how they have treated their body
-   ("they've been running themselves down: going hungry for hours and short on sleep", `Bio.Lately`).
+   ("they've been running themselves down, going hungry for hours and short on sleep", `Bio.Lately`).
 4. **Prose and body agree.** Whenever an own Happening of the body kind is written, forced or drawn, the Persona
    becomes **Ailing** (`IPersonaSelfGrain.AilAsync`): `AilingSince` is set and Strain drops to 0.2. Logged as
-   `Ailing <name> (strain 0.62)`.
+   `Ailing <name> (strain 0.62)`. In the 3 days after they last got well (`Bio.Mending`) `AilAsync` refuses, and the
+   clock never draws the body kind for them (`IPersonaSelfGrain.MendingAsync`).
 5. **Ailing takes more out of them.** Felt rested is capped at 0.38, so Energy reads low and tiredness is at least
    flagging; the stored value drains on underneath. Tiring runs at 1.5×. The Right now says "You're not well today:
    everything takes more out of you." A lie-down stands out at any hour: it can't lift what they feel, but it keeps the stored value from
@@ -57,7 +58,8 @@ that lasts (Jaeger et al. 2024). A body that bounces back the moment it is fed h
 
 ## Consequences
 
-- One `BreakingAsync` call per due Persona every 40 minutes, one state write when someone ails. No new model call.
+- One `BreakingAsync` call per due Persona every 40 minutes, one `MendingAsync` call for the one picked when not
+  forced, one state write when someone ails. No new model call.
 - On the wire: `SelfSummary.ailing`. In code: `Reserves.Ailing`, `SelfState.Strain`, `AilingSince`, `AiledAt`,
   `OwnHappenings.Body`, `Bio.Helps(Reserves, …)`.
 - At deploy every body starts with no Strain and well.
@@ -65,7 +67,7 @@ that lasts (Jaeger et al. 2024). A body that bounces back the moment it is fed h
   never moves, nights after more than a day without a Life turn don't count, and ailing never makes an unfelt body
   felt. `AilAsync` on a body that was never lived does nothing.
 - A drawn body Happening now ails someone who was fine. That's one kind in eight, at most one Persona every 40 minutes
-  and each at most once per 6 hours, then 3 days immune.
+  and each at most once per 6 hours, then 3 days immune: in those days the body kind isn't drawn for them.
 - The rates (0.25, 0.02, 0.08, the 0.5 threshold, 0.38, 1.5×, 12 hours, 3 days) are guesses. Read a week of `Ailing`
   and `Well again` lines beside `Distress` before tuning.
 - No world-level test drives the clock's own Happening: it fires only after 40 minutes of the clock's own time and

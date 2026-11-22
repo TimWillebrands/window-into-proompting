@@ -215,9 +215,9 @@ public class BreakingDownTest
     {
         Assert.Null(Bio.Lately(Lived(Noon, strain: 0.1)));
         Assert.Equal("they've been wearing themselves thin", Bio.Lately(Lived(Noon, strain: 0.35)));
-        Assert.Equal("they've been running themselves down: going hungry for hours and short on sleep",
+        Assert.Equal("they've been running themselves down, going hungry for hours and short on sleep",
             Bio.Lately(Lived(Noon, fed: 0.2, rested: 0.3, strain: 0.6)));
-        Assert.Equal("they've been running themselves down: short on sleep", Bio.Lately(Lived(Noon, rested: 0.1, strain: 0.6)));
+        Assert.Equal("they've been running themselves down, short on sleep", Bio.Lately(Lived(Noon, rested: 0.1, strain: 0.6)));
     }
 
     [Fact]
@@ -245,13 +245,36 @@ public class BreakingDownTest
     }
 
     [Fact]
+    public void InTheThreeDaysAfterGettingWell_TheyCannotAilAgain_AndNoBodyHappeningIsDrawnForThem()
+    {
+        var s = Lived(Noon);
+        s.AiledAt = Ms(Noon.AddHours(-1));
+
+        Assert.True(Bio.Mending(s, Ms(Noon)));
+        Assert.False(Bio.Ail(s, Noon));
+        Assert.Equal(0L, s.AilingSince);
+        Assert.False(Bio.Mending(s, Ms(Noon.AddHours(-1) + Bio.Mended)));
+        Assert.True(Bio.Ail(s, Noon.AddHours(-1) + Bio.Mended));
+
+        var random = new Random(3);
+        var none = new List<int>();
+        var all = Enumerable.Range(0, OwnHappenings.Kinds.Length).ToList();
+        for (var i = 0; i < 200; i++)
+        {
+            Assert.NotEqual(OwnHappenings.Body, OwnHappenings.KindFor(false, none, random, mending: true));
+            Assert.NotEqual(OwnHappenings.Body, OwnHappenings.KindFor(false, all, random, mending: true));
+        }
+        Assert.Contains(OwnHappenings.Body, Enumerable.Range(0, 200).Select(_ => OwnHappenings.KindFor(false, none, random)));
+    }
+
+    [Fact]
     public void OwnHappenings_Material_CarriesHowTheyHaveTreatedTheirBody()
     {
         var day = Lived(Noon, fed: 0.2, strain: 0.6);
 
         var material = OwnHappenings.Material("Justin", "A notary.", day, Noon, Bio.Lately(day));
 
-        Assert.Contains("How they've treated their body lately: they've been running themselves down: going hungry for hours.", material);
+        Assert.Contains("How they've treated their body lately: they've been running themselves down, going hungry for hours.", material);
         Assert.DoesNotContain("their body lately", OwnHappenings.Material("Justin", "A notary.", day, Noon));
     }
 }

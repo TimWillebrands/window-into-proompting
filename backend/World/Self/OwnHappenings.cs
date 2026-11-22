@@ -35,14 +35,15 @@ public static class OwnHappenings
         return from[random.Next(from.Count)].Id;
     }
 
-    public static int PickKind(IReadOnlyCollection<int> lately, Random random)
+    public static int PickKind(IReadOnlyCollection<int> lately, Random random, bool mending = false)
     {
-        var fresh = Enumerable.Range(0, Kinds.Length).Where(i => !lately.Contains(i)).ToList();
-        return fresh.Count == 0 ? random.Next(Kinds.Length) : fresh[random.Next(fresh.Count)];
+        var open = Enumerable.Range(0, Kinds.Length).Where(i => !mending || i != Body).ToList();
+        var fresh = open.Where(i => !lately.Contains(i)).ToList();
+        return fresh.Count == 0 ? open[random.Next(open.Count)] : fresh[random.Next(fresh.Count)];
     }
 
-    public static int KindFor(bool breaking, IReadOnlyCollection<int> lately, Random random)
-        => breaking ? Body : PickKind(lately, random);
+    public static int KindFor(bool breaking, IReadOnlyCollection<int> lately, Random random, bool mending = false)
+        => breaking ? Body : PickKind(lately, random, mending);
 
     public static string Brief(string name, string kind) => $$"""
 You are the narrator of {{name}}'s life away from the screen: their family, home, work, body and the people in their life outside the people they chat with. Let ONE thing happen to them now.

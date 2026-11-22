@@ -323,7 +323,7 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         var openers = (await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, ctx.Self.Id)).GetStateAsync()).Openers;
         if (Self.Hooks.Pick(openers) is { } story) return Self.Hooks.Tell(who, story);
         var nowMs = ctx.Now.ToUnixTimeMilliseconds();
-        if (nearby.FirstOrDefault(o => Bearing.Shown(o, nowMs) is not null) is { } worn) return Self.Hooks.AllRight(worn.Name, Bearing.Shown(worn, nowMs)!);
+        if (nearby.FirstOrDefault(o => !o.Asleep && Bearing.Shown(o, nowMs) is not null) is { } worn) return Self.Hooks.AllRight(worn.Name, Bearing.Shown(worn, nowMs)!);
         return nearby.FirstOrDefault(o => o.Activity is { Length: > 0 }) is { } busy
             ? Self.Hooks.Ask(busy.Name, busy.Activity)
             : Self.Hooks.Ask(who, null);
@@ -485,6 +485,7 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         {
             await grains.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(ctx.PartyId, guest.ParticipantId)).EatAsync(fare.Feeds);
             await places.SetActivityAsync(guest.ParticipantId, "eating", Self.Bio.MealTakes);
+            await places.EaseAsync(guest.ParticipantId, Bearing.Famished);
             await grains.GetGrain<IWorldClockGrain>(ctx.PartyId).RecordAsync(new WorldActivity
             {
                 PersonaId = guest.ParticipantId, PersonaName = guest.Name, App = Id, Action = "eat",
@@ -505,6 +506,7 @@ public sealed class PlacesApp(IGrainFactory grains, WorldMemory? memory = null) 
         if (self.SpotId != couch.Id) await places.MoveAsync(ctx.Self.Id, placeId, couch.Id);
         await places.SetPoseAsync(ctx.Self.Id, Poses.Lie, null);
         await places.SetActivityAsync(ctx.Self.Id, "having a lie-down", Self.Bio.NapTakes);
+        await places.EaseAsync(ctx.Self.Id, Bearing.Spent);
         return new ActOutcome("nap", $"lies down for a bit {couch.At} {couch.Name}", null);
     }
 

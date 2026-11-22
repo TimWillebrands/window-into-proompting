@@ -443,11 +443,11 @@ public sealed class WorldClockGrain(
             if (Self.OwnHappenings.Pick(awake, nowMs, Random.Shared, breaking) is not { } id || cast.FirstOrDefault(c => c.Id == id) is not { } who) return;
             state.State.OwnAt[id] = nowMs;
             var forced = breaking.Contains(id);
-            var kind = Self.OwnHappenings.KindFor(forced, _ownKindsLately, Random.Shared);
+            var self = GrainFactory.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(PartyId, id));
+            var kind = Self.OwnHappenings.KindFor(forced, _ownKindsLately, Random.Shared, !forced && await self.MendingAsync());
             _ownKindsLately.Enqueue(kind);
             if (_ownKindsLately.Count > Self.OwnHappenings.KindMemory) _ownKindsLately.Dequeue();
 
-            var self = GrainFactory.GetGrain<Self.IPersonaSelfGrain>(WorldKeys.Life(PartyId, id));
             var sheet = await Self.LivedSheets.SourceAsync(GrainFactory, who) ?? $"{who.SystemPrompt}\n{who.Bio}";
             var day = await self.GetStateAsync();
             var json = await llm.For(id).CompleteJsonAsync(Grains.Generation.JobComplexity.General,

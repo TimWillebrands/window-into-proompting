@@ -42,8 +42,7 @@ public sealed partial class PersonaSelfGrain(
         var places = GrainFactory.GetGrain<Places.IPlacesGrain>(partyId);
         if (await places.GetPlaceOfAsync(personaId) is not { } placeId) return null;
         if (Belonging.Line(Belonging.Warmth(state.State.Places, placeId, now), home: false) is null) return new SelfRender.At(placeId, false);
-        var place = (await places.GetSnapshotAsync()).Places.FirstOrDefault(p => p.Id == placeId);
-        return new SelfRender.At(placeId, place is not null && Places.Homes.LivesIn(place, personaId));
+        return new SelfRender.At(placeId, await places.LivesInAsync(placeId, personaId));
     }
 
     private async Task EnsureLivedSheetAsync(Guid partyId, Guid personaId)
@@ -153,6 +152,8 @@ public sealed partial class PersonaSelfGrain(
     }
 
     public Task<bool> BreakingAsync() => Task.FromResult(Bio.Breaking(state.State, DateTimeOffset.Now));
+
+    public Task<bool> MendingAsync() => Task.FromResult(Bio.Mending(state.State, DateTimeOffset.Now.ToUnixTimeMilliseconds()));
 
     public async Task<double?> AilAsync()
     {
@@ -777,6 +778,7 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("LieDownAsync")] Task<bool> LieDownAsync();
     [Alias("PerkUpAsync")] Task PerkUpAsync();
     [AlwaysInterleave, Alias("BreakingAsync")] Task<bool> BreakingAsync();
+    [AlwaysInterleave, Alias("MendingAsync")] Task<bool> MendingAsync();
     [Alias("AilAsync")] Task<double?> AilAsync();
 
     [AlwaysInterleave, Alias("GetWhereaboutsAsync")] Task<List<Whereabout>> GetWhereaboutsAsync();

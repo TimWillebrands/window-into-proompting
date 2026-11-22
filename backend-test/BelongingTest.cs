@@ -70,6 +70,22 @@ public class BelongingTest
     }
 
     [Fact]
+    public void TheThirteenthPlace_SurvivesTheTrim_AndTheWeakestOfTheOthersGoes()
+    {
+        var places = new Dictionary<Guid, PlaceTie>();
+        var ids = Enumerable.Range(0, Belonging.Kept).Select(_ => Guid.NewGuid()).ToList();
+        foreach (var (id, i) in ids.Select((id, i) => (id, i))) places[id] = Tie(0.3 + i * 0.05, Now);
+
+        var newcomer = Guid.NewGuid();
+        Belonging.Feel(places, newcomer, 1, Now);
+
+        Assert.Equal(Belonging.Kept, places.Count);
+        Assert.Contains(newcomer, places.Keys);
+        Assert.DoesNotContain(ids[0], places.Keys);
+        Assert.Equal(0.15, places[newcomer].Warmth, 6);
+    }
+
+    [Fact]
     public void AHaunt_IsFromPointFour_AndPutOffFromMinusPointFour()
     {
         Assert.True(Belonging.IsHaunt(0.4));
@@ -83,11 +99,11 @@ public class BelongingTest
     }
 
     [Fact]
-    public void RunDown_AndWell_AreReadOffMoodAndBody()
+    public void RunDown_AndWell_AreReadOffMoodAndBody_AndBeingTalkedOutIsNotRunDown()
     {
         Assert.False(Belonging.RunDown(0, Body()));
         Assert.True(Belonging.RunDown(-0.2, Body()));
-        Assert.True(Belonging.RunDown(0, Body(battery: 0.4)));
+        Assert.False(Belonging.RunDown(0, Body(battery: 0.1)));
         Assert.True(Belonging.RunDown(0, Body(rested: 0.3)));
         Assert.True(Belonging.RunDown(0, Body(ailing: true)));
 

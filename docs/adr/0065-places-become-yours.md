@@ -16,7 +16,7 @@ exploit tension had nothing to stand on: nothing was known well enough to go bac
 2. **It saturates and fades, like a Tie.** A good or bad time `better` (0..1, 0.5 neutral) covers
    `(better − 0.5) × 0.3` of the remaining distance to that side, so the next good lunch at a Haunt adds less than
    the first. A neutral time changes nothing. Warmth fades toward 0 with a 10-day half-life. At most 12 Places are
-   kept; the weakest |warmth| goes.
+   kept; the weakest |warmth| other than the Place just felt goes.
 3. **What feeds it is what already moved the mood there.** `FeelAtAsync(place, name, mood, belonging)` replaces the
    Place-sourced `ShiftValenceAsync` calls:
    - Arena fit: mood is the novelty-damped shift as before, belonging the raw fit. A Place that suits you every
@@ -30,13 +30,14 @@ exploit tension had nothing to stand on: nothing was known well enough to go bac
    (scenario Rooms).
 5. **The landscape.** In Places' go-options, read once per perception:
    - A Haunt reads "Go to the Café (one of your places)". It gets one more pull only when they are run down (valence
-     −0.2 or lower, battery under 0.5, Flagging or worse, or ailing): a depleted body goes back to what it knows.
+     −0.2 or lower, Flagging or worse, or ailing): a depleted body goes back to what it knows. A low battery is not
+     run down: talked out, they are sent home to be alone (ADR 0063), not out to a busy Haunt.
    - When they are well (valence 0.2 or more, Fresh or Fine, at most peckish, not ailing), one public Place they have
-     no visit day at in the last week and no belonging to, picked at random, reads "(you've never been)" with one
-     more pull.
+     no visit day at in the last week and no belonging to, picked at random, reads "(you haven't been in a while)"
+     with one more pull.
    - A Place they are put off by loses a pull and says nothing.
    - The body's own hooks (something to eat, dead on your feet, not well, peopled out) win: on those labels neither
-     Haunt nor never-been is added. Put off still costs its pull.
+     Haunt nor haven't-been is added. Put off still costs its pull.
 6. **Staying.** At a Place with warmth above 0, restlessness waits `Restless(fit) × (1 + warmth)`, up to twice as long.
 7. **A Persona's own Home is never a Haunt.** Its warmth may be recorded but gives no line, hook, pull or longer stay:
    it is already theirs.
@@ -62,7 +63,7 @@ exploit tension had nothing to stand on: nothing was known well enough to go bac
 - A daily good lunch alone settles near 0.5 (relief about 0.7 a day against the fade); with Arena fit on arrival and
   good talk it goes higher. A Place visited once a week stays near 0.1.
 - One more grain read per Places perception, a visit-days read only when well, and one Places lookup per presence
-  (a snapshot only when the line would be said, to rule out Home). No new LLM call.
+  (plus a read-only `LivesInAsync` only when the line would be said, to rule out Home). No new LLM call.
 - On the wire: `SelfSummary.haunts`. In state: `SelfState.Places` (id 45). Existing Personas start with none.
 - A neutral Arena fit, Take or talk does nothing, so a Place gains a tie only once something there was good or bad.
 

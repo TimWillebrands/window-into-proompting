@@ -211,7 +211,7 @@ public partial class PlacesTest
     }
 
     [Fact]
-    public async Task Spent_AtHome_ALieDownIsOffered_AndOnlyOnce()
+    public async Task Spent_AtHome_ALieDownIsOffered_OnlyOnce_AndTheyNoLongerLookDeadOnTheirFeet()
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
         var places = _fx.Places(partyId);
@@ -219,6 +219,7 @@ public partial class PlacesTest
         await places.GetSnapshotAsync();
         await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone);
 
+        await places.SetBearingAsync(denise, Bearing.Spent);
         var ctx = LifeOf(partyId, denise, "Denise", Felt(rested: 0.1));
         var nap = Assert.Single((await app.PerceiveAsync(ctx, default))!.Affordances, a => a.Verb == "nap");
         Assert.Equal(("Lie down for a bit on the sofa", Bio.Seated, Bio.Rest), (nap.Label, nap.Priority, nap.Meets));
@@ -228,7 +229,7 @@ public partial class PlacesTest
 
         Assert.Equal(("nap", "lies down for a bit on the sofa"), (done!.Action, done.Summary));
         var body = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == denise);
-        Assert.Equal(("sofa", Poses.Lie, "having a lie-down"), (body.SpotId, body.Pose, body.Activity));
+        Assert.Equal(("sofa", Poses.Lie, "having a lie-down", (string?)null), (body.SpotId, body.Pose, body.Activity, body.Bearing));
         Assert.True((await SelfOf(partyId, denise).LiveBodyAsync(false, SelfMath.Alone)).Napped);
         Assert.DoesNotContain((await app.PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt(rested: 0.1, napped: true)), default))!.Affordances, a => a.Verb == "nap");
         Assert.Null(await app.ActAsync(ctx, nap, "again", null, default));

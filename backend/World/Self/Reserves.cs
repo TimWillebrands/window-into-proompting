@@ -166,14 +166,15 @@ public static class Bio
     public static bool Breaking(SelfState s, DateTimeOffset now)
     {
         var ms = now.ToUnixTimeMilliseconds();
-        return s.LivedAt != 0 && s.Strain >= Breaks && !Ailing(s, ms)
-            && (s.AiledAt == 0 || ms - s.AiledAt >= Mended.TotalMilliseconds);
+        return s.LivedAt != 0 && s.Strain >= Breaks && !Ailing(s, ms) && !Mending(s, ms);
     }
+
+    public static bool Mending(SelfState s, long ms) => s.AiledAt != 0 && ms - s.AiledAt < Mended.TotalMilliseconds;
 
     public static bool Ail(SelfState s, DateTimeOffset now)
     {
         var ms = now.ToUnixTimeMilliseconds();
-        if (s.LivedAt == 0 || Ailing(s, ms)) return false;
+        if (s.LivedAt == 0 || Ailing(s, ms) || Mending(s, ms)) return false;
         s.AilingSince = ms;
         s.Strain = Math.Min(s.Strain, AfterAiling);
         return true;
@@ -186,7 +187,7 @@ public static class Bio
         if (HungerOf(s.Fed) >= Hunger.VeryHungry) how.Add("going hungry for hours");
         if (TirednessOf(s.Rested) >= Tiredness.Flagging) how.Add("short on sleep");
         var worn = s.Strain >= Breaks ? "they've been running themselves down" : "they've been wearing themselves thin";
-        return how.Count == 0 ? worn : $"{worn}: {string.Join(" and ", how)}";
+        return how.Count == 0 ? worn : $"{worn}, {string.Join(" and ", how)}";
     }
 
     private static void Strain(SelfState s, double lived, long ms)

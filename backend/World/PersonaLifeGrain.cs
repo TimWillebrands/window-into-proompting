@@ -292,8 +292,15 @@ public sealed class PersonaLifeGrain(
             if (Bio.Distress(reserves) is { } distress)
                 logger.LogInformation("Distress {Persona}: {What} (fed {Fed:F2}, rested {Rested:F2})", name, distress, reserves.Fed, reserves.Rested);
             var bearing = Places.Bearing.Of(reserves);
-            if (Places.Bearing.Due(me, bearing, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))
-                await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).SetBearingAsync(personaId, bearing);
+            try
+            {
+                if (Places.Bearing.Due(me, bearing, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))
+                    await GrainFactory.GetGrain<Places.IPlacesGrain>(partyId).SetBearingAsync(personaId, bearing);
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Bearing failed for {Persona}", personaId);
+            }
             return reserves;
         }
         catch (Exception ex)

@@ -96,7 +96,51 @@ public partial class PlacesTest
 
         Assert.Equal(("eat", "makes lunch for Pieter at home", pieter), (done!.Action, done.Summary, done.WithPersonaId));
         Assert.Equal(Hunger.None, (await SelfOf(partyId, pieter).LiveBodyAsync(false, SelfMath.Alone)).Hunger);
-        Assert.Equal("eating", (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == pieter).Activity);
+        var fed = (await places.GetSnapshotAsync()).Bodies.Single(b => b.ParticipantId == pieter);
+        Assert.Equal(("eating", (string?)null), (fed.Activity, Bearing.Shown(fed, _fx.Time.GetUtcNow().ToUnixTimeMilliseconds())));
+        Assert.DoesNotContain("haven't eaten all day", await places.GetSituationAsync(denise));
+        Assert.DoesNotContain((await app.PerceiveAsync(ctx, default))!.Affordances, a => a.Verb!.StartsWith("eat:"));
+    }
+
+    [Fact]
+    public async Task AFamishedEater_NoLongerLooksIt_OnceTheyEat_ButLookingUnwellStays()
+    {
+        var (partyId, denise, _) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var home = (await places.GetSnapshotAsync()).Places.Single(p => p.OwnerId == denise);
+        async Task<string?> ShownAsync() => Bearing.Shown((await places.GetBodyAsync(denise))!, _fx.Time.GetUtcNow().ToUnixTimeMilliseconds());
+
+        await places.SetBearingAsync(denise, Bearing.Famished);
+        Assert.True(await places.EatAsync(denise, home.Id, null, "making lunch"));
+        Assert.Null(await ShownAsync());
+
+        await places.SetBearingAsync(denise, Bearing.Unwell);
+        Assert.True(await places.EatAsync(denise, home.Id, null, "making lunch"));
+        Assert.Equal(Bearing.Unwell, await ShownAsync());
+    }
+
+    [Fact]
+    public async Task ASleeper_ShowsNoBearing_AndIsNotAskedIfTheyreAllRight()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var theirs = (await places.GetSnapshotAsync()).Places.Single(p => p.OwnerId == pieter);
+        _fx.Time.Advance(UntilLocal(20 * 60 + 30));
+        Assert.True(await places.TurnInAsync(pieter));
+        await places.LetInAsync(pieter, denise);
+        await places.MoveAsync(denise, theirs.Id, "bed");
+        _fx.Time.Advance(TimeSpan.FromMinutes(1));
+        await places.GetAsleepAsync();
+        _fx.Time.Advance(TimeSpan.FromMinutes(29));
+        Assert.Contains(pieter, await places.GetAsleepAsync());
+        Assert.DoesNotContain(denise, await places.GetAsleepAsync());
+        await places.SetBearingAsync(pieter, Bearing.Unwell);
+
+        var situation = await places.GetSituationAsync(denise);
+        Assert.Contains("Pieter (right next to you", situation);
+        Assert.DoesNotContain(Bearing.Unwell, situation);
+        var seen = (await new PlacesApp(_fx.GrainFactory).PerceiveAsync(LifeOf(partyId, denise, "Denise", Felt(), (pieter, "Pieter")), default))!;
+        Assert.DoesNotContain(seen.Affordances, a => a.Label.Contains("all right"));
     }
 
     [Fact]
@@ -131,11 +175,13 @@ public partial class PlacesTest
         _fx.Time.Advance(UntilLocal(20 * 60 + 30));
         Assert.Empty(await places.GetAsleepAsync());
 
+        await places.SetBearingAsync(denise, Bearing.Spent);
         var ctx = LifeOf(partyId, denise, "Denise", Felt(rested: 0.1));
         var early = Assert.Single((await app.PerceiveAsync(ctx, default))!.Affordances, a => a.Verb == "bed");
         Assert.Equal(("Turn in early", Bio.Seated, Bio.Rest), (early.Label, early.Priority, early.Meets));
         var done = await app.ActAsync(ctx, early, "go to bed", null, default);
         Assert.Equal(("bed", "turns in early"), (done!.Action, done.Summary));
+        Assert.Null((await places.GetBodyAsync(denise))!.Bearing);
 
         _fx.Time.Advance(TimeSpan.FromMinutes(1));
         await places.GetAsleepAsync();
