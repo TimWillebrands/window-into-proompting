@@ -15,16 +15,7 @@ const meta = {
     },
     decorators: [
         (Story) => (
-            <div
-                className="app-surface"
-                style={{
-                    position: 'relative',
-                    width: 720,
-                    height: 520,
-                    background:
-                        'linear-gradient(180deg, #f8fafc 0%, #ffffff 50%, #eff6ff 100%)',
-                }}
-            >
+            <div className="relative h-[520px] w-[720px]">
                 <Story />
             </div>
         ),

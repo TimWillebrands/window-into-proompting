@@ -1,19 +1,18 @@
+import {
+    Icon,
+    TaskPane as Pane,
+    TaskPaneLink,
+    TaskPaneSection,
+} from '@partytown/ui';
 import { Suspense, useCallback } from 'react';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
 import { useDesktopContext } from '../../lib/desktop-context';
 import { CompaniesPage, CompanyPage } from './CompanyPages';
 import { DoorsPage } from './DoorsPage';
-import './jobs.css';
-import {
-    bookReturn,
-    placeFrom,
-    shiftLabel,
-    signedPercent,
-    toneOf,
-    type WorkPlace,
-} from './jobs-lib';
+import { bookReturn, placeFrom, shiftLabel, type WorkPlace } from './jobs-lib';
 import { PeoplePage, PersonPage } from './PeoplePages';
 import { PracticesPage } from './PracticesPage';
+import { Signed } from './parts';
 import { useWork, WorkProvider } from './work-context';
 
 export default function JobsApp({ page, id }: { page?: string; id?: string }) {
@@ -31,10 +30,10 @@ export default function JobsApp({ page, id }: { page?: string; id?: string }) {
     const here = placeFrom(page, id);
 
     return (
-        <div className="app-surface wk-app">
+        <div className="flex h-full min-h-0">
             <WorkProvider go={go}>
                 <TaskPane here={here} />
-                <main className="wk-main">
+                <main className="flex min-h-0 min-w-0 flex-1 flex-col">
                     <Suspense fallback={null}>
                         <Page here={here} />
                     </Suspense>
@@ -68,111 +67,97 @@ function TaskPane({ here }: { here: WorkPlace }) {
             : undefined;
 
     return (
-        <nav className="wk-pane" aria-label="Work">
-            <section className="wk-group">
-                <button
-                    type="button"
-                    className="xp-bare wk-group-head"
-                    aria-current={at('people')}
-                    onClick={() => go({ page: 'people' })}
+        <nav aria-label="Work" className="flex w-[200px] flex-none">
+            <Pane className="min-w-0 flex-1">
+                <TaskPaneSection
+                    title="People"
+                    aside={people.length || undefined}
+                    icon={<Icon name="users" size={32} />}
                 >
-                    👥 People
-                </button>
-                <ul>
+                    <TaskPaneLink
+                        icon={<Icon name="users" />}
+                        aria-current={at('people')}
+                        onClick={() => go({ page: 'people' })}
+                    >
+                        Everyone
+                    </TaskPaneLink>
                     {people.map((p) => (
-                        <li key={p.participantId}>
-                            <button
-                                type="button"
-                                className="xp-bare wk-link"
-                                aria-current={at('person', p.participantId)}
-                                onClick={() =>
-                                    go({ page: 'person', id: p.participantId })
-                                }
-                            >
-                                <span>{p.name}</span>
-                                {shiftLabel(p) ? (
-                                    <small>{shiftLabel(p)}</small>
-                                ) : null}
-                            </button>
-                        </li>
+                        <TaskPaneLink
+                            key={p.participantId}
+                            icon={<Icon name="user" />}
+                            aria-current={at('person', p.participantId)}
+                            onClick={() =>
+                                go({ page: 'person', id: p.participantId })
+                            }
+                        >
+                            {p.name}
+                            {shiftLabel(p) ? ` · ${shiftLabel(p)}` : ''}
+                        </TaskPaneLink>
                     ))}
-                </ul>
-            </section>
-            <section className="wk-group">
-                <button
-                    type="button"
-                    className="xp-bare wk-group-head"
-                    aria-current={at('companies')}
-                    onClick={() => go({ page: 'companies' })}
+                </TaskPaneSection>
+                <TaskPaneSection
+                    title="Companies"
+                    aside={companies.length || undefined}
+                    icon={<Icon name="company" size={32} />}
                 >
-                    🏦 Companies
-                </button>
-                <ul>
-                    {companies.map((c) => {
-                        const change = bookReturn(c);
-                        return (
-                            <li key={c.id}>
-                                <button
-                                    type="button"
-                                    className="xp-bare wk-link"
-                                    aria-current={at('company', c.id)}
-                                    onClick={() =>
-                                        go({ page: 'company', id: c.id })
-                                    }
-                                >
-                                    <span>{c.name}</span>
-                                    <small data-tone={toneOf(change)}>
-                                        {signedPercent(change)}
-                                    </small>
-                                </button>
-                            </li>
-                        );
-                    })}
-                    {companies.length === 0 ? (
-                        <li className="wk-pane-hint">None yet</li>
-                    ) : null}
-                </ul>
-            </section>
-            <section className="wk-group">
-                <button
-                    type="button"
-                    className="xp-bare wk-group-head"
-                    aria-current={at('practices')}
-                    onClick={() => go({ page: 'practices' })}
+                    <TaskPaneLink
+                        icon={<Icon name="folder" />}
+                        aria-current={at('companies')}
+                        onClick={() => go({ page: 'companies' })}
+                    >
+                        All companies
+                    </TaskPaneLink>
+                    {companies.map((c) => (
+                        <TaskPaneLink
+                            key={c.id}
+                            icon={<Icon name="company" />}
+                            aria-current={at('company', c.id)}
+                            onClick={() => go({ page: 'company', id: c.id })}
+                        >
+                            {c.name} <Signed fraction={bookReturn(c)} />
+                        </TaskPaneLink>
+                    ))}
+                    {companies.length === 0 ? <p>None yet</p> : null}
+                </TaskPaneSection>
+                <TaskPaneSection
+                    title="Practices"
+                    aside={practices.length || undefined}
+                    icon={<Icon name="sofa" size={32} />}
                 >
-                    🛋️ Practices
-                </button>
-                <ul>
+                    <TaskPaneLink
+                        icon={<Icon name="folder" />}
+                        aria-current={at('practices')}
+                        onClick={() => go({ page: 'practices' })}
+                    >
+                        All practices
+                    </TaskPaneLink>
                     {practices.map((p) => (
-                        <li key={p.participantId}>
-                            <button
-                                type="button"
-                                className="xp-bare wk-link"
-                                aria-current={at('person', p.participantId)}
-                                onClick={() =>
-                                    go({ page: 'person', id: p.participantId })
-                                }
-                            >
-                                <span>{p.name}</span>
-                                <small>{p.title}</small>
-                            </button>
-                        </li>
+                        <TaskPaneLink
+                            key={p.participantId}
+                            icon={<Icon name="user" />}
+                            aria-current={at('person', p.participantId)}
+                            onClick={() =>
+                                go({ page: 'person', id: p.participantId })
+                            }
+                        >
+                            {p.name} · {p.title}
+                        </TaskPaneLink>
                     ))}
-                    {practices.length === 0 ? (
-                        <li className="wk-pane-hint">None yet</li>
-                    ) : null}
-                </ul>
-            </section>
-            <section className="wk-group">
-                <button
-                    type="button"
-                    className="xp-bare wk-group-head"
-                    aria-current={at('doors')}
-                    onClick={() => go({ page: 'doors' })}
+                    {practices.length === 0 ? <p>None yet</p> : null}
+                </TaskPaneSection>
+                <TaskPaneSection
+                    title="Doors"
+                    icon={<Icon name="door" size={32} />}
                 >
-                    🚪 Doors
-                </button>
-            </section>
+                    <TaskPaneLink
+                        icon={<Icon name="key" />}
+                        aria-current={at('doors')}
+                        onClick={() => go({ page: 'doors' })}
+                    >
+                        Who may come in
+                    </TaskPaneLink>
+                </TaskPaneSection>
+            </Pane>
         </nav>
     );
 }

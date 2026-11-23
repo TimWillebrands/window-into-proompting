@@ -1,3 +1,4 @@
+import { CommandButton, Hyperlink, Icon, Text, TextArea } from '@partytown/ui';
 import { QueryErrorResetBoundary } from '@tanstack/react-query';
 import {
     Component,
@@ -119,6 +120,7 @@ function ErrorFallback({
 }: FallbackProps) {
     const [showDetails, setShowDetails] = useState(false);
     const headingId = useId();
+    const bodyId = useId();
     const { headline, status } = summarize(error);
     const isServer = status !== undefined && status >= 500;
     const needsSignIn = status === 401;
@@ -129,57 +131,62 @@ function ErrorFallback({
           : "This window couldn't load";
 
     return (
-        <div className="flex h-full w-full items-center justify-center p-4 text-slate-800 dark:text-slate-100">
+        <div className="flex h-full w-full items-center justify-center p-4">
             <div
                 role="alertdialog"
                 aria-labelledby={headingId}
-                className="w-full max-w-md overflow-hidden rounded-2xl bg-gradient-to-b from-white/90 to-blue-50/80 ring-1 ring-white/70 shadow-[0_10px_30px_-8px_rgba(31,55,148,0.45)] backdrop-blur-md dark:from-slate-800/90 dark:to-slate-900/85 dark:ring-white/10"
+                aria-describedby={bodyId}
+                className="flex w-full max-w-[400px] flex-col gap-3"
             >
-                <div className="flex items-center gap-2 bg-gradient-to-r from-rose-500/90 to-rose-600/90 px-4 py-2 text-[12px] font-semibold uppercase tracking-wide text-white">
-                    <span aria-hidden>⚠</span>
-                    <span>{isServer ? 'Server problem' : 'Problem'}</span>
-                </div>
-
-                <div className="px-5 pt-4 pb-2">
-                    <div
-                        id={headingId}
-                        className="mb-1 text-[14px] font-semibold leading-snug"
-                    >
-                        {heading}
+                <div className="flex items-start gap-3">
+                    <Icon
+                        name={
+                            needsSignIn
+                                ? 'info'
+                                : isServer
+                                  ? 'error'
+                                  : 'warning'
+                        }
+                        size={32}
+                    />
+                    <div className="flex min-w-0 flex-col gap-1">
+                        <Text tone={isServer ? 'danger' : 'muted'} strong>
+                            {isServer ? 'Server problem' : 'Problem'}
+                        </Text>
+                        <Text as="h2" id={headingId} size="title" strong>
+                            {heading}
+                        </Text>
+                        <Text as="p" id={bodyId} className="m-0 break-words">
+                            {headline}
+                        </Text>
+                        <Hyperlink
+                            className="self-start"
+                            aria-expanded={showDetails}
+                            onClick={() => setShowDetails((s) => !s)}
+                        >
+                            {showDetails ? 'Hide details' : 'Show details'}
+                        </Hyperlink>
                     </div>
-                    <div className="break-words text-[12px] leading-relaxed text-slate-700 dark:text-slate-300">
-                        {headline}
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setShowDetails((s) => !s)}
-                        className="mt-2 text-[11px] font-medium text-blue-700 underline-offset-2 hover:underline dark:text-blue-300"
-                    >
-                        {showDetails ? 'Hide details' : 'Show details'}
-                    </button>
-                    {showDetails && (
-                        <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-black/5 p-2 text-[10.5px] leading-snug whitespace-pre-wrap break-words font-mono text-slate-700 ring-1 ring-black/5 dark:bg-white/5 dark:text-slate-200 dark:ring-white/5">
-                            {error.stack ?? String(error)}
-                        </pre>
-                    )}
                 </div>
-
-                <div className="flex justify-end gap-2 border-t border-white/60 px-4 py-3 dark:border-white/10">
-                    <button
+                {showDetails && (
+                    <TextArea
+                        mono
+                        readOnly
+                        rows={8}
+                        aria-label="Error details"
+                        value={error.stack ?? String(error)}
+                    />
+                )}
+                <div className="flex justify-end gap-2">
+                    <CommandButton
+                        isDefault
                         type="button"
                         onClick={needsSignIn ? redirectToSignIn : onRetry}
-                        className="rounded-md bg-blue-600 px-3 py-1 text-[12px] font-medium text-white shadow-sm ring-1 ring-blue-700/50 transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                         {needsSignIn ? 'Sign in' : 'Retry'}
-                    </button>
+                    </CommandButton>
                     {onClose && (
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="rounded-md bg-white/70 px-3 py-1 text-[12px] font-medium text-slate-700 ring-1 ring-black/10 transition-colors hover:bg-white dark:bg-white/10 dark:text-slate-100 dark:ring-white/10 dark:hover:bg-white/20"
-                        >
-                            Close
-                        </button>
+                        <CommandButton onClick={onClose}>Close</CommandButton>
                     )}
                 </div>
             </div>

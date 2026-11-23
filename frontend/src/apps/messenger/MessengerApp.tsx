@@ -1,3 +1,12 @@
+import {
+    Expander,
+    ContactRow as Row,
+    StatusBar,
+    StatusBarField,
+    SunkenField,
+    Text,
+    TextBox,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -17,7 +26,6 @@ import {
     type BuddyStatus,
     clip,
     DisplayPicture,
-    GroupHeader,
     MsnText,
     STATUS_LABEL,
     shortTime,
@@ -108,206 +116,144 @@ export default function MessengerApp() {
 
     const playerName = player?.name ?? 'You';
 
+    const contactRows = (list: LifeSummary[]) =>
+        list.map((c) => (
+            <ContactRow
+                key={c.personaId}
+                life={c}
+                self={selfById.get(c.personaId)}
+                pending={
+                    openDm.isPending &&
+                    openDm.variables?.data.withPersonaId === c.personaId
+                }
+                onOpen={() => startChat(c.personaId, c.name)}
+            />
+        ));
+
     return (
-        <div
-            className="app-surface flex h-full flex-col"
-            style={{
-                background:
-                    'linear-gradient(180deg, #d7e5fa 0%, #eef4fd 90px, #ffffff 160px)',
-            }}
-        >
-            <div
-                className="flex items-center gap-2 px-2 pt-2 pb-2"
-                style={{ borderBottom: '1px solid #b9cdea' }}
-            >
-                <DisplayPicture who={playerName} size={40} />
+        <div className="flex h-full flex-col">
+            <div className="flex items-center gap-2 p-2">
+                <DisplayPicture who={playerName} size={48} />
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1">
-                        <BuddyIcon status="online" size={14} />
-                        <span
-                            className="truncate"
-                            style={{
-                                fontWeight: 700,
-                                fontSize: 12,
-                                color: '#000',
-                            }}
-                        >
+                        <BuddyIcon status="online" />
+                        <Text strong className="truncate">
                             {playerName}
-                        </span>
-                        <span style={{ color: '#4a6ea9' }}>(Online)</span>
+                        </Text>
+                        <Text tone="muted">(Online)</Text>
                     </div>
-                    <div
-                        className="truncate"
-                        style={{
-                            color: '#6d7b91',
-                            fontStyle: 'italic',
-                            marginTop: 2,
-                        }}
+                    <Text
+                        as="div"
+                        tone="muted"
+                        italic
+                        className="mt-0.5 truncate"
                     >
                         {chats.length > 0
                             ? `${chats.length} conversation${chats.length === 1 ? '' : 's'}`
                             : '<Type a personal message>'}
-                    </div>
+                    </Text>
                 </div>
             </div>
 
-            <div className="px-2 py-[5px]" style={{ background: '#eef4fd' }}>
-                <input
+            <div className="px-2 pb-2">
+                <TextBox
                     type="search"
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     placeholder="Find a contact..."
+                    aria-label="Find a contact"
                     className="w-full"
-                    style={{
-                        border: '1px solid #9db6dc',
-                        borderRadius: 2,
-                        padding: '3px 5px',
-                    }}
                 />
             </div>
 
-            <div
-                className="flex-1 overflow-y-auto pb-2"
-                style={{ background: '#fff' }}
+            <SunkenField
+                role="group"
+                aria-label="Contacts"
+                className="mx-2 mb-2 flex flex-1 flex-col gap-2"
             >
                 {recent.length > 0 && (
-                    <>
-                        <GroupHeader
-                            label="Conversations"
-                            count={recent.length}
-                            open={openGroups.chats}
-                            onToggle={() => toggle('chats')}
-                        />
-                        {openGroups.chats &&
-                            recent.map((c) => (
-                                <ConversationRow
-                                    key={c.chatGroupId}
-                                    chat={c}
-                                    status={statusOf(
-                                        lifeById.get(c.withId),
-                                        selfById.get(c.withId),
-                                    )}
-                                    unread={
-                                        !!c.lastSenderId &&
-                                        c.lastSenderId !== playerId &&
-                                        toMillis(c.lastAt) >
-                                            (seen[c.chatGroupId] ?? 0)
-                                    }
-                                    fromMe={
-                                        !!playerId &&
-                                        c.lastSenderId === playerId
-                                    }
-                                    onOpen={() =>
-                                        openDirectChat(
-                                            c.chatGroupId,
-                                            c.withName,
-                                        )
-                                    }
-                                />
-                            ))}
-                    </>
+                    <Expander
+                        title="Conversations"
+                        count={recent.length}
+                        open={openGroups.chats}
+                        onOpenChange={() => toggle('chats')}
+                    >
+                        {recent.map((c) => (
+                            <ConversationRow
+                                key={c.chatGroupId}
+                                chat={c}
+                                status={statusOf(
+                                    lifeById.get(c.withId),
+                                    selfById.get(c.withId),
+                                )}
+                                unread={
+                                    !!c.lastSenderId &&
+                                    c.lastSenderId !== playerId &&
+                                    toMillis(c.lastAt) >
+                                        (seen[c.chatGroupId] ?? 0)
+                                }
+                                fromMe={
+                                    !!playerId && c.lastSenderId === playerId
+                                }
+                                onOpen={() =>
+                                    openDirectChat(c.chatGroupId, c.withName)
+                                }
+                            />
+                        ))}
+                    </Expander>
                 )}
 
-                <GroupHeader
-                    label="Online"
+                <Expander
+                    title="Online"
                     count={online.length}
                     open={openGroups.online}
-                    onToggle={() => toggle('online')}
-                />
-                {openGroups.online &&
-                    online.map((c) => (
-                        <ContactRow
-                            key={c.personaId}
-                            life={c}
-                            self={selfById.get(c.personaId)}
-                            pending={
-                                openDm.isPending &&
-                                openDm.variables?.data.withPersonaId ===
-                                    c.personaId
-                            }
-                            onOpen={() => startChat(c.personaId, c.name)}
-                        />
-                    ))}
+                    onOpenChange={() => toggle('online')}
+                >
+                    {contactRows(online)}
+                </Expander>
 
-                <GroupHeader
-                    label="Busy"
+                <Expander
+                    title="Busy"
                     count={busy.length}
                     open={openGroups.busy}
-                    onToggle={() => toggle('busy')}
-                />
-                {openGroups.busy &&
-                    busy.map((c) => (
-                        <ContactRow
-                            key={c.personaId}
-                            life={c}
-                            self={selfById.get(c.personaId)}
-                            pending={
-                                openDm.isPending &&
-                                openDm.variables?.data.withPersonaId ===
-                                    c.personaId
-                            }
-                            onOpen={() => startChat(c.personaId, c.name)}
-                        />
-                    ))}
+                    onOpenChange={() => toggle('busy')}
+                >
+                    {contactRows(busy)}
+                </Expander>
 
                 {afk.length > 0 && (
-                    <GroupHeader
-                        label="AFK"
+                    <Expander
+                        title="AFK"
                         count={afk.length}
                         open={openGroups.afk}
-                        onToggle={() => toggle('afk')}
-                    />
+                        onOpenChange={() => toggle('afk')}
+                    >
+                        {contactRows(afk)}
+                    </Expander>
                 )}
-                {openGroups.afk &&
-                    afk.map((c) => (
-                        <ContactRow
-                            key={c.personaId}
-                            life={c}
-                            self={selfById.get(c.personaId)}
-                            pending={
-                                openDm.isPending &&
-                                openDm.variables?.data.withPersonaId ===
-                                    c.personaId
-                            }
-                            onOpen={() => startChat(c.personaId, c.name)}
-                        />
-                    ))}
 
                 {contacts.length === 0 && (
-                    <p style={{ color: '#6d7b91', padding: '8px 12px' }}>
+                    <Text as="p" tone="muted" className="px-3 py-2">
                         Nobody lives in this World yet. Add Personas to the
                         Party and they'll show up here.
-                    </p>
+                    </Text>
                 )}
                 {openDm.isError && (
-                    <p style={{ color: '#b8241a', padding: '6px 12px' }}>
+                    <Text as="p" tone="danger" className="px-3 py-1.5">
                         Couldn't start the conversation. Try again.
-                    </p>
+                    </Text>
                 )}
-            </div>
+            </SunkenField>
 
-            <div
-                className="flex items-center justify-between px-2 py-[3px]"
-                style={{
-                    borderTop: '1px solid #b9cdea',
-                    background:
-                        'linear-gradient(180deg, #f4f8fe 0%, #dbe7fa 100%)',
-                    color: '#4a6ea9',
-                }}
-            >
-                <span>
+            <StatusBar>
+                <StatusBarField>
                     {contacts.length} contact{contacts.length === 1 ? '' : 's'}
-                </span>
-                <span style={{ color: '#7c8aa3' }}>
-                    Click a contact to chat
-                </span>
-            </div>
+                </StatusBarField>
+                <StatusBarField grow>Click a contact to chat</StatusBarField>
+            </StatusBar>
         </div>
     );
 }
-
-const ROW_CLASS =
-    'xp-bare mx-1 flex w-[calc(100%-8px)] gap-[6px] pr-1 pl-4 rounded-[3px] border border-transparent bg-transparent text-left cursor-pointer hover:border-[#a9c4ea] hover:bg-[#e6effc] disabled:cursor-wait';
 
 function ContactRow({
     life,
@@ -323,31 +269,29 @@ function ContactRow({
     const status = statusOf(life, self);
     const note = self?.doing ?? life.lastActivity?.summary;
     return (
-        <button
-            type="button"
-            className={`${ROW_CLASS} items-center py-[2px]`}
+        <Row
+            className="pl-4"
             title={`Send an instant message to ${life.name}`}
             onClick={onOpen}
             disabled={pending}
-        >
-            <BuddyIcon status={status} />
-            <span className="min-w-0 flex-1 truncate">
-                <span style={{ color: '#000' }}>{life.name}</span>
-                {status !== 'online' && (
-                    <span style={{ color: '#7c7c7c' }}>
-                        {' '}
-                        ({STATUS_LABEL[status]})
-                    </span>
-                )}
-                {note && (
-                    <span style={{ color: '#7c8aa3', fontStyle: 'italic' }}>
-                        {' '}
-                        - {note}
-                    </span>
-                )}
-            </span>
-            {pending && <span style={{ color: '#7c8aa3' }}>…</span>}
-        </button>
+            aria-busy={pending || undefined}
+            picture={<BuddyIcon status={status} />}
+            name={
+                <>
+                    {life.name}
+                    {status !== 'online' && (
+                        <Text tone="muted"> ({STATUS_LABEL[status]})</Text>
+                    )}
+                    {note && (
+                        <Text tone="muted" italic>
+                            {' '}
+                            - {note}
+                        </Text>
+                    )}
+                </>
+            }
+            meta={pending ? '…' : undefined}
+        />
     );
 }
 
@@ -365,75 +309,34 @@ function ConversationRow({
     onOpen: () => void;
 }) {
     return (
-        <button
-            type="button"
-            className={`${ROW_CLASS} items-start py-[3px]`}
+        <Row
+            className="pl-4"
             title={`Open conversation with ${chat.withName}`}
             onClick={onOpen}
-        >
-            <Portrait
-                who={chat.withId}
-                alt=""
-                width={28}
-                height={28}
-                style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 3,
-                    border: '1px solid #b5c8e8',
-                    background: '#fff',
-                    flexShrink: 0,
-                }}
-            />
-            <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1">
-                    <BuddyIcon status={status} size={12} />
-                    <span
-                        className="truncate"
-                        style={{
-                            fontWeight: unread ? 700 : 400,
-                            color: '#000',
-                        }}
-                    >
-                        {chat.withName}
-                    </span>
+            unread={unread}
+            picture={<Portrait who={chat.withId} size={32} />}
+            name={
+                <span className="flex min-w-0 items-center gap-1">
+                    <BuddyIcon status={status} size="small" />
+                    <span className="truncate">{chat.withName}</span>
                     {unread && (
-                        <span
-                            style={{
-                                background: '#f5a623',
-                                color: '#fff',
-                                fontSize: 9,
-                                fontWeight: 700,
-                                borderRadius: 6,
-                                padding: '0 4px',
-                                lineHeight: '12px',
-                            }}
-                        >
+                        <Text tone="caution" strong>
                             new
-                        </span>
+                        </Text>
                     )}
-                    <span
-                        className="ml-auto"
-                        style={{ color: '#9aa6b8', fontSize: 10 }}
-                    >
-                        {shortTime(toMillis(chat.lastAt))}
-                    </span>
                 </span>
-                <span
-                    className="block truncate"
-                    style={{
-                        color: unread ? '#1d3f73' : '#6d7b91',
-                        fontWeight: unread ? 700 : 400,
-                    }}
-                >
-                    {fromMe && <span style={{ color: '#9aa6b8' }}>You: </span>}
+            }
+            meta={shortTime(toMillis(chat.lastAt))}
+            details={
+                <>
+                    {fromMe && <Text tone="muted">You: </Text>}
                     {chat.lastMessage ? (
                         <MsnText text={clip(chat.lastMessage, 90)} />
                     ) : (
-                        <em>No messages yet</em>
+                        <Text italic>No messages yet</Text>
                     )}
-                </span>
-            </span>
-        </button>
+                </>
+            }
+        />
     );
 }

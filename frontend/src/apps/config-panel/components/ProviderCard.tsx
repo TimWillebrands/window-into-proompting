@@ -1,4 +1,13 @@
 import {
+    CommandButton,
+    GroupBox,
+    Icon,
+    PropertyList,
+    StatusText,
+    Swatch,
+    Text,
+} from '@partytown/ui';
+import {
     useDeleteLlmConfigProvidersId,
     usePutLlmConfigProvidersId,
 } from '#api/party-zone';
@@ -30,18 +39,13 @@ function AvailabilityBadge({
             ? `${state.label} until ${time(availability.until)}`
             : state.label;
     return (
-        <span
+        <StatusText
+            as="span"
+            tone={state.tone}
             title={availability.reason ?? undefined}
-            style={{
-                fontSize: 10,
-                fontWeight: 400,
-                border: `1px solid ${state.border}`,
-                color: state.color,
-                padding: '0px 5px',
-            }}
         >
-            ● {label}
-        </span>
+            {label}
+        </StatusText>
     );
 }
 
@@ -89,159 +93,81 @@ export default function ProviderCard({
         }
     };
 
+    const handles = provider.reserved
+        ? 'Only pinned personas'
+        : complexityLabels.join(', ');
+
     return (
-        <div
-            style={{
-                background: isEnabled
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.15)',
-                border: `1px solid ${isEnabled ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
-                borderRadius: 14,
-                boxShadow: isEnabled
-                    ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 12px -6px rgba(0,0,0,0.35)'
-                    : 'none',
-                backdropFilter: 'blur(8px)',
-                padding: '12px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                opacity: isEnabled ? 1 : 0.55,
-            }}
-        >
-            {providers && (
-                <span
-                    aria-hidden
-                    style={{
-                        alignSelf: 'stretch',
-                        width: 6,
-                        flexShrink: 0,
-                        borderRadius: 3,
-                        background: seriesColor(providers, provider.id),
-                        boxShadow: '0 0 0 1px rgba(255,255,255,0.7)',
-                    }}
-                />
-            )}
-            <span style={{ fontSize: 24, flexShrink: 0 }}>{type.icon}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                    style={{
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: 13,
-                        marginBottom: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                    }}
-                >
+        <GroupBox
+            icon={<Icon name={type.icon} />}
+            title={
+                <span className="inline-flex items-center gap-1.5">
                     {type.label}
-                    {!isEnabled && (
-                        <span
-                            style={{
-                                fontSize: 10,
-                                fontWeight: 400,
-                                background: 'rgba(255,160,0,0.25)',
-                                border: '1px solid rgba(255,160,0,0.4)',
-                                color: '#fca',
-                                padding: '0px 5px',
-                            }}
-                        >
-                            disabled
-                        </span>
+                    {providers && (
+                        <Swatch colour={seriesColor(providers, provider.id)} />
                     )}
-                    {isEnabled && availability && (
-                        <AvailabilityBadge availability={availability} />
-                    )}
-                    <span
-                        style={{
-                            marginLeft: 2,
-                            fontWeight: 400,
-                            opacity: 0.7,
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                        }}
-                    >
-                        {provider.baseUrl}
-                    </span>
-                </div>
-                <div
-                    style={{
-                        display: 'flex',
-                        gap: 6,
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                    }}
+                </span>
+            }
+        >
+            <PropertyList
+                items={[
+                    (!isEnabled || !!availability) && {
+                        label: 'Status',
+                        value: !isEnabled ? (
+                            <StatusText
+                                as="span"
+                                tone="caution"
+                                icon={<Icon name="pause" />}
+                            >
+                                disabled
+                            </StatusText>
+                        ) : (
+                            availability && (
+                                <AvailabilityBadge
+                                    availability={availability}
+                                />
+                            )
+                        ),
+                    },
+                    { label: 'Address', value: provider.baseUrl },
+                    !!provider.modelName && {
+                        label: 'Model',
+                        value: provider.modelName,
+                    },
+                    !!handles && { label: 'Handles', value: handles },
+                    !!reasoning && {
+                        label: 'Reasoning',
+                        value: reasoning.label,
+                    },
+                    !!provider.tailnet && {
+                        label: 'Tailnet',
+                        value: provider.tailnet,
+                    },
+                    personaCount > 0 && {
+                        label: 'Pinned',
+                        value: (
+                            <StatusText as="span" icon={<Icon name="pin" />}>
+                                {personaCount}{' '}
+                                {personaCount === 1 ? 'persona' : 'personas'}
+                            </StatusText>
+                        ),
+                    },
+                ]}
+            />
+            {isEnabled && availability?.reason && (
+                <Text
+                    as="p"
+                    tone="muted"
+                    className="truncate"
+                    title={availability.reason}
                 >
-                    {provider.modelName && (
-                        <span
-                            style={{
-                                background: 'rgba(255,255,255,0.12)',
-                                border: '1px solid rgba(255,255,255,0.2)',
-                                color: '#fff',
-                                fontSize: 10,
-                                padding: '1px 6px',
-                            }}
-                        >
-                            {provider.modelName}
-                        </span>
-                    )}
-                    {[
-                        ...(provider.reserved
-                            ? ['Only pinned personas']
-                            : complexityLabels),
-                        ...(reasoning ? [`Reasoning: ${reasoning.label}`] : []),
-                        ...(provider.tailnet
-                            ? [`Tailnet: ${provider.tailnet}`]
-                            : []),
-                    ].map((label) => (
-                        <span
-                            key={label}
-                            style={{
-                                background: 'rgba(100,180,255,0.2)',
-                                border: '1px solid rgba(100,180,255,0.4)',
-                                color: '#adf',
-                                fontSize: 10,
-                                padding: '1px 6px',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            {label}
-                        </span>
-                    ))}
-                    {personaCount > 0 && (
-                        <span
-                            style={{
-                                background: 'rgba(255,210,120,0.2)',
-                                border: '1px solid rgba(255,210,120,0.45)',
-                                color: '#fe9',
-                                fontSize: 10,
-                                padding: '1px 6px',
-                            }}
-                        >
-                            📌 {personaCount}{' '}
-                            {personaCount === 1 ? 'persona' : 'personas'}
-                        </span>
-                    )}
-                </div>
-                {isEnabled && availability?.reason && (
-                    <div
-                        style={{
-                            marginTop: 4,
-                            color: 'rgba(255,255,255,0.7)',
-                            fontSize: 10,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                        }}
-                        title={availability.reason}
-                    >
-                        {availability.reason}
-                    </div>
-                )}
-            </div>
-            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                <button
-                    type="button"
+                    {availability.reason}
+                </Text>
+            )}
+            <div className="flex justify-end gap-2">
+                <CommandButton
+                    size="small"
+                    pressed={isEnabled}
                     onClick={handleToggle}
                     title={
                         isEnabled
@@ -249,39 +175,19 @@ export default function ProviderCard({
                             : 'Click to enable this provider'
                     }
                     disabled={toggleMutation.isPending}
-                    style={{
-                        fontSize: 11,
-                        padding: '2px 8px',
-                        background: isEnabled
-                            ? 'rgba(60,180,60,0.2)'
-                            : 'rgba(255,255,255,0.08)',
-                        border: `1px solid ${isEnabled ? 'rgba(60,180,60,0.5)' : 'rgba(255,255,255,0.2)'}`,
-                        color: isEnabled ? '#afa' : 'rgba(255,255,255,0.5)',
-                        cursor: toggleMutation.isPending ? 'wait' : 'pointer',
-                    }}
                 >
                     {toggleMutation.isPending
                         ? '...'
                         : isEnabled
                           ? 'Enabled'
                           : 'Disabled'}
-                </button>
-                <button
-                    type="button"
-                    onClick={onEdit}
-                    style={{
-                        fontSize: 11,
-                        padding: '2px 8px',
-                        background: 'rgba(255,255,255,0.1)',
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        color: '#fff',
-                        cursor: 'pointer',
-                    }}
-                >
+                </CommandButton>
+                <CommandButton size="small" onClick={onEdit}>
                     Edit
-                </button>
-                <button
-                    type="button"
+                </CommandButton>
+                <CommandButton
+                    size="small"
+                    tone="danger"
                     onClick={() => {
                         if (!provider.id) return;
                         if (
@@ -293,18 +199,10 @@ export default function ProviderCard({
                         deleteMutation.mutate({ id: provider.id });
                     }}
                     disabled={deleteMutation.isPending}
-                    style={{
-                        fontSize: 11,
-                        padding: '2px 8px',
-                        background: 'rgba(220,60,60,0.2)',
-                        border: '1px solid rgba(220,60,60,0.5)',
-                        color: '#faa',
-                        cursor: 'pointer',
-                    }}
                 >
                     {deleteMutation.isPending ? '...' : 'Remove'}
-                </button>
+                </CommandButton>
             </div>
-        </div>
+        </GroupBox>
     );
 }

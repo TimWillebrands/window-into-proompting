@@ -1,3 +1,20 @@
+import {
+    CheckBox,
+    ComboBox,
+    FieldRow,
+    GroupBox,
+    Icon,
+    ProgressBar,
+    StatusBar,
+    StatusBarField,
+    Swatch,
+    TaskPaneLink,
+    TaskPaneSection,
+    Text,
+    TextBox,
+    Toolbar,
+    ToolbarButton,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     lazy,
@@ -25,7 +42,7 @@ import {
     searchMatches,
 } from './graphView';
 import MemoryGraphSidePanel from './MemoryGraphSidePanel';
-import { KIND_COLOUR, STANCE_COLOUR } from './palette';
+import { KIND_COLOUR, PERSON_PALETTE, STANCE_COLOUR } from './palette';
 import type { EnrichedMemoryNode, MemoryGraphData } from './types';
 
 const MemoryGraphCanvas = lazy(() => import('./MemoryGraphCanvas'));
@@ -159,78 +176,62 @@ function MemoryGraphInner() {
     }, [view]);
 
     return (
-        <div
-            className="app-surface flex h-full flex-col"
-            style={{ background: 'transparent' }}
-        >
-            <div className="xp-glass-panel" style={toolbarStyle}>
-                <button
-                    type="button"
-                    onClick={refresh}
-                    disabled={graphQuery.isFetching}
-                    title="Fetch the latest memory snapshot — the view does not update on its own"
-                >
-                    {graphQuery.isFetching ? 'Refreshing…' : 'Refresh'}
-                </button>
-                <label style={fieldStyle}>
-                    Memories of
-                    <select
+        <div className="flex h-full min-h-0 flex-col">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pe-2">
+                <Toolbar aria-label="Memory Graph">
+                    <ToolbarButton
+                        icon={<Icon name="refresh" />}
+                        onClick={refresh}
+                        disabled={graphQuery.isFetching}
+                        title="Fetch the latest memory snapshot — the view does not update on its own"
+                    >
+                        {graphQuery.isFetching ? 'Refreshing…' : 'Refresh'}
+                    </ToolbarButton>
+                </Toolbar>
+                <FieldRow label="Memories of" labelWidth="auto">
+                    <ComboBox
                         value={lens ?? ''}
                         onChange={(e) => setLens(e.target.value || null)}
-                    >
-                        <option value="">everyone</option>
-                        {people.map((p) => (
-                            <option key={p.id} value={p.id}>
-                                {p.label}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <label style={fieldStyle}>
-                    Topics
-                    <select
+                        options={[
+                            { value: '', label: 'everyone' },
+                            ...people.map((p) => ({
+                                value: p.id,
+                                label: p.label,
+                            })),
+                        ]}
+                    />
+                </FieldRow>
+                <FieldRow label="Topics" labelWidth="auto">
+                    <ComboBox
                         value={concepts}
                         onChange={(e) =>
                             setConcepts(e.target.value as ConceptMode)
                         }
                         title="One-off topics are hidden by default — they only ever touch a single memory"
-                    >
-                        <option value="shared">recurring (2+)</option>
-                        <option value="all">all</option>
-                        <option value="none">hidden</option>
-                    </select>
-                </label>
-                <label style={fieldStyle}>
-                    <input
-                        type="checkbox"
-                        checked={showStances}
-                        onChange={(e) => setShowStances(e.target.checked)}
+                        options={[
+                            { value: 'shared', label: 'recurring (2+)' },
+                            { value: 'all', label: 'all' },
+                            { value: 'none', label: 'hidden' },
+                        ]}
                     />
+                </FieldRow>
+                <CheckBox
+                    checked={showStances}
+                    onChange={(e) => setShowStances(e.target.checked)}
+                >
                     Stances
-                </label>
-                <input
+                </CheckBox>
+                <TextBox
                     type="search"
+                    aria-label="Search memories"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search memories…"
-                    style={{ width: 160 }}
+                    className="w-40"
                 />
-                <span style={{ color: '#555', marginLeft: 'auto' }}>
-                    {counts.Participant} people · {counts.Event} memories ·{' '}
-                    {counts.Concept} topics · {counts.STANCE} stances
-                    {matches ? ` · ${matches.size} matches` : ''}
-                </span>
             </div>
-            <div className="flex flex-1 min-h-0">
-                <div
-                    ref={containerRef}
-                    style={{
-                        flex: 1,
-                        minWidth: 0,
-                        position: 'relative',
-                        background: '#FAFAF6',
-                    }}
-                >
+            <div className="flex min-h-0 flex-1">
+                <div ref={containerRef} className="relative min-w-0 flex-1">
                     {graph.nodes.length === 0 ? (
                         <EmptyState />
                     ) : isClient ? (
@@ -245,13 +246,6 @@ function MemoryGraphInner() {
                                 onNodeClick={(node) => selectNode(node.id)}
                                 onBackgroundClick={() => selectNode(null)}
                             />
-                            <Legend
-                                people={view.nodes.filter(
-                                    (n) => n.kind === 'Participant',
-                                )}
-                                lens={lens}
-                                onLens={setLens}
-                            />
                         </Suspense>
                     ) : (
                         <LoadingState />
@@ -264,8 +258,27 @@ function MemoryGraphInner() {
                     onBack={history.length > 1 ? back : undefined}
                     lens={lens}
                     onLens={setLens}
-                />
+                >
+                    {graph.nodes.length > 0 ? (
+                        <Legend
+                            people={view.nodes.filter(
+                                (n) => n.kind === 'Participant',
+                            )}
+                            lens={lens}
+                            onLens={setLens}
+                        />
+                    ) : null}
+                </MemoryGraphSidePanel>
             </div>
+            <StatusBar>
+                <StatusBarField>{counts.Participant} people</StatusBarField>
+                <StatusBarField>{counts.Event} memories</StatusBarField>
+                <StatusBarField>{counts.Concept} topics</StatusBarField>
+                <StatusBarField grow>
+                    {counts.STANCE} stances
+                    {matches ? ` · ${matches.size} matches` : ''}
+                </StatusBarField>
+            </StatusBar>
         </div>
     );
 }
@@ -280,53 +293,50 @@ function Legend({
     onLens: (id: string | null) => void;
 }) {
     return (
-        <div className="xp-glass-card" style={legendStyle}>
+        <TaskPaneSection title="Key">
             {people.map((p) => (
-                <button
+                <TaskPaneLink
                     key={p.id}
-                    type="button"
+                    icon={<Swatch colour={p.colour} shape="dot" />}
+                    aria-current={lens === p.id ? 'true' : undefined}
                     onClick={() => onLens(lens === p.id ? null : p.id)}
                     title={
                         lens === p.id
                             ? 'Show everyone'
                             : `Only ${p.label}'s memories`
                     }
-                    style={legendButtonStyle}
                 >
-                    <LegendRow label={p.label}>
-                        <Dot colour={p.colour} size={10} />
-                    </LegendRow>
-                </button>
+                    {p.label}
+                </TaskPaneLink>
             ))}
             {lens ? (
-                <button
-                    type="button"
+                <TaskPaneLink
+                    icon={<Icon name="users" />}
                     onClick={() => onLens(null)}
-                    style={legendButtonStyle}
                 >
-                    <LegendRow label="← everyone">{null}</LegendRow>
-                </button>
+                    Everyone
+                </TaskPaneLink>
             ) : null}
-            <div style={{ height: 4 }} />
-            <LegendRow label="memory — ring = who remembers it">
-                <Dot colour={KIND_COLOUR.Event} ring="#7B5CC4" />
-            </LegendRow>
-            <LegendRow label="topic — bigger = more memories">
-                <Dot colour={KIND_COLOUR.Concept} />
-            </LegendRow>
-            <LegendRow label="likes / dislikes">
-                <span style={{ color: STANCE_COLOUR.warm, fontWeight: 700 }}>
-                    →
-                </span>
-                <span style={{ color: STANCE_COLOUR.cold, fontWeight: 700 }}>
-                    →
-                </span>
-            </LegendRow>
-        </div>
+            <KeyRow label="memory — ring = who remembers it">
+                <Swatch
+                    colour={KIND_COLOUR.Event}
+                    ring={PERSON_PALETTE[0]}
+                    shape="dot"
+                    size="small"
+                />
+            </KeyRow>
+            <KeyRow label="topic — bigger = more memories">
+                <Swatch colour={KIND_COLOUR.Concept} shape="dot" />
+            </KeyRow>
+            <KeyRow label="likes / dislikes">
+                <Swatch colour={STANCE_COLOUR.warm} size="small" />
+                <Swatch colour={STANCE_COLOUR.cold} size="small" />
+            </KeyRow>
+        </TaskPaneSection>
     );
 }
 
-function LegendRow({
+function KeyRow({
     label,
     children,
 }: {
@@ -334,118 +344,40 @@ function LegendRow({
     children: React.ReactNode;
 }) {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span
-                style={{
-                    width: 22,
-                    display: 'inline-flex',
-                    justifyContent: 'center',
-                }}
-            >
+        <Text as="div" tone="muted" className="flex items-center gap-2">
+            <span className="inline-flex w-6 justify-center gap-0.5">
                 {children}
             </span>
             {label}
-        </div>
-    );
-}
-
-function Dot({
-    colour,
-    size = 8,
-    ring,
-}: {
-    colour?: string;
-    size?: number;
-    ring?: string;
-}) {
-    return (
-        <span
-            style={{
-                display: 'inline-block',
-                width: size,
-                height: size,
-                borderRadius: '50%',
-                background: colour,
-                boxShadow: ring ? `0 0 0 2px ${ring}` : undefined,
-            }}
-        />
+        </Text>
     );
 }
 
 function LoadingState() {
     return (
-        <div
-            className="app-surface flex h-full items-center justify-center"
-            style={{ background: '#ECE9D8' }}
-        >
-            <p style={{ color: '#808080', fontSize: 11 }}>Loading memory…</p>
+        <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+            <ProgressBar marquee label="Loading memory" className="w-40" />
+            <Text as="p" tone="muted">
+                Loading memory…
+            </Text>
         </div>
     );
 }
 
 function EmptyState() {
     return (
-        <div
-            className="flex h-full items-center justify-center"
-            style={{ fontSize: 12, padding: 24 }}
-        >
-            <div
-                className="xp-glass-card"
-                style={{
-                    maxWidth: 360,
-                    padding: '20px 24px',
-                    textAlign: 'center',
-                }}
+        <div className="flex h-full items-center justify-center p-4">
+            <GroupBox
+                title="No memories captured yet"
+                icon={<Icon name="memory-graph" />}
+                className="max-w-[360px]"
             >
-                <div style={{ fontSize: 28, marginBottom: 6 }}>🕸️</div>
-                <p style={{ fontWeight: 700, margin: '0 0 4px' }}>
-                    No memories captured yet
-                </p>
-                <p style={{ color: '#555', margin: 0 }}>
+                <Text as="p" tone="muted">
                     Chat in a room, then use “Remember” on a message. Captured
                     moments show up here as a graph of people, memories and
                     topics.
-                </p>
-            </div>
+                </Text>
+            </GroupBox>
         </div>
     );
 }
-
-const toolbarStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '4px 8px',
-    borderBottom: '1px solid rgba(255,255,255,0.7)',
-    fontSize: 11,
-    flexWrap: 'wrap',
-};
-
-const fieldStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-};
-
-const legendStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: 8,
-    bottom: 8,
-    padding: '6px 8px',
-    fontSize: 10,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-};
-
-const legendButtonStyle: React.CSSProperties = {
-    background: 'none',
-    border: 'none',
-    boxShadow: 'none',
-    padding: 0,
-    minWidth: 0,
-    minHeight: 0,
-    textAlign: 'left',
-    cursor: 'pointer',
-    fontSize: 10,
-};

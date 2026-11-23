@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { Place } from '../../../api/model/place';
-import '../places.css';
 import { KIT_SCENES } from './kits';
 import PlaceScene from './PlaceScene';
 

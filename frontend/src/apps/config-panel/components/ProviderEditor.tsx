@@ -1,4 +1,13 @@
-import { useState } from 'react';
+import {
+    CheckBox,
+    ComboBox,
+    CommandButton,
+    FieldRow,
+    RadioButton,
+    RadioGroup,
+    TextBox,
+} from '@partytown/ui';
+import { useId, useState } from 'react';
 import {
     useGetLlmConfigProvidersIdModels,
     useGetLlmConfigTailnets,
@@ -8,20 +17,17 @@ import {
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 import {
     DECISIONS,
-    inputStyle,
     JOB_COMPLEXITIES,
     PROVIDER_TYPES,
     providerType,
     REASONING_EFFORTS,
-    selectStyle,
 } from './constants';
+import ProviderModal from './ProviderModal';
+import { DEFAULT_SHARE } from './split';
 
 const CLAUDE_EFFORTS = REASONING_EFFORTS.filter((r) =>
     [0, 2, 3, 4].includes(r.value),
 );
-
-import FormRow from './FormRow';
-import { DEFAULT_SHARE } from './split';
 
 export default function ProviderEditor({
     entry,
@@ -33,6 +39,8 @@ export default function ProviderEditor({
     onClose: () => void;
 }) {
     const [form, setForm] = useState<LlmProviderEntry>(entry);
+    const usedById = useId();
+    const handlesId = useId();
 
     const addMutation = usePostLlmConfigProviders({
         mutation: { onSuccess: onClose },
@@ -93,74 +101,86 @@ export default function ProviderEditor({
     const isPending = addMutation.isPending || updateMutation.isPending;
 
     return (
-        <div>
-            <FormRow label="Type">
-                <select
-                    value={form.type}
-                    onChange={(e) => handleTypeChange(e.target.value)}
-                    style={selectStyle}
-                >
-                    {Object.entries(PROVIDER_TYPES).map(([value, t]) => (
-                        <option key={value} value={value}>
-                            {t.option}
-                        </option>
-                    ))}
-                </select>
-            </FormRow>
-
-            <FormRow label="Base URL">
-                <input
-                    type="text"
-                    value={form.baseUrl}
-                    onChange={(e) => set({ baseUrl: e.target.value })}
-                    style={inputStyle}
-                />
-            </FormRow>
-
-            {form.type === 'ollama' && tailnets.length > 0 && (
-                <FormRow label="Connect via">
-                    <select
-                        value={form.tailnet ?? ''}
-                        onChange={(e) =>
-                            set({ tailnet: e.target.value || null })
-                        }
-                        style={selectStyle}
+        <ProviderModal
+            title={isNew ? 'Add Provider' : 'Edit Provider'}
+            onClose={onClose}
+            buttons={
+                <>
+                    <CommandButton
+                        type="button"
+                        isDefault
+                        onClick={handleSave}
+                        disabled={isPending || !form.baseUrl}
                     >
-                        <option value="">Direct</option>
-                        {tailnets.map((name) => (
-                            <option key={name} value={name}>
-                                Tailnet: {name}
-                            </option>
-                        ))}
-                    </select>
-                </FormRow>
-            )}
-
-            {kind.keyHint && (
-                <FormRow label="API Key">
-                    <input
-                        type="password"
-                        value={form.apiKey ?? ''}
-                        onChange={(e) =>
-                            set({ apiKey: e.target.value || null })
-                        }
-                        placeholder={kind.keyHint}
-                        style={inputStyle}
+                        {isPending ? 'Saving...' : 'Save'}
+                    </CommandButton>
+                    <CommandButton
+                        type="button"
+                        onClick={onClose}
+                        disabled={isPending}
+                    >
+                        Cancel
+                    </CommandButton>
+                </>
+            }
+        >
+            <div className="flex flex-col gap-2">
+                <FieldRow label="Type">
+                    <ComboBox
+                        value={form.type}
+                        onChange={(e) => handleTypeChange(e.target.value)}
+                        options={Object.entries(PROVIDER_TYPES).map(
+                            ([value, t]) => ({ value, label: t.option }),
+                        )}
                     />
-                </FormRow>
-            )}
+                </FieldRow>
 
-            <FormRow label="Model Name">
-                <div style={{ flex: 1, position: 'relative' }}>
-                    <input
-                        type="text"
+                <FieldRow label="Base URL">
+                    <TextBox
+                        value={form.baseUrl}
+                        onChange={(e) => set({ baseUrl: e.target.value })}
+                    />
+                </FieldRow>
+
+                {form.type === 'ollama' && tailnets.length > 0 && (
+                    <FieldRow label="Connect via">
+                        <ComboBox
+                            value={form.tailnet ?? ''}
+                            onChange={(e) =>
+                                set({ tailnet: e.target.value || null })
+                            }
+                            options={[
+                                { value: '', label: 'Direct' },
+                                ...tailnets.map((name) => ({
+                                    value: name,
+                                    label: `Tailnet: ${name}`,
+                                })),
+                            ]}
+                        />
+                    </FieldRow>
+                )}
+
+                {kind.keyHint && (
+                    <FieldRow label="API Key">
+                        <TextBox
+                            type="password"
+                            value={form.apiKey ?? ''}
+                            onChange={(e) =>
+                                set({ apiKey: e.target.value || null })
+                            }
+                            placeholder={kind.keyHint}
+                        />
+                    </FieldRow>
+                )}
+
+                <FieldRow label="Model Name">
+                    <TextBox
                         list={entry.id ? `models-list-${entry.id}` : undefined}
                         value={form.modelName ?? ''}
                         onChange={(e) =>
                             set({ modelName: e.target.value || null })
                         }
                         placeholder={kind.modelHint}
-                        style={inputStyle}
                     />
                     {entry.id && (
                         <datalist id={`models-list-${entry.id}`}>
@@ -169,153 +189,109 @@ export default function ProviderEditor({
                             ))}
                         </datalist>
                     )}
-                </div>
-            </FormRow>
+                </FieldRow>
 
-            {(form.type === 'ollama' || isClaude) && (
-                <FormRow label="Reasoning">
-                    <select
-                        aria-label="Reasoning"
-                        value={form.reasoningEffort ?? 0}
-                        onChange={(e) =>
-                            set({ reasoningEffort: Number(e.target.value) })
+                {(form.type === 'ollama' || isClaude) && (
+                    <FieldRow label="Reasoning">
+                        <ComboBox
+                            aria-label="Reasoning"
+                            value={form.reasoningEffort ?? 0}
+                            onChange={(e) =>
+                                set({
+                                    reasoningEffort: Number(e.target.value),
+                                })
+                            }
+                            title={
+                                isClaude
+                                    ? "Claude's effort: how much it thinks before answering."
+                                    : 'How long a llama.cpp model may think before answering. Less is faster, more is more deliberate.'
+                            }
+                            options={(isClaude
+                                ? CLAUDE_EFFORTS
+                                : REASONING_EFFORTS
+                            ).map((r) => ({
+                                value: String(r.value),
+                                label: isClaude
+                                    ? r.label
+                                    : `${r.label} (${r.hint})`,
+                            }))}
+                        />
+                    </FieldRow>
+                )}
+
+                <FieldRow label="Used by" controlId={usedById}>
+                    <RadioGroup
+                        id={usedById}
+                        aria-label="Used by"
+                        name="provider-used-by"
+                        value={form.reserved ? 'reserved' : 'all'}
+                        onValueChange={(v) =>
+                            set({ reserved: v === 'reserved' })
                         }
-                        title={
-                            isClaude
-                                ? "Claude's effort: how much it thinks before answering."
-                                : 'How long a llama.cpp model may think before answering. Less is faster, more is more deliberate.'
-                        }
-                        style={selectStyle}
                     >
-                        {(isClaude ? CLAUDE_EFFORTS : REASONING_EFFORTS).map(
-                            (r) => (
-                                <option key={r.value} value={r.value}>
-                                    {isClaude
-                                        ? r.label
-                                        : `${r.label} (${r.hint})`}
-                                </option>
-                            ),
-                        )}
-                    </select>
-                </FormRow>
-            )}
+                        <RadioButton value="all">All personas</RadioButton>
+                        <RadioButton value="reserved">
+                            Only personas pinned to it
+                        </RadioButton>
+                    </RadioGroup>
+                </FieldRow>
 
-            <FormRow label="Used by">
-                <div
-                    style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
-                >
-                    {[
-                        { reserved: false, label: 'All personas' },
-                        {
-                            reserved: true,
-                            label: 'Only personas pinned to it',
-                        },
-                    ].map((o) => (
-                        <label
-                            key={o.label}
-                            style={{
-                                color: '#000',
-                                fontSize: 12,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                cursor: 'pointer',
-                            }}
+                {!form.reserved && (
+                    <FieldRow label="Handles" controlId={handlesId}>
+                        <fieldset
+                            id={handlesId}
+                            aria-label="Handles"
+                            className="flex flex-wrap items-center gap-x-3 gap-y-1"
+                            title="Which kinds of generation jobs this provider is trusted with — heavier jobs need a stronger model"
                         >
-                            <input
-                                type="radio"
-                                name="provider-used-by"
-                                checked={!!form.reserved === o.reserved}
-                                onChange={() => set({ reserved: o.reserved })}
-                            />
-                            {o.label}
-                        </label>
-                    ))}
-                </div>
-            </FormRow>
-
-            {!form.reserved && (
-                <FormRow label="Handles">
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: 12,
-                            flexWrap: 'wrap',
-                            alignItems: 'center',
-                        }}
-                        title="Which kinds of generation jobs this provider is trusted with — heavier jobs need a stronger model"
-                    >
-                        {JOB_COMPLEXITIES.filter(
-                            (c) => !isClaude || c.value !== DECISIONS,
-                        ).map((c) => (
-                            <label
-                                key={c.value}
-                                title={c.hint}
-                                style={{
-                                    color: '#000',
-                                    fontSize: 12,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                <input
-                                    type="checkbox"
+                            {JOB_COMPLEXITIES.filter(
+                                (c) => !isClaude || c.value !== DECISIONS,
+                            ).map((c) => (
+                                <CheckBox
+                                    key={c.value}
+                                    title={c.hint}
                                     checked={
                                         ((form.supportedComplexities ?? 0) &
                                             c.value) !==
                                         0
                                     }
                                     onChange={() => toggleComplexity(c.value)}
-                                />
-                                {c.label}
-                            </label>
-                        ))}
-                    </div>
-                </FormRow>
-            )}
+                                >
+                                    {c.label}
+                                </CheckBox>
+                            ))}
+                        </fieldset>
+                    </FieldRow>
+                )}
 
-            {!form.reserved && (
-                <FormRow label="Share">
-                    <input
-                        type="number"
-                        min={1}
-                        aria-label="Share"
-                        value={form.share ?? DEFAULT_SHARE}
-                        onChange={(e) => set({ share: Number(e.target.value) })}
-                        title="Its part of the personas, next to the other models at the same priority: 50 and 50 is half each"
-                        style={inputStyle}
-                    />
-                </FormRow>
-            )}
+                {!form.reserved && (
+                    <FieldRow label="Share">
+                        <TextBox
+                            type="number"
+                            min={1}
+                            aria-label="Share"
+                            value={form.share ?? DEFAULT_SHARE}
+                            onChange={(e) =>
+                                set({ share: Number(e.target.value) })
+                            }
+                            title="Its part of the personas, next to the other models at the same priority: 50 and 50 is half each"
+                        />
+                    </FieldRow>
+                )}
 
-            {!form.reserved && (
-                <FormRow label="Priority">
-                    <input
-                        type="number"
-                        value={form.priority ?? 0}
-                        onChange={(e) =>
-                            set({ priority: Number(e.target.value) })
-                        }
-                        title="Lower goes first; equal priorities split personas by share"
-                        style={inputStyle}
-                    />
-                </FormRow>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={isPending || !form.baseUrl}
-                >
-                    {isPending ? 'Saving...' : 'Save'}
-                </button>
-                <button type="button" onClick={onClose} disabled={isPending}>
-                    Cancel
-                </button>
+                {!form.reserved && (
+                    <FieldRow label="Priority">
+                        <TextBox
+                            type="number"
+                            value={form.priority ?? 0}
+                            onChange={(e) =>
+                                set({ priority: Number(e.target.value) })
+                            }
+                            title="Lower goes first; equal priorities split personas by share"
+                        />
+                    </FieldRow>
+                )}
             </div>
-        </div>
+        </ProviderModal>
     );
 }

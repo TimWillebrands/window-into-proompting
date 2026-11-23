@@ -1,3 +1,13 @@
+import {
+    CommandButton,
+    Hyperlink,
+    Icon,
+    InfoBar,
+    LogonScreen,
+    LogonTile,
+    ProgressBar,
+    Text,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import {
@@ -11,63 +21,50 @@ import { redirectToSignIn } from '../../lib/clerk-session';
 import { usePlayerSession, useWorldChoice } from '../../lib/world';
 import MoveWorldDialog from './MoveWorldDialog';
 
-const CHOICE =
-    'flex w-72 items-center gap-3 rounded-md border-0 bg-transparent p-2 text-left text-lg text-white hover:bg-[#2c5bd3]';
-
-const ADMIN_LINK =
-    'border-0 bg-transparent p-0 text-xs text-white underline opacity-80 hover:opacity-100';
-
 interface LoginShellProps {
     prompt: string;
     blurb: string;
+    footerStart?: ReactNode;
     children: ReactNode;
 }
 
-export function LoginShell({ prompt, blurb, children }: LoginShellProps) {
+export function LoginShell({
+    prompt,
+    blurb,
+    footerStart,
+    children,
+}: LoginShellProps) {
     return (
-        <div
-            className="fixed inset-0 flex flex-col text-white"
-            style={{ background: '#5a7edc', fontFamily: 'Tahoma, sans-serif' }}
-        >
-            <div style={{ height: 80, background: '#00309c' }} />
-            <div
-                style={{
-                    height: 2,
-                    background:
-                        'linear-gradient(90deg, #00309c, #ffffff 50%, #00309c)',
-                }}
-            />
-            <main className="flex min-h-0 flex-1 items-center justify-center">
-                <section className="flex w-1/2 flex-col items-end gap-3 pr-10 text-right">
-                    <div className="text-4xl font-bold italic">Partytown</div>
-                    <p className="text-lg">{prompt}</p>
-                    <p className="max-w-xs text-xs opacity-80">{blurb}</p>
-                </section>
-                <div
-                    className="h-80 w-px"
-                    style={{
-                        background:
-                            'linear-gradient(transparent, #fff, transparent)',
-                    }}
-                />
-                <section className="flex max-h-full w-1/2 flex-col gap-2 overflow-y-auto py-4 pl-10">
-                    {children}
-                </section>
-            </main>
-            <div
-                style={{
-                    height: 2,
-                    background:
-                        'linear-gradient(90deg, #00309c, #f99736 50%, #00309c)',
-                }}
-            />
-            <footer
-                className="px-6 py-4 text-sm"
-                style={{ height: 80, background: '#00309c' }}
+        <main className="fixed inset-0">
+            <LogonScreen
+                title="Partytown"
+                hint={
+                    <>
+                        {prompt}
+                        <Text tone="muted" className="mt-2 block">
+                            {blurb}
+                        </Text>
+                    </>
+                }
+                footerStart={footerStart}
+                footerEnd="After you sign in, the personas may message you on their own."
             >
-                After you sign in, the personas may message you on their own.
-            </footer>
-        </div>
+                {children}
+            </LogonScreen>
+        </main>
+    );
+}
+
+export function LoginError({ children }: { children: ReactNode }) {
+    return (
+        <InfoBar
+            role="alert"
+            tone="danger"
+            icon={<Icon name="error" />}
+            className="max-w-[400px]"
+        >
+            {children}
+        </InfoBar>
     );
 }
 
@@ -116,50 +113,34 @@ export default function WelcomeScreen() {
             prompt="To begin, click your World"
             blurb="Everyone who signs in to a World lives in it together. The personas there will remember you."
         >
-            {isLoading && <p className="text-sm opacity-80">Looking…</p>}
-            <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {worlds.map((w) => {
-                    const picked = chosen === w.id;
-                    return (
-                        <li key={w.id} className="flex flex-col gap-1">
-                            <button
-                                type="button"
-                                onClick={() => choose(w.id)}
-                                aria-pressed={picked}
-                                className={`${CHOICE} ${picked ? 'bg-[#2c5bd3]' : ''} ${w.stopped ? 'opacity-70' : ''}`}
-                            >
-                                <span
-                                    aria-hidden
-                                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border-2 border-white bg-[#6c8fe4] text-2xl"
-                                >
-                                    {w.stopped ? '🏚️' : '🏙️'}
-                                </span>
-                                <span className="flex flex-col leading-tight">
-                                    <span>{w.name}</span>
-                                    <span className="text-xs opacity-80">
-                                        {caption(w)}
-                                    </span>
-                                </span>
-                            </button>
-                            {picked && !signedIn && (
-                                <div className="ml-16 flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={redirectToSignIn}
-                                    >
-                                        Sign in
-                                    </button>
-                                    <button type="button" onClick={visit}>
-                                        Just look around
-                                    </button>
-                                </div>
-                            )}
-                            {isAdmin && (
-                                <div className="ml-16 flex gap-3">
+            {isLoading && (
+                <ProgressBar
+                    marquee
+                    label="Looking for Worlds"
+                    className="w-[240px]"
+                />
+            )}
+            {worlds.map((w) => {
+                const picked = chosen === w.id;
+                return (
+                    <LogonTile
+                        key={w.id}
+                        name={w.name}
+                        subtitle={caption(w)}
+                        picture={
+                            <Icon
+                                name={w.stopped ? 'ruin' : 'city'}
+                                size={48}
+                            />
+                        }
+                        selected={picked}
+                        dimmed={!!w.stopped}
+                        onClick={() => choose(w.id)}
+                        footer={
+                            isAdmin ? (
+                                <div className="flex flex-wrap gap-x-3 gap-y-1">
                                     {!w.current && (
-                                        <button
-                                            type="button"
-                                            className={ADMIN_LINK}
+                                        <Hyperlink
                                             onClick={() =>
                                                 admin(() =>
                                                     putWorldsCurrent({
@@ -169,11 +150,9 @@ export default function WelcomeScreen() {
                                             }
                                         >
                                             Make current
-                                        </button>
+                                        </Hyperlink>
                                     )}
-                                    <button
-                                        type="button"
-                                        className={ADMIN_LINK}
+                                    <Hyperlink
                                         onClick={() =>
                                             admin(() =>
                                                 putWorldsPartyIdStopped(w.id, {
@@ -183,10 +162,8 @@ export default function WelcomeScreen() {
                                         }
                                     >
                                         {w.stopped ? 'Start again' : 'Stop'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={ADMIN_LINK}
+                                    </Hyperlink>
+                                    <Hyperlink
                                         onClick={() =>
                                             setMoving(
                                                 moving === w.id ? null : w.id,
@@ -194,29 +171,45 @@ export default function WelcomeScreen() {
                                         }
                                     >
                                         Move everyone to a new World…
-                                    </button>
+                                    </Hyperlink>
                                 </div>
-                            )}
-                            {moving === w.id && (
-                                <MoveWorldDialog
-                                    from={w}
-                                    onCancel={() => setMoving(null)}
-                                    onMoved={async (to) => {
-                                        setMoving(null);
-                                        await refresh();
-                                        choose(to.id);
-                                    }}
-                                />
-                            )}
-                        </li>
-                    );
-                })}
-            </ul>
-            {error && (
-                <p role="alert" className="text-sm">
-                    {error}
-                </p>
-            )}
+                            ) : null
+                        }
+                    >
+                        {!signedIn && (
+                            <div className="flex flex-wrap gap-2">
+                                <CommandButton
+                                    isDefault
+                                    type="button"
+                                    onClick={redirectToSignIn}
+                                >
+                                    Sign in
+                                </CommandButton>
+                                <CommandButton onClick={visit}>
+                                    Just look around
+                                </CommandButton>
+                            </div>
+                        )}
+                    </LogonTile>
+                );
+            })}
+            {error && <LoginError>{error}</LoginError>}
+            {moving
+                ? (() => {
+                      const from = worlds.find((w) => w.id === moving);
+                      return from ? (
+                          <MoveWorldDialog
+                              from={from}
+                              onCancel={() => setMoving(null)}
+                              onMoved={async (to) => {
+                                  setMoving(null);
+                                  await refresh();
+                                  choose(to.id);
+                              }}
+                          />
+                      ) : null;
+                  })()
+                : null}
         </LoginShell>
     );
 }

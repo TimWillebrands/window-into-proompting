@@ -1,3 +1,4 @@
+import { Icon, Window } from '@partytown/ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import ModelsSection from './ModelsSection';
 
@@ -7,17 +8,14 @@ const meta = {
     parameters: { layout: 'fullscreen' },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 700,
-                    minHeight: 480,
-                    padding: 20,
-                    background:
-                        'linear-gradient(135deg, #5C87C2 0%, #4A73B0 100%)',
-                }}
+            <Window
+                title="Control Panel"
+                icon={<Icon name="control-panel" />}
+                className="h-[560px] w-[700px]"
+                bodyClassName="overflow-auto"
             >
                 <Story />
-            </div>
+            </Window>
         ),
     ],
 } satisfies Meta<typeof ModelsSection>;

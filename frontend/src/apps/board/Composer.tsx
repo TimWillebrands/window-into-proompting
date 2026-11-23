@@ -1,3 +1,4 @@
+import { CommandButton, Icon, ProgressBar, TextArea } from '@partytown/ui';
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
 import Portrait from '../../components/Portrait';
 import { MAX_BODY, remaining } from './board-lib';
@@ -54,10 +55,10 @@ export default function Composer({
     };
 
     return (
-        <div className={`pb-composer ${compact ? 'pb-composer-compact' : ''}`}>
+        <div className={compact ? 'flex gap-2 pt-1.5' : 'flex gap-3'}>
             {playerId && (
                 <Portrait
-                    className="pb-avatar"
+                    className="flex-none self-start"
                     who={playerId}
                     alt=""
                     width={compact ? 28 : 40}
@@ -65,13 +66,13 @@ export default function Composer({
                 />
             )}
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <textarea
+                <TextArea
                     ref={ref}
+                    className="max-h-[220px] resize-none"
                     rows={compact ? 1 : 2}
                     value={body}
                     placeholder={placeholder}
                     aria-label={placeholder}
-                    // biome-ignore lint/a11y/noAutofocus: opened on purpose by Reply
                     autoFocus={autoFocus}
                     onChange={(e) => setBody(e.target.value)}
                     onKeyDown={(e) => {
@@ -84,28 +85,28 @@ export default function Composer({
                 />
                 <div className="flex items-center gap-2">
                     {error && (
-                        <span className="pb-error truncate">{error}</span>
+                        <span className="flex min-w-0 items-center gap-1">
+                            <Icon name="error" />
+                            <span className="truncate">{error}</span>
+                        </span>
                     )}
                     <span className="ml-auto flex items-center gap-2">
-                        {body.length > 0 && <CountRing left={left} />}
+                        {body.length > 0 && <Count left={left} />}
                         {onCancel && (
-                            <button
-                                type="button"
-                                className="pb-btn"
-                                onClick={onCancel}
-                            >
+                            <CommandButton size="small" onClick={onCancel}>
                                 Cancel
-                            </button>
+                            </CommandButton>
                         )}
-                        <button
+                        <CommandButton
                             type="button"
-                            className="pb-btn pb-btn-primary"
+                            size="small"
+                            isDefault
                             disabled={!canSubmit}
                             onClick={() => void submit()}
                             title="Ctrl+Enter"
                         >
                             {pending ? 'Posting…' : submitLabel}
-                        </button>
+                        </CommandButton>
                     </span>
                 </div>
             </div>
@@ -113,38 +114,17 @@ export default function Composer({
     );
 }
 
-function CountRing({ left }: { left: number }) {
-    const r = 9;
-    const circumference = 2 * Math.PI * r;
-    const used = Math.min(1, (MAX_BODY - left) / MAX_BODY);
-    const tone = left < 0 ? 'over' : left <= 20 ? 'near' : 'ok';
-    const stroke = { ok: '#1d5b9e', near: '#f47b20', over: '#b42318' }[tone];
+function Count({ left }: { left: number }) {
     return (
-        <span className={`pb-ring pb-ring-${tone}`}>
-            <svg width="22" height="22" viewBox="0 0 22 22" role="img">
-                <title>{`${left} characters left`}</title>
-                <circle
-                    cx="11"
-                    cy="11"
-                    r={r}
-                    fill="none"
-                    stroke="#dbe5ef"
-                    strokeWidth={2.5}
-                />
-                <circle
-                    cx="11"
-                    cy="11"
-                    r={r}
-                    className="pb-ring-fill"
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={circumference * (1 - used)}
-                />
-            </svg>
-            {left <= 20 && <span className="pb-ring-num">{left}</span>}
+        <span className="flex items-center gap-1">
+            <ProgressBar
+                className="w-[64px]"
+                value={MAX_BODY - left}
+                max={MAX_BODY}
+                label="Characters used"
+                valueText={`${left} characters left`}
+            />
+            {left <= 20 && <span>{left}</span>}
         </span>
     );
 }

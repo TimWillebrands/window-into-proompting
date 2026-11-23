@@ -12,17 +12,5 @@ export default function CSSIsolation({ children }: { children: ReactNode }) {
         return null;
     }
 
-    return createPortal(
-        <div
-            style={{
-                fontFamily: 'system-ui, -apple-system, sans-serif',
-                fontSize: '16px',
-                color: 'black',
-                lineHeight: '1.5',
-            }}
-        >
-            {children}
-        </div>,
-        document.body,
-    );
+    return createPortal(<div>{children}</div>, document.body);
 }

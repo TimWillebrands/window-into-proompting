@@ -1,3 +1,5 @@
+import { CheckBox, Text } from '@partytown/ui';
+
 export interface PeoplePickerPerson {
     id: string;
     name: string;
@@ -21,51 +23,29 @@ export default function PeoplePicker({
     const selectedSet = new Set(selectedIds);
 
     if (people.length === 0) {
-        return (
-            <p className="text-[11px]" style={{ color: '#808080' }}>
-                No personas available yet.
-            </p>
-        );
+        return <Text tone="muted">No personas available yet.</Text>;
     }
 
     return (
-        <div className="flex flex-wrap gap-1">
+        <div
+            className={`flex flex-wrap ${compact ? 'gap-x-2 gap-y-1' : 'gap-x-4 gap-y-2'}`}
+        >
             {people.map((person) => {
                 const selected = selectedSet.has(person.id);
                 return (
-                    <label
+                    <CheckBox
                         key={person.id}
-                        className={`flex items-center gap-1 ${compact ? 'text-[10px]' : 'text-xs'} cursor-pointer select-none`}
-                        style={{
-                            padding: compact ? '1px 4px' : '2px 6px',
-                            color: person.disabled
-                                ? '#808080'
-                                : selected
-                                  ? '#fff'
-                                  : '#000',
-                            background: selected ? '#316AC5' : 'transparent',
-                            border: '1px solid',
-                            borderColor: selected ? '#316AC5' : '#ACA899',
-                            borderRadius: '2px',
-                            opacity: person.disabled ? 0.6 : 1,
+                        checked={selected}
+                        disabled={person.disabled}
+                        onChange={() => {
+                            const next = selected
+                                ? selectedIds.filter((id) => id !== person.id)
+                                : selectedIds.concat(person.id);
+                            onChange(next);
                         }}
                     >
-                        <input
-                            type="checkbox"
-                            checked={selected}
-                            disabled={person.disabled}
-                            onChange={() => {
-                                const next = selected
-                                    ? selectedIds.filter(
-                                          (id) => id !== person.id,
-                                      )
-                                    : selectedIds.concat(person.id);
-                                onChange(next);
-                            }}
-                            style={{ display: 'none' }}
-                        />
-                        <span style={{ lineHeight: 1 }}>{person.name}</span>
-                    </label>
+                        {person.name}
+                    </CheckBox>
                 );
             })}
         </div>

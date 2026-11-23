@@ -1,3 +1,12 @@
+import {
+    CommandButton,
+    GroupBox,
+    ShareBar,
+    Slider,
+    StatusText,
+    Swatch,
+    Text,
+} from '@partytown/ui';
 import { useState } from 'react';
 import { usePutLlmConfigProvidersId } from '#api/party-zone';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
@@ -7,12 +16,10 @@ import {
     BENCHED,
     DECISIONS,
     GENERAL,
-    INK_MUTED,
     JOB_COMPLEXITIES,
     OFFLINE,
     PROVIDER_STATES,
     providerType,
-    SHEET,
     seriesColor,
     shortModel,
 } from './constants';
@@ -20,31 +27,8 @@ import { percent, shareOf, splitOf } from './split';
 
 export const NOBODY = '00000000-0000-0000-0000-000000000000';
 
-const STATE_ICONS = ['', '⚠', '✕'] as const;
-
-const inkOn = (hex: string) => {
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-    return r * 0.299 + g * 0.587 + b * 0.114 > 150 ? '#0b0b0b' : '#fff';
-};
-
-const HATCH =
-    'repeating-linear-gradient(135deg, rgba(255,255,255,0.55) 0 3px, transparent 3px 7px)';
-
-function Swatch({ color }: { color: string }) {
-    return (
-        <span
-            aria-hidden
-            style={{
-                width: 10,
-                height: 10,
-                borderRadius: 3,
-                background: color,
-                flexShrink: 0,
-                display: 'inline-block',
-            }}
-        />
-    );
-}
+const stateOfShare = (state: number) =>
+    state === OFFLINE ? 'off' : state === BENCHED ? 'dim' : 'normal';
 
 export default function ModelSplit({
     providers,
@@ -112,76 +96,52 @@ export default function ModelSplit({
     };
 
     return (
-        <section style={SHEET} aria-label="The split">
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
-                The split
-            </h3>
-            <p
-                style={{
-                    margin: '2px 0 12px',
-                    fontSize: 11,
-                    color: INK_MUTED,
-                }}
-            >
+        <GroupBox title="The split">
+            <Text as="p" tone="muted">
                 Each persona stays on one model, so their prompts stay cached
                 and their voice stays the same. A share says roughly how many
                 personas a model gets; for Decisions, how many of the calls.
-            </p>
+            </Text>
 
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                        'minmax(0, 1fr) minmax(90px, 180px) 34px',
-                    gap: '6px 10px',
-                    alignItems: 'center',
-                    marginBottom: 10,
-                }}
-            >
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(90px,180px)_34px] items-center gap-x-3 gap-y-1.5">
                 {pool.map((p) => {
                     const id = p.id ?? '';
                     const state = stateOf(p.id);
                     const share = draft[id] ?? shareOf(p);
                     const name = `${shortModel(p)} share`;
                     return (
-                        <div key={id} style={{ display: 'contents' }}>
-                            <span
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    minWidth: 0,
-                                    fontSize: 12,
-                                }}
-                            >
-                                <Swatch color={seriesColor(providers, p.id)} />
-                                <span
+                        <div key={id} className="contents">
+                            <span className="flex min-w-0 items-center gap-1.5">
+                                <Swatch colour={seriesColor(providers, p.id)} />
+                                <strong
+                                    className="truncate"
                                     title={p.modelName ?? undefined}
-                                    style={{
-                                        fontWeight: 600,
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                    }}
                                 >
                                     {shortModel(p)}
-                                </span>
-                                <span
-                                    style={{
-                                        color: INK_MUTED,
-                                        fontSize: 11,
-                                        flexShrink: 0,
-                                    }}
+                                </strong>
+                                <Text
+                                    as="span"
+                                    tone="muted"
+                                    className="flex-none"
                                 >
                                     {providerType(p.type).short}
-                                    {state !== 0 &&
-                                        ` · ${STATE_ICONS[state]} ${PROVIDER_STATES[state]?.label}`}
-                                </span>
+                                </Text>
+                                {state !== 0 && (
+                                    <StatusText
+                                        as="span"
+                                        className="flex-none"
+                                        tone={
+                                            PROVIDER_STATES[state]?.tone ??
+                                            'caution'
+                                        }
+                                    >
+                                        {PROVIDER_STATES[state]?.label}
+                                    </StatusText>
+                                )}
                             </span>
                             {shares(p) ? (
                                 <>
-                                    <input
-                                        type="range"
+                                    <Slider
                                         aria-label={name}
                                         min={1}
                                         max={Math.max(100, share)}
@@ -193,26 +153,15 @@ export default function ModelSplit({
                                                 [id]: Number(e.target.value),
                                             }))
                                         }
-                                        style={{ width: '100%', margin: 0 }}
+                                        className="w-full"
                                     />
-                                    <span
-                                        style={{
-                                            fontSize: 12,
-                                            textAlign: 'right',
-                                            fontVariantNumeric: 'tabular-nums',
-                                        }}
-                                    >
-                                        {share}
-                                    </span>
+                                    <span className="text-end">{share}</span>
                                 </>
                             ) : (
-                                <span
-                                    style={{
-                                        gridColumn: 'span 2',
-                                        fontSize: 11,
-                                        color: INK_MUTED,
-                                        textAlign: 'right',
-                                    }}
+                                <Text
+                                    as="span"
+                                    tone="muted"
+                                    className="col-span-2 text-end"
                                 >
                                     {JOB_COMPLEXITIES.some(
                                         (tier) =>
@@ -221,7 +170,7 @@ export default function ModelSplit({
                                     )
                                         ? 'takes everyone'
                                         : 'only when the others fail'}
-                                </span>
+                                </Text>
                             )}
                         </div>
                     );
@@ -229,273 +178,195 @@ export default function ModelSplit({
             </div>
 
             {(dirty || save.isError) && (
-                <div
-                    style={{
-                        display: 'flex',
-                        gap: 8,
-                        alignItems: 'center',
-                        marginBottom: 10,
-                    }}
-                >
-                    <button
+                <div className="flex flex-wrap items-center gap-2">
+                    <CommandButton
+                        isDefault
                         type="button"
                         onClick={saveAll}
                         disabled={!dirty || save.isPending}
                     >
                         {save.isPending ? 'Saving...' : 'Save split'}
-                    </button>
-                    <button
-                        type="button"
+                    </CommandButton>
+                    <CommandButton
                         onClick={() => setDraft({})}
                         disabled={save.isPending}
                     >
                         Undo
-                    </button>
-                    <span
-                        role={save.isError ? 'alert' : undefined}
-                        style={{ fontSize: 11, color: INK_MUTED }}
-                    >
-                        {save.isError
-                            ? "Couldn't save the split. Try again."
-                            : 'Only personas whose share moved change model.'}
-                    </span>
+                    </CommandButton>
+                    {save.isError ? (
+                        <StatusText as="span" tone="danger" role="alert">
+                            Couldn't save the split. Try again.
+                        </StatusText>
+                    ) : (
+                        <Text as="span" tone="muted">
+                            Only personas whose share moved change model.
+                        </Text>
+                    )}
                 </div>
             )}
 
-            {JOB_COMPLEXITIES.map((tier) => {
-                const [first, ...later] = splitOf(drafted, tier.value);
-                const last =
-                    tier.value === GENERAL
-                        ? null
-                        : tier.value === DECISIONS
-                          ? 'LLM emulation on General'
-                          : 'General';
-                const perCall = tier.value === DECISIONS;
-                return (
-                    <div
-                        key={tier.value}
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: '128px minmax(0, 1fr)',
-                            gap: 10,
-                            padding: '7px 0',
-                            borderTop: '1px solid rgba(0,0,0,0.08)',
-                        }}
-                    >
-                        <div>
-                            <div style={{ fontSize: 12, fontWeight: 600 }}>
-                                {tier.label}
+            <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-x-3 gap-y-3">
+                {JOB_COMPLEXITIES.map((tier) => {
+                    const [first, ...later] = splitOf(drafted, tier.value);
+                    const last =
+                        tier.value === GENERAL
+                            ? null
+                            : tier.value === DECISIONS
+                              ? 'LLM emulation on General'
+                              : 'General';
+                    const perCall = tier.value === DECISIONS;
+                    const captions =
+                        !perCall && !dirty && assignments.length > 0;
+                    return (
+                        <div key={tier.value} className="contents">
+                            <div className="flex flex-col">
+                                <strong>{tier.label}</strong>
+                                <Text as="p" tone="muted">
+                                    {tier.hint}
+                                </Text>
                             </div>
-                            <div style={{ fontSize: 10, color: INK_MUTED }}>
-                                {tier.hint}
-                            </div>
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                            {first ? (
-                                <>
-                                    <div
-                                        role="img"
-                                        aria-label={`${tier.label}: ${first.parts
-                                            .map(
-                                                (part) =>
-                                                    `${shortModel(part.provider)} ${percent(part.fraction)}`,
-                                            )
-                                            .join(', ')}`}
-                                        style={{ display: 'flex', gap: 2 }}
-                                    >
-                                        {first.parts.map((part, i) => {
-                                            const color = seriesColor(
-                                                providers,
-                                                part.provider.id,
-                                            );
-                                            const state = stateOf(
-                                                part.provider.id,
-                                            );
-                                            const count = personasOn(
-                                                tier.value,
-                                                part.provider.id,
-                                            );
-                                            const ends = `${i === 0 ? '4px' : '0'} ${i === first.parts.length - 1 ? '4px 4px' : '0 0'} ${i === 0 ? '4px' : '0'}`;
-                                            return (
-                                                <div
-                                                    key={part.provider.id}
-                                                    title={`${part.provider.modelName ?? part.provider.baseUrl}: ${percent(part.fraction)} of ${perCall ? 'calls' : 'personas'}${dirty || perCall ? '' : `, ${count} now`}${state === 0 ? '' : ` (${PROVIDER_STATES[state]?.label}: the others take its ${perCall ? 'calls' : 'personas'} meanwhile)`}`}
-                                                    style={{
-                                                        flex: `${part.fraction} 1 0`,
-                                                        minWidth: 4,
-                                                        height: 16,
-                                                        borderRadius: ends,
-                                                        background:
-                                                            state === OFFLINE
-                                                                ? `${HATCH}, ${color}`
-                                                                : color,
-                                                        opacity:
-                                                            state === OFFLINE
-                                                                ? 0.55
-                                                                : state ===
-                                                                    BENCHED
-                                                                  ? 0.7
-                                                                  : 1,
-                                                        color: inkOn(color),
-                                                        fontSize: 10,
-                                                        fontWeight: 700,
-                                                        lineHeight: '16px',
-                                                        textAlign: 'center',
-                                                        overflow: 'hidden',
-                                                        whiteSpace: 'nowrap',
-                                                    }}
-                                                >
-                                                    {part.fraction >= 0.14 &&
-                                                        percent(part.fraction)}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    {perCall && first.parts.length > 1 && (
-                                        <div
-                                            style={{
-                                                marginTop: 2,
-                                                fontSize: 10,
-                                                color: INK_MUTED,
-                                                textAlign: 'center',
-                                            }}
-                                        >
-                                            every call takes the next one
-                                        </div>
-                                    )}
-                                    {!perCall &&
-                                        !dirty &&
-                                        assignments.length > 0 && (
-                                            <div
-                                                aria-hidden
-                                                style={{
-                                                    display: 'flex',
-                                                    gap: 2,
-                                                    marginTop: 2,
-                                                    fontSize: 10,
-                                                    color: INK_MUTED,
-                                                }}
-                                            >
-                                                {first.parts.map((part) => (
-                                                    <span
-                                                        key={part.provider.id}
-                                                        style={{
-                                                            flex: `${part.fraction} 1 0`,
-                                                            minWidth: 4,
-                                                            textAlign: 'center',
-                                                            overflow: 'hidden',
-                                                            whiteSpace:
-                                                                'nowrap',
-                                                        }}
-                                                    >
-                                                        {part.fraction >=
-                                                            0.14 &&
-                                                            `${personasOn(tier.value, part.provider.id)} now`}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                </>
-                            ) : (
-                                <div
-                                    style={{
-                                        fontSize: 11,
-                                        lineHeight: '16px',
-                                        color:
-                                            tier.value === GENERAL
-                                                ? '#b3261e'
-                                                : INK_MUTED,
-                                        fontWeight:
-                                            tier.value === GENERAL ? 700 : 400,
-                                    }}
-                                >
-                                    {tier.value === GENERAL
-                                        ? '⚠ No model handles this, so personas can’t speak.'
-                                        : `No model of its own: uses ${last}.`}
-                                </div>
-                            )}
-                            {first && (later.length > 0 || last) && (
-                                <div
-                                    style={{
-                                        marginTop: 3,
-                                        fontSize: 10,
-                                        color: INK_MUTED,
-                                        display: 'flex',
-                                        flexWrap: 'wrap',
-                                        gap: '2px 5px',
-                                        alignItems: 'center',
-                                    }}
-                                >
-                                    If those fail:
-                                    {[
-                                        ...later.flatMap((step) =>
-                                            step.parts.map((part) => (
-                                                <span
-                                                    key={part.provider.id}
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: 3,
-                                                        textDecoration:
-                                                            stateOf(
-                                                                part.provider
-                                                                    .id,
-                                                            ) === OFFLINE
-                                                                ? 'line-through'
-                                                                : undefined,
-                                                    }}
-                                                >
-                                                    <Swatch
-                                                        color={seriesColor(
+                            <div className="flex min-w-0 flex-col gap-1">
+                                {first ? (
+                                    <>
+                                        <ShareBar
+                                            label={`${tier.label}: ${first.parts
+                                                .map(
+                                                    (part) =>
+                                                        `${shortModel(part.provider)} ${percent(part.fraction)}`,
+                                                )
+                                                .join(', ')}`}
+                                            segments={first.parts.map(
+                                                (part) => {
+                                                    const state = stateOf(
+                                                        part.provider.id,
+                                                    );
+                                                    const count = personasOn(
+                                                        tier.value,
+                                                        part.provider.id,
+                                                    );
+                                                    const wide =
+                                                        part.fraction >= 0.14;
+                                                    return {
+                                                        key:
+                                                            part.provider.id ??
+                                                            '',
+                                                        share: part.fraction,
+                                                        colour: seriesColor(
                                                             providers,
                                                             part.provider.id,
+                                                        ),
+                                                        state: stateOfShare(
+                                                            state,
+                                                        ),
+                                                        label: wide
+                                                            ? percent(
+                                                                  part.fraction,
+                                                              )
+                                                            : undefined,
+                                                        caption:
+                                                            captions && wide
+                                                                ? `${count} now`
+                                                                : captions
+                                                                  ? ''
+                                                                  : undefined,
+                                                        title: `${part.provider.modelName ?? part.provider.baseUrl}: ${percent(part.fraction)} of ${perCall ? 'calls' : 'personas'}${dirty || perCall ? '' : `, ${count} now`}${state === 0 ? '' : ` (${PROVIDER_STATES[state]?.label}: the others take its ${perCall ? 'calls' : 'personas'} meanwhile)`}`,
+                                                    };
+                                                },
+                                            )}
+                                        />
+                                        {perCall && first.parts.length > 1 && (
+                                            <Text
+                                                as="p"
+                                                tone="muted"
+                                                className="text-center"
+                                            >
+                                                every call takes the next one
+                                            </Text>
+                                        )}
+                                    </>
+                                ) : tier.value === GENERAL ? (
+                                    <StatusText tone="danger">
+                                        No model handles this, so personas can’t
+                                        speak.
+                                    </StatusText>
+                                ) : (
+                                    <Text as="p" tone="muted">
+                                        No model of its own: uses {last}.
+                                    </Text>
+                                )}
+                                {first && (later.length > 0 || last) && (
+                                    <Text
+                                        as="div"
+                                        tone="muted"
+                                        className="flex flex-wrap items-center gap-x-1 gap-y-0.5"
+                                    >
+                                        If those fail:
+                                        {[
+                                            ...later.flatMap((step) =>
+                                                step.parts.map((part) => (
+                                                    <span
+                                                        key={part.provider.id}
+                                                        className="inline-flex items-center gap-1"
+                                                    >
+                                                        <Swatch
+                                                            size="small"
+                                                            colour={seriesColor(
+                                                                providers,
+                                                                part.provider
+                                                                    .id,
+                                                            )}
+                                                        />
+                                                        {stateOf(
+                                                            part.provider.id,
+                                                        ) === OFFLINE ? (
+                                                            <s>
+                                                                {shortModel(
+                                                                    part.provider,
+                                                                )}
+                                                            </s>
+                                                        ) : (
+                                                            shortModel(
+                                                                part.provider,
+                                                            )
                                                         )}
-                                                    />
-                                                    {shortModel(part.provider)}
-                                                </span>
-                                            )),
-                                        ),
-                                        ...(last
-                                            ? [<span key="last">{last}</span>]
-                                            : []),
-                                    ].flatMap((step, i) =>
-                                        i === 0
-                                            ? [step]
-                                            : [
-                                                  <span
-                                                      key={`then-${step.key}`}
-                                                      aria-hidden
-                                                  >
-                                                      →
-                                                  </span>,
-                                                  step,
-                                              ],
-                                    )}
-                                </div>
-                            )}
+                                                    </span>
+                                                )),
+                                            ),
+                                            ...(last
+                                                ? [
+                                                      <span key="last">
+                                                          {last}
+                                                      </span>,
+                                                  ]
+                                                : []),
+                                        ].flatMap((step, i) =>
+                                            i === 0
+                                                ? [step]
+                                                : [
+                                                      <span
+                                                          key={`then-${step.key}`}
+                                                          aria-hidden
+                                                      >
+                                                          →
+                                                      </span>,
+                                                      step,
+                                                  ],
+                                        )}
+                                    </Text>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
 
             {nobodys && (
-                <p
-                    style={{
-                        margin: '8px 0 0',
-                        paddingTop: 8,
-                        borderTop: '1px solid rgba(0,0,0,0.08)',
-                        fontSize: 11,
-                        color: INK_MUTED,
-                    }}
-                >
+                <Text as="p" tone="muted">
                     Work that's nobody's own (the narrator, memories, Places)
                     goes to the biggest share: now{' '}
-                    <strong style={{ color: '#0b0b0b' }}>
-                        {shortModel(nobodys)}
-                    </strong>
-                    .
-                </p>
+                    <strong>{shortModel(nobodys)}</strong>.
+                </Text>
             )}
-        </section>
+        </GroupBox>
     );
 }

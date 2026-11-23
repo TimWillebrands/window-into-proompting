@@ -1,4 +1,4 @@
-import { PERSON_PALETTE } from './palette';
+import { personColour } from './palette';
 import type {
     EnrichedMemoryGraph,
     EnrichedMemoryLink,
@@ -41,10 +41,7 @@ export function enrichGraph(
         .map((n) => n.id)
         .sort();
     const colourById = new Map(
-        participantIds.map((id, i) => [
-            id,
-            PERSON_PALETTE[i % PERSON_PALETTE.length],
-        ]),
+        participantIds.map((id, i) => [id, personColour(i)]),
     );
 
     const nodes: EnrichedMemoryNode[] = graph.nodes.map((node) => {

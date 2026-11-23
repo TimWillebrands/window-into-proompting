@@ -1,3 +1,10 @@
+import {
+    ComboBox,
+    CommandButton,
+    Icon,
+    ListView,
+    TextBox,
+} from '@partytown/ui';
 import { useState } from 'react';
 import {
     useDeleteWorldsPartyIdCompaniesCompanyIdStaffParticipantId,
@@ -15,12 +22,25 @@ import {
     midOf,
     positionReturn,
     priceLabel,
-    signedPercent,
-    toneOf,
     tradeLabel,
     whenLabel,
 } from './jobs-lib';
-import { Card, Empty, Field, Jump, PageHead, Refusal, Stat } from './parts';
+import {
+    Actions,
+    Card,
+    Empty,
+    Field,
+    Fields,
+    Jump,
+    Page,
+    PageHead,
+    Refusal,
+    Row,
+    Rows,
+    Signed,
+    Stat,
+    Stats,
+} from './parts';
 import { useRefreshWork, useWork } from './work-context';
 
 export function CompaniesPage() {
@@ -28,42 +48,37 @@ export function CompaniesPage() {
     return (
         <>
             <PageHead
-                icon="🏦"
+                icon="company"
                 title="Companies"
                 sub="Real prices, pretend money. Their books never touch anyone's wallet."
             />
-            <div className="wk-page">
+            <Page>
                 {companies.length === 0 ? (
                     <Empty>No companies yet. Start the first one below.</Empty>
                 ) : (
-                    <div className="wk-tiles">
-                        {companies.map((c) => {
-                            const change = bookReturn(c);
-                            return (
-                                <button
-                                    key={c.id}
-                                    type="button"
-                                    className="xp-bare wk-tile"
-                                    onClick={() =>
-                                        go({ page: 'company', id: c.id })
-                                    }
-                                >
-                                    <strong>{c.name}</strong>
-                                    <span>{c.mandate}</span>
-                                    <span>
-                                        {credits(c.value)} credits ·{' '}
-                                        <b data-tone={toneOf(change)}>
-                                            {signedPercent(change)}
-                                        </b>{' '}
-                                        · {c.staff.length} staff
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    <ListView
+                        view="tiles"
+                        label="Companies"
+                        className="flex-none"
+                        activateOn="single"
+                        onActivate={(id) => go({ page: 'company', id })}
+                        items={companies.map((c) => ({
+                            id: c.id,
+                            label: c.name,
+                            largeIcon: <Icon name="company" size={48} />,
+                            details: [
+                                c.mandate,
+                                <>
+                                    {credits(c.value)} credits ·{' '}
+                                    <Signed fraction={bookReturn(c)} /> ·{' '}
+                                    {c.staff.length} staff
+                                </>,
+                            ],
+                        }))}
+                    />
                 )}
                 <FoundForm />
-            </div>
+            </Page>
         </>
     );
 }
@@ -82,6 +97,7 @@ function FoundForm() {
     return (
         <Card title="Start a company">
             <form
+                className="grid gap-2"
                 onSubmit={(e) => {
                     e.preventDefault();
                     found.mutate(
@@ -105,69 +121,72 @@ function FoundForm() {
                     );
                 }}
             >
-                <div className="wk-fields">
+                <Fields>
                     <Field label="Name" grow>
-                        <input
+                        <TextBox
                             placeholder="Polder Capital"
                             value={name}
                             onChange={(e) => setName(e.currentTarget.value)}
                         />
                     </Field>
                     <Field label="What it does" grow>
-                        <input
+                        <TextBox
                             placeholder="trades AI questions"
                             value={mandate}
                             onChange={(e) => setMandate(e.currentTarget.value)}
                         />
                     </Field>
-                </div>
-                <div className="wk-fields">
+                </Fields>
+                <Fields>
                     <Field label="Kind">
-                        <select
+                        <ComboBox
                             value={kind}
                             onChange={(e) => setKind(e.currentTarget.value)}
-                        >
-                            <option value="trading">trading</option>
-                            <option value="cdu">keeps the CDU</option>
-                        </select>
+                            options={[
+                                { value: 'trading', label: 'trading' },
+                                { value: 'cdu', label: 'keeps the CDU' },
+                            ]}
+                        />
                     </Field>
-                </div>
-                <div className="wk-fields" hidden={kind === 'cdu'}>
+                </Fields>
+                <Fields hidden={kind === 'cdu'}>
                     <Field label="Market">
-                        <select
+                        <ComboBox
                             value={market}
                             onChange={(e) => setMarket(e.currentTarget.value)}
-                        >
-                            <option value="predictions">predictions</option>
-                            <option value="crypto">crypto</option>
-                            <option value="stocks">stocks</option>
-                        </select>
+                            options={[
+                                { value: 'predictions', label: 'predictions' },
+                                { value: 'crypto', label: 'crypto' },
+                                { value: 'stocks', label: 'stocks' },
+                            ]}
+                        />
                     </Field>
                     <Field label="Focus" grow>
-                        <input
+                        <TextBox
                             placeholder="AI · BTC, ETH · semiconductors"
                             value={focus}
                             onChange={(e) => setFocus(e.currentTarget.value)}
                         />
                     </Field>
                     <Field label="Capital">
-                        <input
-                            className="wk-short"
+                        <TextBox
+                            className="w-[96px]"
                             value={capital}
                             onChange={(e) => setCapital(e.currentTarget.value)}
                         />
                     </Field>
-                </div>
-                <div className="wk-actions">
-                    <button
+                </Fields>
+                <Actions>
+                    <CommandButton
                         type="submit"
+                        isDefault
                         disabled={
                             !name.trim() || !mandate.trim() || found.isPending
                         }
                     >
                         Start
-                    </button>
-                </div>
+                    </CommandButton>
+                </Actions>
                 <Refusal error={found.error} />
             </form>
         </Card>
@@ -177,10 +196,10 @@ function FoundForm() {
 function CduPage({ company }: { company: CompanySummary }) {
     return (
         <>
-            <PageHead icon="🜂" title={company.name} sub={company.mandate} />
-            <div className="wk-page">
+            <PageHead icon="cdu" title={company.name} sub={company.mandate} />
+            <Page>
                 <Staff company={company} />
-            </div>
+            </Page>
         </>
     );
 }
@@ -194,7 +213,7 @@ export function CompanyPage({ company }: { company: CompanySummary }) {
     return (
         <>
             <PageHead
-                icon="🏦"
+                icon="company"
                 title={company.name}
                 sub={[
                     company.mandate,
@@ -206,17 +225,13 @@ export function CompanyPage({ company }: { company: CompanySummary }) {
                     .filter(Boolean)
                     .join(' · ')}
             />
-            <div className="wk-page">
-                <div className="wk-stats">
+            <Page>
+                <Stats>
                     <Stat label="Book" value={credits(company.value)} />
-                    <Stat
-                        label="Return"
-                        value={signedPercent(change)}
-                        tone={toneOf(change)}
-                    />
+                    <Stat label="Return" value={<Signed fraction={change} />} />
                     <Stat label="Cash" value={credits(company.cash)} />
                     <Stat label="Brier" value={brierLabel(company.brier)} />
-                </div>
+                </Stats>
                 <Staff company={company} />
                 <Holdings company={company} />
                 <Watching company={company} />
@@ -225,25 +240,49 @@ export function CompanyPage({ company }: { company: CompanySummary }) {
                 ) : null}
                 {company.trades.length > 0 ? (
                     <Card title="Trades">
-                        <ul className="wk-log">
-                            {company.trades.map((t) => (
-                                <li key={t.id} title={t.thesis ?? undefined}>
-                                    <time>{whenLabel(t.at)}</time>
-                                    <span>
-                                        {t.traderName
-                                            ? `${t.traderName}: `
-                                            : ''}
-                                        {tradeLabel(t)} · {t.title}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
+                        <ListView
+                            label="Trades"
+                            selectionMode="none"
+                            columns={[
+                                {
+                                    key: 'when',
+                                    header: 'When',
+                                    width: 'max-content',
+                                },
+                                {
+                                    key: 'trade',
+                                    header: 'Trade',
+                                    width: 'minmax(160px, 1fr)',
+                                    wrap: true,
+                                },
+                            ]}
+                            items={company.trades.map((t) => ({
+                                id: t.id,
+                                label: whenLabel(t.at),
+                                cells: {
+                                    trade: (
+                                        <span title={t.thesis ?? undefined}>
+                                            {t.traderName
+                                                ? `${t.traderName}: `
+                                                : ''}
+                                            {tradeLabel(t)} · {t.title}
+                                        </span>
+                                    ),
+                                },
+                            }))}
+                        />
                     </Card>
                 ) : null}
-            </div>
+            </Page>
         </>
     );
 }
+
+const moneyColumns = (value: string, change: string) => [
+    { key: 'what', header: 'What', width: 'minmax(160px, 2fr)', wrap: true },
+    { key: 'value', header: value, align: 'end' as const },
+    { key: 'change', header: change, align: 'end' as const },
+];
 
 function Holdings({ company }: { company: CompanySummary }) {
     return (
@@ -251,37 +290,19 @@ function Holdings({ company }: { company: CompanySummary }) {
             {company.positions.length === 0 ? (
                 <Empty>Nothing held.</Empty>
             ) : (
-                <table className="wk-table">
-                    <thead>
-                        <tr>
-                            <th>What</th>
-                            <th className="wk-num">Worth</th>
-                            <th className="wk-num">Return</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {company.positions.map((p) => {
-                            const change = positionReturn(p);
-                            return (
-                                <tr key={p.instrumentId} data-still>
-                                    <td>
-                                        {p.title}
-                                        {p.fresh ? '' : ' (stale)'}
-                                    </td>
-                                    <td className="wk-num">
-                                        {credits(p.value)}
-                                    </td>
-                                    <td
-                                        className="wk-num"
-                                        data-tone={toneOf(change)}
-                                    >
-                                        {signedPercent(change)}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                <ListView
+                    label="Holding"
+                    selectionMode="none"
+                    columns={moneyColumns('Worth', 'Return')}
+                    items={company.positions.map((p) => ({
+                        id: p.instrumentId,
+                        label: `${p.title}${p.fresh ? '' : ' (stale)'}`,
+                        cells: {
+                            value: credits(p.value),
+                            change: <Signed fraction={positionReturn(p)} />,
+                        },
+                    }))}
+                />
             )}
         </Card>
     );
@@ -294,40 +315,27 @@ function Watching({ company }: { company: CompanySummary }) {
             {open.length === 0 ? (
                 <Empty>The market is quiet right now.</Empty>
             ) : (
-                <table className="wk-table">
-                    <thead>
-                        <tr>
-                            <th>What</th>
-                            <th className="wk-num">Price</th>
-                            <th className="wk-num">Today</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {open.map((w) => {
-                            const move = dayMove(w);
-                            return (
-                                <tr key={w.instrumentId} data-still>
-                                    <td>{w.title}</td>
-                                    <td className="wk-num">
-                                        {priceLabel(midOf(w))}
-                                    </td>
-                                    <td
-                                        className="wk-num"
-                                        data-tone={
-                                            move === null
-                                                ? undefined
-                                                : toneOf(move)
-                                        }
-                                    >
-                                        {move === null
-                                            ? ''
-                                            : signedPercent(move)}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                <ListView
+                    label="Watching"
+                    selectionMode="none"
+                    columns={moneyColumns('Price', 'Today')}
+                    items={open.map((w) => {
+                        const move = dayMove(w);
+                        return {
+                            id: w.instrumentId,
+                            label: w.title,
+                            cells: {
+                                value: priceLabel(midOf(w)),
+                                change:
+                                    move === null ? (
+                                        ''
+                                    ) : (
+                                        <Signed fraction={move} />
+                                    ),
+                            },
+                        };
+                    })}
+                />
             )}
         </Card>
     );
@@ -349,9 +357,9 @@ function Staff({ company }: { company: CompanySummary }) {
             {company.staff.length === 0 ? (
                 <Empty>Nobody works here yet.</Empty>
             ) : (
-                <ul className="wk-rows">
+                <Rows>
                     {company.staff.map((s) => (
-                        <li key={s.participantId}>
+                        <Row key={s.participantId}>
                             <Jump
                                 onClick={() =>
                                     go({ page: 'person', id: s.participantId })
@@ -359,11 +367,12 @@ function Staff({ company }: { company: CompanySummary }) {
                             >
                                 {s.name}
                             </Jump>
-                            <span className="wk-muted">
+                            <span className="flex-1">
                                 Brier {brierLabel(s.brier)}
                             </span>
-                            <button
-                                type="button"
+                            <CommandButton
+                                size="small"
+                                tone="caution"
                                 disabled={dismiss.isPending}
                                 onClick={() =>
                                     dismiss.mutate({
@@ -374,13 +383,13 @@ function Staff({ company }: { company: CompanySummary }) {
                                 }
                             >
                                 Let go
-                            </button>
-                        </li>
+                            </CommandButton>
+                        </Row>
                     ))}
-                </ul>
+                </Rows>
             )}
             <form
-                className="wk-inline"
+                className="flex items-center gap-1.5"
                 onSubmit={(e) => {
                     e.preventDefault();
                     hire.mutate(
@@ -398,7 +407,7 @@ function Staff({ company }: { company: CompanySummary }) {
                     );
                 }}
             >
-                <select
+                <ComboBox
                     aria-label="Who to hire"
                     value={who}
                     onChange={(e) => setWho(e.currentTarget.value)}
@@ -410,10 +419,14 @@ function Staff({ company }: { company: CompanySummary }) {
                             {p.title ? ` (now: ${p.title})` : ''}
                         </option>
                     ))}
-                </select>
-                <button type="submit" disabled={!who || hire.isPending}>
+                </ComboBox>
+                <CommandButton
+                    type="submit"
+                    isDefault
+                    disabled={!who || hire.isPending}
+                >
                     Hire
-                </button>
+                </CommandButton>
             </form>
             <Refusal error={hire.error ?? dismiss.error} />
         </Card>
@@ -447,6 +460,7 @@ function TradeForm({ company }: { company: CompanySummary }) {
     return (
         <Card title="Trade">
             <form
+                className="grid gap-2"
                 onSubmit={(e) => {
                     e.preventDefault();
                     trade.mutate({
@@ -463,9 +477,9 @@ function TradeForm({ company }: { company: CompanySummary }) {
                     });
                 }}
             >
-                <div className="wk-fields">
+                <Fields>
                     <Field label="As">
-                        <select
+                        <ComboBox
                             value={trader}
                             onChange={(e) => setTrader(e.currentTarget.value)}
                         >
@@ -478,19 +492,20 @@ function TradeForm({ company }: { company: CompanySummary }) {
                                     {s.name}
                                 </option>
                             ))}
-                        </select>
+                        </ComboBox>
                     </Field>
                     <Field label="Side">
-                        <select
+                        <ComboBox
                             value={side}
                             onChange={(e) => setSide(e.currentTarget.value)}
-                        >
-                            <option value="buy">buy</option>
-                            <option value="sell">sell</option>
-                        </select>
+                            options={[
+                                { value: 'buy', label: 'buy' },
+                                { value: 'sell', label: 'sell' },
+                            ]}
+                        />
                     </Field>
                     <Field label="What" grow>
-                        <select
+                        <ComboBox
                             value={instrument}
                             onChange={(e) =>
                                 setInstrument(e.currentTarget.value)
@@ -502,21 +517,21 @@ function TradeForm({ company }: { company: CompanySummary }) {
                                     {i.title}
                                 </option>
                             ))}
-                        </select>
+                        </ComboBox>
                     </Field>
-                </div>
-                <div className="wk-fields">
+                </Fields>
+                <Fields>
                     <Field label="Percent">
-                        <input
-                            className="wk-tiny"
+                        <TextBox
+                            className="w-[56px]"
                             value={percent}
                             onChange={(e) => setPercent(e.currentTarget.value)}
                         />
                     </Field>
                     {company.market === 'predictions' ? (
                         <Field label="Chance %">
-                            <input
-                                className="wk-tiny"
+                            <TextBox
+                                className="w-[56px]"
                                 value={chance}
                                 onChange={(e) =>
                                     setChance(e.currentTarget.value)
@@ -525,20 +540,21 @@ function TradeForm({ company }: { company: CompanySummary }) {
                         </Field>
                     ) : null}
                     <Field label="Why" grow>
-                        <input
+                        <TextBox
                             value={thesis}
                             onChange={(e) => setThesis(e.currentTarget.value)}
                         />
                     </Field>
-                </div>
-                <div className="wk-actions">
-                    <button
+                </Fields>
+                <Actions>
+                    <CommandButton
                         type="submit"
+                        isDefault
                         disabled={!trader || !instrument || trade.isPending}
                     >
                         Trade
-                    </button>
-                </div>
+                    </CommandButton>
+                </Actions>
                 <Refusal error={trade.error} />
             </form>
         </Card>

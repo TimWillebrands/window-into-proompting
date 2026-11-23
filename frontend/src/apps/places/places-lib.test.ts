@@ -86,7 +86,7 @@ describe('workplace doors', () => {
         expect(mayEnter(office, 'tim')).toBe(true);
         expect(mayEnter(office, 'pieter')).toBe(true);
         expect(mayEnter(office, 'medevortius')).toBe(false);
-        expect(placeIcon(office, 'medevortius')).toBe('🔒');
+        expect(placeIcon(office, 'medevortius')).toBe('locked');
     });
 
     it('stays open when nobody works there, or its door is open', () => {
@@ -111,7 +111,7 @@ describe('shared Homes', () => {
     it('labels and opens a shared Home as your own', () => {
         expect(placeLabel(sharedHome, 'me')).toBe('Home');
         expect(mayEnter(sharedHome, 'me')).toBe(true);
-        expect(placeIcon(sharedHome, 'me')).toBe('🏠');
+        expect(placeIcon(sharedHome, 'me')).toBe('home');
     });
 
     it('keeps a moved-out Home off the Navigator', () => {
@@ -168,16 +168,16 @@ describe('places-lib', () => {
     });
 
     it('gives Places an icon and an occupancy level', () => {
-        expect(placeIcon(cafe, 'me')).toBe('🏢');
-        expect(placeIcon({ ...cafe, scene: 'cafe' }, 'me')).toBe('☕');
+        expect(placeIcon(cafe, 'me')).toBe('office');
+        expect(placeIcon({ ...cafe, scene: 'cafe' }, 'me')).toBe('coffee');
         expect(
             placeIcon(
                 { ...cafe, name: 'the Rooftop Bar', customScene: '{}' },
                 'me',
             ),
-        ).toBe('🍸');
-        expect(placeIcon(myHome, 'me')).toBe('🏠');
-        expect(placeIcon(theirHome, 'me')).toBe('🔒');
+        ).toBe('cocktail');
+        expect(placeIcon(myHome, 'me')).toBe('home');
+        expect(placeIcon(theirHome, 'me')).toBe('locked');
         const roomy: Place = {
             ...cafe,
             spots: [

@@ -1,47 +1,26 @@
-import WindowFrame from '../../../components/desktop/WindowFrame';
+import { Dialog, Icon } from '@partytown/ui';
+import type { ReactNode } from 'react';
 
 export default function ProviderModal({
     title,
     onClose,
+    buttons,
     children,
 }: {
     title: string;
     onClose: () => void;
-    children: React.ReactNode;
+    buttons?: ReactNode;
+    children: ReactNode;
 }) {
     return (
-        // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click dismisses modal; real dialog is inside
-        <div
-            role="presentation"
-            className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center"
-            onClick={onClose}
-            onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                    onClose();
-                }
-            }}
+        <Dialog
+            title={title}
+            icon={<Icon name="tools" />}
+            onClose={onClose}
+            buttons={buttons}
+            className="max-h-[85vh] w-[480px]"
         >
-            <div
-                role="dialog"
-                aria-label={title}
-                className="w-[480px] max-h-[85vh] flex flex-col app-surface"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-            >
-                <WindowFrame
-                    id={`provider-modal-${title}`}
-                    title={title}
-                    icon="🛠️"
-                    width={480}
-                    height={0}
-                    zIndex={1000}
-                    focused
-                    onMinimize={onClose}
-                    onClose={onClose}
-                >
-                    <div className="overflow-y-auto p-3">{children}</div>
-                </WindowFrame>
-            </div>
-        </div>
+            {children}
+        </Dialog>
     );
 }

@@ -1,3 +1,4 @@
+import type { IconName } from '@partytown/ui';
 import AutoApp from '../apps/auto/AutoApp';
 import BoardApp from '../apps/board/BoardApp';
 import CalendarApp from '../apps/calendar/CalendarApp';
@@ -17,11 +18,11 @@ import WardrobeApp from '../apps/wardrobe/WardrobeApp';
 import WorldApp from '../apps/world/WorldApp';
 import type { WindowDescriptor } from './types';
 
-export const WINDOW_PRESETS: WindowDescriptor[] = [
+export const WINDOW_PRESETS: (WindowDescriptor & { icon: IconName })[] = [
     {
         id: 'world',
         title: 'World Monitor',
-        icon: '🌍',
+        icon: 'world',
         component: WorldApp,
         initialPosition: { x: 420, y: 80 },
         initialSize: { width: 820, height: 560 },
@@ -29,7 +30,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'places',
         title: 'Places',
-        icon: '🏘️',
+        icon: 'places',
         component: PlacesApp,
         initialPosition: { x: 200, y: 90 },
         initialSize: { width: 820, height: 560 },
@@ -37,7 +38,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'messenger',
         title: 'Messenger',
-        icon: '🦋',
+        icon: 'messenger',
         component: MessengerApp,
         initialPosition: { x: 1180, y: 60 },
         initialSize: { width: 300, height: 560 },
@@ -45,7 +46,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'messenger-chat',
         title: 'Conversation',
-        icon: '💬',
+        icon: 'chat',
         component: MessengerChatWindow,
         initialPosition: { x: 760, y: 220 },
         initialSize: { width: 440, height: 480 },
@@ -53,7 +54,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'board',
         title: 'Partyboard',
-        icon: '📌',
+        icon: 'board',
         component: BoardApp,
         initialPosition: { x: 240, y: 120 },
         initialSize: { width: 860, height: 600 },
@@ -61,7 +62,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'calendar',
         title: 'Calendar',
-        icon: '📅',
+        icon: 'calendar',
         component: CalendarApp,
         initialPosition: { x: 360, y: 140 },
         initialSize: { width: 620, height: 520 },
@@ -69,7 +70,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'diary',
         title: 'Diaries — Notepad',
-        icon: '📓',
+        icon: 'diary',
         component: DiaryApp,
         initialPosition: { x: 300, y: 160 },
         initialSize: { width: 640, height: 500 },
@@ -77,7 +78,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'auto',
         title: 'Auto Mode',
-        icon: '🤖',
+        icon: 'auto',
         component: AutoApp,
         initialPosition: { x: 340, y: 150 },
         initialSize: { width: 420, height: 280 },
@@ -85,7 +86,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'wardrobe',
         title: 'Wardrobe',
-        icon: '👗',
+        icon: 'wardrobe',
         component: WardrobeApp,
         initialPosition: { x: 320, y: 140 },
         initialSize: { width: 680, height: 520 },
@@ -93,7 +94,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'jobs',
         title: 'Work & Wants',
-        icon: '💼',
+        icon: 'jobs',
         component: JobsApp,
         initialPosition: { x: 300, y: 110 },
         initialSize: { width: 780, height: 540 },
@@ -101,7 +102,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'cdu',
         title: 'C:\\CDU\\',
-        icon: '🜂',
+        icon: 'cdu',
         component: CduApp,
         initialPosition: { x: 260, y: 90 },
         initialSize: { width: 820, height: 560 },
@@ -109,21 +110,21 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'personas',
         title: 'Persona Manager',
-        icon: '👤',
+        icon: 'personas',
         component: PersonasApp,
         initialPosition: { x: 280, y: 200 },
     },
     {
         id: 'open-party',
         title: "D'Accord — Chat Rooms",
-        icon: '💬',
+        icon: 'chat-rooms',
         component: DaccordApp,
         initialPosition: { x: 360, y: 260 },
     },
     {
         id: 'config-panel',
         title: 'Control Panel',
-        icon: '⚙️',
+        icon: 'control-panel',
         component: ConfigPanelApp,
         initialPosition: { x: 120, y: 60 },
         initialSize: { width: 900, height: 640 },
@@ -131,7 +132,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'memory-graph',
         title: 'Memory Graph',
-        icon: '🧠',
+        icon: 'memory-graph',
         component: MemoryGraphApp,
         initialPosition: { x: 320, y: 180 },
         initialSize: { width: 960, height: 640 },
@@ -139,7 +140,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'stance-floor',
         title: 'Stance Floor',
-        icon: '🧭',
+        icon: 'stance-floor',
         component: StanceFloorApp,
         initialPosition: { x: 340, y: 200 },
         initialSize: { width: 760, height: 520 },
@@ -147,7 +148,7 @@ export const WINDOW_PRESETS: WindowDescriptor[] = [
     {
         id: 'relations',
         title: 'Relations',
-        icon: '💞',
+        icon: 'relations',
         component: RelationsApp,
         initialPosition: { x: 360, y: 220 },
         initialSize: { width: 720, height: 460 },

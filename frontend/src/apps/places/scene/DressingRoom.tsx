@@ -1,11 +1,12 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import type * as THREE from 'three';
-import type { Appearance } from '../../api/model/appearance';
-import { lookOf } from '../places/iso/appearance';
-import Avatar, { type AvatarState } from '../places/scene/Avatar';
-import { canvasRenderer } from '../places/scene/gpu';
-import { PIXEL_STYLE, Pixelate, usePixelDpr } from '../places/scene/pixel';
+import type { Appearance } from '../../../api/model/appearance';
+import { lookOf } from '../iso/appearance';
+import Avatar, { type AvatarState } from './Avatar';
+import { canvasRenderer } from './gpu';
+import { PIXEL_STYLE, Pixelate, usePixelDpr } from './pixel';
+import './scene.css';
 
 interface Props {
     appearance: Appearance | null | undefined;
@@ -33,7 +34,7 @@ export default function DressingRoom({
     );
     return (
         <div
-            className="wr-stage"
+            className="pl-dressing h-full w-full"
             onPointerDown={(e) => {
                 spin.current.dragging = true;
                 spin.current.lastX = e.clientX;
@@ -82,7 +83,6 @@ export default function DressingRoom({
                 <Podium spin={spin} look={look} mood={mood} />
                 <Pixelate />
             </Canvas>
-            <span className="wr-stage-hint">⟲ drag to turn</span>
         </div>
     );
 }

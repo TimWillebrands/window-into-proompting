@@ -1,3 +1,4 @@
+import { CommandButton } from '@partytown/ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import ProviderModal from './ProviderModal';
@@ -9,13 +10,23 @@ const meta = {
     args: {
         title: 'Edit Provider',
         onClose: fn(),
-        children: (
-            <div style={{ padding: 16 }}>
-                <p>Modal body content. Click outside or press Esc to close.</p>
-                <button type="button">Save</button>
+        buttons: (
+            <>
+                <CommandButton isDefault type="button">
+                    Save
+                </CommandButton>
+                <CommandButton>Cancel</CommandButton>
+            </>
+        ),
+        children: <p>Modal body content. Press Esc to close.</p>,
+    },
+    decorators: [
+        (Story) => (
+            <div className="h-[480px]">
+                <Story />
             </div>
         ),
-    },
+    ],
 } satisfies Meta<typeof ProviderModal>;
 
 export default meta;

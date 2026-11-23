@@ -1,3 +1,4 @@
+import { HudPanel, Icon, Toolbar, ToolbarButton } from '@partytown/ui';
 import { MapControls, OrthographicCamera } from '@react-three/drei';
 import {
     Canvas,
@@ -6,6 +7,7 @@ import {
     useThree,
 } from '@react-three/fiber';
 import {
+    type CSSProperties,
     createContext,
     memo,
     type ReactNode,
@@ -54,6 +56,7 @@ import { buildGround } from './ground';
 import { useMeshVersion } from './meshes';
 import { poseOf, round, targets, type Walk } from './motion';
 import { PIXEL_DPR, PIXEL_STYLE, Pixelate, usePixelDpr } from './pixel';
+import './scene.css';
 import {
     type PlacedProp,
     pathIn,
@@ -122,12 +125,14 @@ export default function PlaceScene(props: Props) {
             <div
                 ref={wrap}
                 className="pl-view"
-                style={{
-                    width: '100%',
-                    flex: `1 0 ${MIN_HEIGHT}px`,
-                    minHeight: MIN_HEIGHT,
-                    background: sky.backdrop,
-                }}
+                style={
+                    {
+                        width: '100%',
+                        flex: `1 0 ${MIN_HEIGHT}px`,
+                        minHeight: MIN_HEIGHT,
+                        '--pl-sky': sky.backdrop,
+                    } as CSSProperties
+                }
             >
                 <Canvas
                     shadows="basic"
@@ -158,38 +163,34 @@ export default function PlaceScene(props: Props) {
                     <Pixelate />
                 </Canvas>
                 <Labels {...props} overlay={overlay} />
-                <div className="pl-hud">
+                <div className="pointer-events-none absolute inset-0">
                     {props.hud}
-                    <div className="pl-zoom">
-                        <button
-                            type="button"
-                            className="pl-round"
-                            title="Zoom in"
-                            onClick={() =>
-                                setZoomBy((z) => Math.min(2.5, z * 1.25))
-                            }
-                        >
-                            +
-                        </button>
-                        <button
-                            type="button"
-                            className="pl-round"
-                            title="Zoom out"
-                            onClick={() =>
-                                setZoomBy((z) => Math.max(0.4, z / 1.25))
-                            }
-                        >
-                            −
-                        </button>
-                        <button
-                            type="button"
-                            className="pl-round"
-                            title="Back to you"
-                            onClick={() => setRecentre((n) => n + 1)}
-                        >
-                            ⌖
-                        </button>
-                    </div>
+                    <HudPanel anchor="top-end">
+                        <Toolbar orientation="vertical" aria-label="Zoom">
+                            <ToolbarButton
+                                title="Zoom in"
+                                aria-label="Zoom in"
+                                icon={<Icon name="zoom-in" />}
+                                onClick={() =>
+                                    setZoomBy((z) => Math.min(2.5, z * 1.25))
+                                }
+                            />
+                            <ToolbarButton
+                                title="Zoom out"
+                                aria-label="Zoom out"
+                                icon={<Icon name="zoom-out" />}
+                                onClick={() =>
+                                    setZoomBy((z) => Math.max(0.4, z / 1.25))
+                                }
+                            />
+                            <ToolbarButton
+                                title="Back to you"
+                                aria-label="Back to you"
+                                icon={<Icon name="locate" />}
+                                onClick={() => setRecentre((n) => n + 1)}
+                            />
+                        </Toolbar>
+                    </HudPanel>
                 </div>
             </div>
         </OverlayContext.Provider>
@@ -1494,14 +1495,14 @@ function Labels({
                                     <div
                                         key={m.messageId}
                                         className={`pl-bubble${volume === 'shout' ? ' pl-bubble--shout' : volume === 'whisper' ? ' pl-bubble--whisper' : ''}${heard ? '' : ' pl-bubble--muffled'}`}
-                                        style={{
-                                            borderLeftColor: look.top,
-                                            animationDelay: `0s, ${-ageOf(m)}ms`,
-                                        }}
+                                        style={
+                                            {
+                                                '--pl-look': look.top,
+                                                '--pl-age': `${-ageOf(m)}ms`,
+                                            } as CSSProperties
+                                        }
                                     >
-                                        <b style={{ color: look.top }}>
-                                            {first}
-                                        </b>
+                                        <b>{first}</b>
                                         {text.length > 120
                                             ? `${text.slice(0, 119)}…`
                                             : text}
@@ -1510,8 +1511,9 @@ function Labels({
                             })}
                         <span
                             className={`pl-name${isMe ? ' pl-name--me' : ''}`}
+                            style={{ '--pl-look': look.top } as CSSProperties}
                         >
-                            <i style={{ background: look.top }} />
+                            <i />
                             {isMe ? `${first} ★` : first}
                             {icon ? ` ${icon}` : ''}
                         </span>

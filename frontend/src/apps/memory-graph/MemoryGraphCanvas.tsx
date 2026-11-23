@@ -22,9 +22,53 @@ interface MemoryGraphCanvasProps {
 type Node = NodeObject<EnrichedMemoryNode>;
 type Link = LinkObject<EnrichedMemoryNode, EnrichedMemoryLink>;
 
-const EVENT_STROKE = '#C98A2E';
 const DIM_ALPHA = 0.1;
-const FONT = 'Tahoma, Geneva, sans-serif';
+
+interface Ink {
+    paper: string;
+    text: string;
+    muted: string;
+    font: string;
+    paint: (colour: string | undefined) => string;
+}
+
+const readInk = (): Ink => {
+    const style = getComputedStyle(document.documentElement);
+    const token = (name: string) => style.getPropertyValue(name).trim();
+    const muted = token('--ui-text-muted');
+    const resolved = new Map<string, string>();
+    const paint = (colour: string | undefined) => {
+        if (!colour) return muted;
+        const name = /^var\((--[\w-]+)\)$/.exec(colour)?.[1];
+        if (!name) return colour;
+        let value = resolved.get(name);
+        if (value === undefined) {
+            value = token(name) || muted;
+            resolved.set(name, value);
+        }
+        return value;
+    };
+    return {
+        paper: token('--ui-content'),
+        text: token('--ui-text'),
+        muted,
+        font: token('--ui-font-ui'),
+        paint,
+    };
+};
+
+function useInk() {
+    const [ink, setInk] = useState(readInk);
+    useEffect(() => {
+        const observer = new MutationObserver(() => setInk(readInk()));
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-ui-scheme', 'data-ui-contrast'],
+        });
+        return () => observer.disconnect();
+    }, []);
+    return ink;
+}
 
 interface EventStyle {
     radius: number;
@@ -42,6 +86,7 @@ export default function MemoryGraphCanvas({
     onBackgroundClick,
 }: MemoryGraphCanvasProps) {
     const fgRef = useRef<ForceGraphMethods<Node, Link> | undefined>(undefined);
+    const ink = useInk();
     const [hoverId, setHoverId] = useState<string | null>(null);
     const fittedRef = useRef(false);
 
@@ -58,12 +103,12 @@ export default function MemoryGraphCanvas({
             const style = styles.get(target) ?? { radius: 3, rememberedBy: [] };
             style.radius = Math.max(style.radius, 3 + 4 * (link.weight ?? 0.5));
             style.rememberedBy.push(
-                colourById.get(endpointId(link.source)) ?? '#888',
+                colourById.get(endpointId(link.source)) ?? ink.muted,
             );
             styles.set(target, style);
         }
         return styles;
-    }, [view.links, colourById]);
+    }, [view.links, colourById, ink.muted]);
 
     const data = useMemo(() => {
         const people = view.nodes.filter(
@@ -138,7 +183,7 @@ export default function MemoryGraphCanvas({
             graphData={data}
             width={width}
             height={height}
-            backgroundColor="#FAFAF6"
+            backgroundColor={ink.paper}
             nodeId="id"
             cooldownTicks={250}
             d3VelocityDecay={0.35}
@@ -158,7 +203,7 @@ export default function MemoryGraphCanvas({
                 ctx.globalAlpha = lit ? 1 : DIM_ALPHA;
                 const selected = node.id === selectedNodeId;
                 if (node.kind === 'Participant') {
-                    drawPerson(ctx, node, scale, selected);
+                    drawPerson(ctx, node, scale, selected, ink);
                 } else if (node.kind === 'Event') {
                     drawEvent(
                         ctx,
@@ -166,10 +211,11 @@ export default function MemoryGraphCanvas({
                         eventStyle.get(node.id),
                         scale,
                         selected,
+                        ink,
                     );
                 } else {
                     const degree = view.degree.get(node.id) ?? 1;
-                    drawConcept(ctx, node, degree, scale, selected);
+                    drawConcept(ctx, node, degree, scale, selected, ink);
                 }
                 ctx.globalAlpha = 1;
             }}
@@ -186,7 +232,7 @@ export default function MemoryGraphCanvas({
                     });
                     if (priority !== null) candidates.push({ node, priority });
                 }
-                drawLabels(ctx, candidates, scale, (n) =>
+                drawLabels(ctx, candidates, scale, ink, (n) =>
                     hitRadius(n, view, eventStyle),
                 );
             }}
@@ -213,7 +259,7 @@ export default function MemoryGraphCanvas({
                     target === focusId ||
                     link.kind === 'ABOUT';
                 const lit = touches && isLit(source) && isLit(target);
-                return linkColour(link, colourById, lit, focus !== null);
+                return linkColour(link, colourById, lit, focus !== null, ink);
             }}
             linkWidth={(link) => {
                 if (link.kind === 'STANCE')
@@ -236,16 +282,17 @@ function drawPerson(
     node: Node,
     scale: number,
     selected: boolean,
+    ink: Ink,
 ) {
     const x = node.x as number;
     const y = node.y as number;
     const r = 13;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2 * Math.PI);
-    ctx.fillStyle = node.colour ?? '#888';
+    ctx.fillStyle = ink.paint(node.colour);
     ctx.fill();
     ctx.lineWidth = (selected ? 4 : 2) / scale;
-    ctx.strokeStyle = selected ? '#111' : '#fff';
+    ctx.strokeStyle = selected ? ink.text : ink.paper;
     ctx.stroke();
 }
 
@@ -255,19 +302,20 @@ function drawEvent(
     style: EventStyle | undefined,
     scale: number,
     selected: boolean,
+    ink: Ink,
 ) {
     const x = node.x as number;
     const y = node.y as number;
     const r = style?.radius ?? 4;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2 * Math.PI);
-    ctx.fillStyle = KIND_COLOUR.Event;
+    ctx.fillStyle = ink.paint(KIND_COLOUR.Event);
     ctx.fill();
     const owners = style?.rememberedBy ?? [];
     const ring = Math.max(1.4, 2.2 / scale);
     if (owners.length === 0) {
         ctx.lineWidth = 1 / scale;
-        ctx.strokeStyle = EVENT_STROKE;
+        ctx.strokeStyle = withAlpha(ink.text, 0.45);
         ctx.stroke();
     }
     owners.forEach((colour, i) => {
@@ -276,10 +324,10 @@ function drawEvent(
         ctx.beginPath();
         ctx.arc(x, y, r + ring / 2, start, end);
         ctx.lineWidth = ring;
-        ctx.strokeStyle = colour;
+        ctx.strokeStyle = ink.paint(colour);
         ctx.stroke();
     });
-    if (selected) selectionRing(ctx, x, y, r + ring + 2, scale);
+    if (selected) selectionRing(ctx, x, y, r + ring + 2, scale, ink);
 }
 
 function drawConcept(
@@ -288,15 +336,16 @@ function drawConcept(
     degree: number,
     scale: number,
     selected: boolean,
+    ink: Ink,
 ) {
     const x = node.x as number;
     const y = node.y as number;
     const r = conceptRadius(degree);
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2 * Math.PI);
-    ctx.fillStyle = KIND_COLOUR.Concept;
+    ctx.fillStyle = ink.paint(KIND_COLOUR.Concept);
     ctx.fill();
-    if (selected) selectionRing(ctx, x, y, r + 2, scale);
+    if (selected) selectionRing(ctx, x, y, r + 2, scale, ink);
 }
 
 function selectionRing(
@@ -305,11 +354,12 @@ function selectionRing(
     y: number,
     r: number,
     scale: number,
+    ink: Ink,
 ) {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2 * Math.PI);
     ctx.lineWidth = 2.5 / scale;
-    ctx.strokeStyle = '#111';
+    ctx.strokeStyle = ink.text;
     ctx.stroke();
 }
 
@@ -339,6 +389,7 @@ function drawLabels(
     ctx: CanvasRenderingContext2D,
     candidates: LabelCandidate[],
     scale: number,
+    ink: Ink,
     radius: (n: Node) => number,
 ) {
     candidates.sort((a, b) => a.priority - b.priority);
@@ -346,12 +397,12 @@ function drawLabels(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.lineWidth = 3 / scale;
-    ctx.strokeStyle = 'rgba(250,250,246,0.9)';
-    ctx.fillStyle = '#222';
+    ctx.strokeStyle = withAlpha(ink.paper, 0.9);
+    ctx.fillStyle = ink.text;
     for (const { node, priority } of candidates) {
         const person = node.kind === 'Participant';
         const size = (person ? 13 : 11) / scale;
-        ctx.font = `${person || priority < 20 ? 'bold ' : ''}${size}px ${FONT}`;
+        ctx.font = `${person || priority < 20 ? 'bold ' : ''}${size}px ${ink.font}`;
         const text =
             node.kind === 'Event'
                 ? truncate(node.description ?? node.label, 48)
@@ -396,39 +447,41 @@ function linkColour(
     colourById: Map<string, string | undefined>,
     lit: boolean,
     focused: boolean,
+    ink: Ink,
 ) {
-    if (!lit) return 'rgba(120,120,120,0.04)';
+    if (!lit) return withAlpha(ink.muted, 0.04);
     if (link.kind === 'STANCE') {
         const hue =
             (link.valence ?? 0) >= 0 ? STANCE_COLOUR.warm : STANCE_COLOUR.cold;
-        return withAlpha(hue, focused ? 0.9 : 0.45);
+        return withAlpha(ink.paint(hue), focused ? 0.9 : 0.45);
     }
     if (link.kind === 'RECOLLECTS') {
         const alpha = focused
             ? 0.45 + 0.4 * (link.weight ?? 0.5)
             : 0.04 + 0.12 * (link.weight ?? 0.5);
         return withAlpha(
-            colourById.get(endpointId(link.source)) ?? '#888888',
+            ink.paint(colourById.get(endpointId(link.source))),
             alpha,
         );
     }
-    return focused ? 'rgba(80,140,120,0.6)' : 'rgba(80,140,120,0.22)';
+    return withAlpha(ink.paint(KIND_COLOUR.Concept), focused ? 0.6 : 0.22);
 }
 
 function withAlpha(hex: string, alpha: number) {
+    if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
     const n = Number.parseInt(hex.slice(1), 16);
     return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha.toFixed(2)})`;
 }
 
 function tooltip(node: Node, view: MemoryView) {
     if (node.kind === 'Event') {
-        return `<div style="max-width:280px;font:11px ${FONT}"><b>${escapeHtml(node.where ?? '')}</b><br/>${escapeHtml(node.description ?? '')}</div>`;
+        return `<div style="max-width:280px;font:var(--ui-text-chrome) var(--ui-font-ui)"><b>${escapeHtml(node.where ?? '')}</b><br/>${escapeHtml(node.description ?? '')}</div>`;
     }
     if (node.kind === 'Concept') {
         const n = view.degree.get(node.id) ?? 0;
-        return `<span style="font:11px ${FONT}">${escapeHtml(node.label)} · ${n} link${n === 1 ? '' : 's'}</span>`;
+        return `<span style="font:var(--ui-text-chrome) var(--ui-font-ui)">${escapeHtml(node.label)} · ${n} link${n === 1 ? '' : 's'}</span>`;
     }
-    return `<span style="font:11px ${FONT}">${escapeHtml(node.label)}</span>`;
+    return `<span style="font:var(--ui-text-chrome) var(--ui-font-ui)">${escapeHtml(node.label)}</span>`;
 }
 
 function escapeHtml(s: string) {

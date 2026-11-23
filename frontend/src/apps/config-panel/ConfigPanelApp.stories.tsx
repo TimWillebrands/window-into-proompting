@@ -9,19 +9,12 @@ const meta = {
     parameters: { layout: 'fullscreen' },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 800,
-                    height: 560,
-                    padding: 24,
-                    background: '#5C87C2',
-                }}
-            >
+            <div className="h-[560px] w-[800px] p-6">
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
                 <WindowFrame
                     id="config-panel"
                     title="Control Panel"
-                    icon="⚙️"
+                    icon="control-panel"
                     width={760}
                     height={520}
                     zIndex={1}

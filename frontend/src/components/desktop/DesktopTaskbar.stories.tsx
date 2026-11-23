@@ -5,13 +5,23 @@ import DesktopTaskbar from './DesktopTaskbar';
 const meta = {
     title: 'Desktop/DesktopTaskbar',
     component: DesktopTaskbar,
-    parameters: {
-        layout: 'fullscreen',
-        backgrounds: { default: 'xp-desktop' },
-    },
+    parameters: { layout: 'fullscreen' },
     args: {
-        windows: [],
-        focusedId: null,
+        windows: [
+            { id: 'w1', title: 'Personas', icon: '/img/icons/personas.ico' },
+            {
+                id: 'w2',
+                title: 'Chat Rooms',
+                icon: '/img/icons/chat-rooms.ico',
+            },
+            {
+                id: 'w3',
+                title: 'Control Panel',
+                icon: '/img/icons/control-panel.ico',
+                minimized: true,
+            },
+        ],
+        focusedId: 'w2',
         startMenuOpen: false,
         onToggle: fn(),
         onClose: fn(),
@@ -19,7 +29,7 @@ const meta = {
     },
     decorators: [
         (Story) => (
-            <div style={{ minHeight: 80, position: 'relative' }}>
+            <div className="relative min-h-20">
                 <Story />
             </div>
         ),
@@ -29,24 +39,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Empty: Story = {};
+export const WithWindows: Story = {};
 
-export const SingleWindow: Story = {
-    args: {
-        windows: [{ id: 'w1', title: 'Notepad', icon: '📝' }],
-        focusedId: 'w1',
-    },
-};
-
-export const ManyWindows: Story = {
-    args: {
-        windows: [
-            { id: 'w1', title: 'Personas', icon: '👤' },
-            { id: 'w2', title: "D'Accord — Chat Rooms", icon: '💬' },
-            { id: 'w3', title: 'Control Panel', icon: '⚙️' },
-            { id: 'w4', title: 'Calculator', icon: '🧮' },
-            { id: 'w5', title: 'Solitaire', icon: '🃏' },
-        ],
-        focusedId: 'w3',
-    },
-};
+export const Empty: Story = { args: { windows: [], focusedId: null } };

@@ -22,19 +22,12 @@ const meta = {
     parameters: { layout: 'fullscreen' },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 880,
-                    height: 580,
-                    padding: 24,
-                    background: '#5C87C2',
-                }}
-            >
+            <div className="h-[580px] w-[880px] p-6">
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
                 <WindowFrame
                     id="open-party"
                     title="D'Accord — Chat Rooms"
-                    icon="💬"
+                    icon="/img/icons/chat-rooms.ico"
                     width={840}
                     height={540}
                     zIndex={1}

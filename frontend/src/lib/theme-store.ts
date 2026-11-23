@@ -1,3 +1,4 @@
+import { setScheme } from '@partytown/ui';
 import { create } from 'zustand';
 
 type Mode = 'light' | 'dark';
@@ -13,6 +14,7 @@ const applyDocClass = (mode: Mode) => {
     const root = document.documentElement;
     if (mode === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
+    setScheme(mode === 'dark' ? 'noir' : 'luna-blue', root);
 };
 
 export const useThemeStore = create<ThemeState>((set, get) => ({

@@ -9,19 +9,12 @@ const meta = {
     parameters: { layout: 'fullscreen' },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 760,
-                    height: 520,
-                    padding: 24,
-                    background: '#5C87C2',
-                }}
-            >
+            <div className="h-[520px] w-[760px] p-6">
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
                 <WindowFrame
                     id="personas"
                     title="Persona Manager"
-                    icon="👤"
+                    icon="personas"
                     width={720}
                     height={480}
                     zIndex={1}

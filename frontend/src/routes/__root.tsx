@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { ClerkProvider } from '@clerk/tanstack-react-start';
+import uiCss from '@partytown/ui/styles.css?url';
 import {
     createRootRoute,
     HeadContent,
@@ -15,7 +16,10 @@ import styleCss from '../styles.css?url';
 
 export const Route = createRootRoute({
     head: () => ({
-        links: [{ rel: 'stylesheet', href: styleCss }],
+        links: [
+            { rel: 'stylesheet', href: uiCss },
+            { rel: 'stylesheet', href: styleCss },
+        ],
     }),
     component: RootComponent,
 });
@@ -39,7 +43,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
             <head>
                 <HeadContent />
             </head>
-            <body className="min-h-screen bg-slate-300">
+            <body className="min-h-screen">
                 <ClerkProvider>{children}</ClerkProvider>
                 <CookieBalloon />
                 <Scripts />

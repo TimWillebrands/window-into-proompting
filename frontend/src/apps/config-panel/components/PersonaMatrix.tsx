@@ -1,3 +1,16 @@
+import {
+    CheckBox,
+    ComboBox,
+    ControlGrid,
+    type ControlGridColumn,
+    GroupBox,
+    Icon,
+    StatusText,
+    Swatch,
+    Text,
+    TextBox,
+    ToolbarButton,
+} from '@partytown/ui';
 import { useState } from 'react';
 import { usePutLlmConfigPersonaRoutesPersonaId } from '#api/party-zone';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
@@ -7,32 +20,12 @@ import type { PersonaRoute } from '../../../api/model/personaRoute';
 import {
     DECISIONS,
     GENERAL,
-    INK_MUTED,
-    inputStyle,
     JOB_COMPLEXITIES,
     providerLabel,
-    SHEET,
     seriesColor,
     shortModel,
 } from './constants';
 import { NOBODY } from './ModelSplit';
-
-const rule = '1px solid rgba(0,0,0,0.08)';
-const td: React.CSSProperties = { padding: '3px 6px 3px 0', borderTop: rule };
-
-const cellBase: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    minWidth: 0,
-    height: 24,
-    padding: '0 4px',
-    fontSize: 11,
-    boxSizing: 'border-box',
-    borderRadius: 4,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-};
 
 const TAKES_TURNS = 'takes turns';
 
@@ -86,39 +79,40 @@ function PinCell({
     const split = options.filter((p) => !p.reserved);
 
     return (
-        <select
-            aria-label={label}
-            title={
-                away
-                    ? `Pinned to ${shortModel(pinned)}, which can't be used right now. On ${landing} until it's back.`
-                    : pinned
-                      ? `Pinned to ${pinned.modelName}`
-                      : balanced
-                        ? 'Every call takes the next decision model, by share'
-                        : `Follows the split: ${lands?.modelName ?? landing}`
-            }
-            value={pinnedId ?? ''}
-            disabled={disabled}
-            onChange={(e) => onPin(e.target.value || undefined)}
-            style={{
-                ...cellBase,
-                border: `1px solid ${away ? '#c98500' : pinned ? '#7F9DB9' : 'rgba(0,0,0,0.12)'}`,
-                borderLeft: `4px solid ${seriesColor(providers, lands?.id)}`,
-                background: pinned ? '#fff' : 'transparent',
-                color: pinned ? '#0b0b0b' : INK_MUTED,
-                fontWeight: pinned ? 700 : 400,
-            }}
-        >
-            <option value="">{pinned ? 'Follow the split' : landing}</option>
-            {reserved.length > 0 && (
-                <optgroup label="Only for pinned personas">
-                    {reserved.map(option)}
-                </optgroup>
-            )}
-            {split.length > 0 && (
-                <optgroup label="In the split">{split.map(option)}</optgroup>
-            )}
-        </select>
+        <span className="flex min-w-0 items-center gap-1">
+            <Swatch size="small" colour={seriesColor(providers, lands?.id)} />
+            <ComboBox
+                aria-label={label}
+                className="min-w-0 flex-1"
+                title={
+                    away
+                        ? `Pinned to ${shortModel(pinned)}, which can't be used right now. On ${landing} until it's back.`
+                        : pinned
+                          ? `Pinned to ${pinned.modelName}`
+                          : balanced
+                            ? 'Every call takes the next decision model, by share'
+                            : `Follows the split: ${lands?.modelName ?? landing}`
+                }
+                value={pinnedId ?? ''}
+                disabled={disabled}
+                onChange={(e) => onPin(e.target.value || undefined)}
+            >
+                <option value="">
+                    {pinned ? 'Follow the split' : landing}
+                </option>
+                {reserved.length > 0 && (
+                    <optgroup label="Only for pinned personas">
+                        {reserved.map(option)}
+                    </optgroup>
+                )}
+                {split.length > 0 && (
+                    <optgroup label="In the split">
+                        {split.map(option)}
+                    </optgroup>
+                )}
+            </ComboBox>
+            {away && <Icon name="warning" />}
+        </span>
     );
 }
 
@@ -157,276 +151,194 @@ export default function PersonaMatrix({
     const busy = (personaId?: string) =>
         save.isPending && save.variables?.personaId === personaId;
 
+    const showNobody = !pinnedOnly && query.trim() === '';
+    const columns: ControlGridColumn[] = [
+        {
+            key: 'persona',
+            header: 'Persona',
+            width: '132px',
+            rowHeader: true,
+            nowrap: true,
+        },
+        ...JOB_COMPLEXITIES.map((tier) => ({
+            key: String(tier.value),
+            header: tier.label.replace('Character ', ''),
+            title: tier.hint,
+        })),
+        { key: 'reset', header: '', width: '36px', align: 'end' },
+    ];
+
     return (
-        <section style={SHEET} aria-label="Personas">
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                }}
-            >
-                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
-                    Personas
-                </h3>
-                <span style={{ fontSize: 11, color: INK_MUTED }}>
+        <GroupBox title="Personas">
+            <div className="flex flex-wrap items-baseline gap-2">
+                <Text as="span" tone="muted">
                     {pinnedCount === 0
                         ? 'Everyone follows the split.'
                         : `${pinnedCount} of ${personas.length} ${pinnedCount === 1 ? 'has' : 'have'} a model of their own.`}
-                </span>
+                </Text>
                 {save.isError && (
-                    <span
-                        role="alert"
-                        style={{ fontSize: 11, color: '#b3261e' }}
-                    >
+                    <StatusText as="span" tone="danger" role="alert">
                         Couldn't save that change. Try again.
-                    </span>
+                    </StatusText>
                 )}
             </div>
-            <p
-                style={{
-                    margin: '2px 0 10px',
-                    fontSize: 11,
-                    color: INK_MUTED,
-                }}
-            >
+            <Text as="p" tone="muted">
                 Pick a model in a cell to pin that kind of work for one persona;
                 📌 marks a pin.
-            </p>
+            </Text>
 
-            <div
-                style={{
-                    display: 'flex',
-                    gap: 10,
-                    alignItems: 'center',
-                    marginBottom: 8,
-                }}
-            >
-                <input
+            <div className="flex items-center gap-3">
+                <TextBox
                     type="search"
                     aria-label="Find a persona"
                     placeholder="Find a persona..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    style={{ ...inputStyle, width: 180, padding: '4px 8px' }}
+                    className="w-44"
                 />
-                <label
-                    style={{
-                        fontSize: 11,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        cursor: 'pointer',
-                    }}
+                <CheckBox
+                    checked={pinnedOnly}
+                    onChange={(e) => setPinnedOnly(e.target.checked)}
                 >
-                    <input
-                        type="checkbox"
-                        checked={pinnedOnly}
-                        onChange={(e) => setPinnedOnly(e.target.checked)}
-                    />
                     Only pinned
-                </label>
+                </CheckBox>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-                <table
-                    style={{
-                        width: '100%',
-                        minWidth: 540,
-                        tableLayout: 'fixed',
-                        borderCollapse: 'collapse',
-                    }}
-                >
-                    <thead>
-                        <tr
-                            style={{
-                                fontSize: 11,
-                                color: INK_MUTED,
-                                textAlign: 'left',
-                            }}
-                        >
-                            <th style={{ width: 132, paddingBottom: 4 }}>
-                                Persona
-                            </th>
-                            {JOB_COMPLEXITIES.map((tier) => (
-                                <th
-                                    key={tier.value}
-                                    title={tier.hint}
-                                    style={{ paddingBottom: 4 }}
-                                >
-                                    {tier.label.replace('Character ', '')}
-                                </th>
-                            ))}
-                            <th style={{ width: 24 }} />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {shown.map((persona) => {
-                            const personaId = persona.id ?? '';
-                            const mine = routesOf(personaId);
-                            return (
-                                <tr
-                                    key={personaId}
-                                    style={{
-                                        opacity: busy(personaId) ? 0.6 : 1,
-                                    }}
-                                >
-                                    <th
-                                        scope="row"
-                                        title={persona.name ?? undefined}
-                                        style={{
-                                            ...td,
-                                            fontSize: 12,
-                                            fontWeight: 600,
-                                            textAlign: 'left',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                        }}
-                                    >
+            {shown.length === 0 && (
+                <Text as="p" tone="muted">
+                    {personas.length === 0
+                        ? 'No personas yet.'
+                        : pinnedOnly && query.trim() === ''
+                          ? 'Nobody is pinned: everyone follows the split.'
+                          : 'No persona matches that.'}
+                </Text>
+            )}
+
+            <ControlGrid
+                label="Personas"
+                minWidth="540px"
+                columns={columns}
+                rows={[
+                    ...shown.map((persona) => {
+                        const personaId = persona.id ?? '';
+                        const mine = routesOf(personaId);
+                        return {
+                            id: personaId,
+                            busy: busy(personaId),
+                            cells: {
+                                persona: (
+                                    <span title={persona.name ?? undefined}>
                                         {persona.name}
-                                    </th>
-                                    {JOB_COMPLEXITIES.map((tier) => (
-                                        <td key={tier.value} style={td}>
-                                            <PinCell
-                                                label={`${persona.name}: ${tier.label}`}
-                                                tier={tier.value}
-                                                providers={providers}
-                                                pinnedId={
-                                                    mine.find(
-                                                        (r) =>
-                                                            r.tier ===
-                                                            tier.value,
-                                                    )?.providerId
-                                                }
-                                                lands={landsOn(
+                                    </span>
+                                ),
+                                ...Object.fromEntries(
+                                    JOB_COMPLEXITIES.map((tier) => [
+                                        String(tier.value),
+                                        <PinCell
+                                            key={tier.value}
+                                            label={`${persona.name}: ${tier.label}`}
+                                            tier={tier.value}
+                                            providers={providers}
+                                            pinnedId={
+                                                mine.find(
+                                                    (r) =>
+                                                        r.tier === tier.value,
+                                                )?.providerId
+                                            }
+                                            lands={landsOn(
+                                                personaId,
+                                                tier.value,
+                                            )}
+                                            balanced={
+                                                assigned(personaId, tier.value)
+                                                    ?.balanced
+                                            }
+                                            disabled={busy(personaId)}
+                                            onPin={(providerId) => {
+                                                const others = mine.filter(
+                                                    (r) =>
+                                                        r.tier !== tier.value,
+                                                );
+                                                put(
                                                     personaId,
-                                                    tier.value,
-                                                )}
-                                                balanced={
-                                                    assigned(
-                                                        personaId,
-                                                        tier.value,
-                                                    )?.balanced
-                                                }
-                                                disabled={busy(personaId)}
-                                                onPin={(providerId) => {
-                                                    const others = mine.filter(
-                                                        (r) =>
-                                                            r.tier !==
-                                                            tier.value,
-                                                    );
-                                                    put(
-                                                        personaId,
-                                                        providerId
-                                                            ? [
-                                                                  ...others,
-                                                                  {
-                                                                      personaId,
-                                                                      tier: tier.value,
-                                                                      providerId,
-                                                                  },
-                                                              ]
-                                                            : others,
-                                                    );
-                                                }}
-                                            />
-                                        </td>
-                                    ))}
-                                    <td style={{ ...td, paddingRight: 0 }}>
-                                        {mine.length > 0 && (
-                                            <button
-                                                type="button"
-                                                className="xp-bare"
-                                                aria-label={`Put ${persona.name} back on the split`}
-                                                title="Back to the split"
-                                                disabled={busy(personaId)}
-                                                onClick={() =>
-                                                    put(personaId, [])
-                                                }
-                                                style={{
-                                                    cursor: 'pointer',
-                                                    fontSize: 13,
-                                                    color: INK_MUTED,
-                                                }}
-                                            >
-                                                ↺
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-
-                        {shown.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={6}
-                                    style={{
-                                        ...td,
-                                        padding: '10px 0',
-                                        fontSize: 12,
-                                        color: INK_MUTED,
-                                    }}
-                                >
-                                    {personas.length === 0
-                                        ? 'No personas yet.'
-                                        : pinnedOnly && query.trim() === ''
-                                          ? 'Nobody is pinned: everyone follows the split.'
-                                          : 'No persona matches that.'}
-                                </td>
-                            </tr>
-                        )}
-
-                        {!pinnedOnly && query.trim() === '' && (
-                            <tr
-                                title="The narrator, memories and Places aren't one persona's work. They go to the biggest share."
-                                style={{ color: INK_MUTED }}
-                            >
-                                <th
-                                    scope="row"
-                                    style={{
-                                        ...td,
-                                        fontSize: 12,
-                                        fontWeight: 400,
-                                        fontStyle: 'italic',
-                                        textAlign: 'left',
-                                    }}
-                                >
-                                    Nobody's own
-                                </th>
-                                {JOB_COMPLEXITIES.map((tier) => {
-                                    const lands = landsOn(NOBODY, tier.value);
-                                    return (
-                                        <td key={tier.value} style={td}>
-                                            <span
-                                                style={{
-                                                    ...cellBase,
-                                                    lineHeight: '22px',
-                                                    padding: '0 8px',
-                                                    border: '1px solid transparent',
-                                                    borderLeft: `4px solid ${seriesColor(providers, lands?.id)}`,
-                                                }}
-                                            >
-                                                {lands
-                                                    ? shortModel(lands)
-                                                    : assigned(
-                                                            NOBODY,
-                                                            tier.value,
-                                                        )?.balanced
-                                                      ? TAKES_TURNS
-                                                      : fallbackOf(tier.value)}
-                                            </span>
-                                        </td>
-                                    );
-                                })}
-                                <td style={td} />
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                                    providerId
+                                                        ? [
+                                                              ...others,
+                                                              {
+                                                                  personaId,
+                                                                  tier: tier.value,
+                                                                  providerId,
+                                                              },
+                                                          ]
+                                                        : others,
+                                                );
+                                            }}
+                                        />,
+                                    ]),
+                                ),
+                                reset: mine.length > 0 && (
+                                    <ToolbarButton
+                                        icon={<Icon name="undo" />}
+                                        aria-label={`Put ${persona.name} back on the split`}
+                                        title="Back to the split"
+                                        disabled={busy(personaId)}
+                                        onClick={() => put(personaId, [])}
+                                    />
+                                ),
+                            },
+                        };
+                    }),
+                    ...(showNobody
+                        ? [
+                              {
+                                  id: NOBODY,
+                                  muted: true,
+                                  title: "The narrator, memories and Places aren't one persona's work. They go to the biggest share.",
+                                  cells: {
+                                      persona: "Nobody's own",
+                                      ...Object.fromEntries(
+                                          JOB_COMPLEXITIES.map((tier) => {
+                                              const lands = landsOn(
+                                                  NOBODY,
+                                                  tier.value,
+                                              );
+                                              return [
+                                                  String(tier.value),
+                                                  <span
+                                                      key={tier.value}
+                                                      className="flex min-w-0 items-center gap-1"
+                                                  >
+                                                      <Swatch
+                                                          size="small"
+                                                          colour={seriesColor(
+                                                              providers,
+                                                              lands?.id,
+                                                          )}
+                                                      />
+                                                      <span className="truncate">
+                                                          {lands
+                                                              ? shortModel(
+                                                                    lands,
+                                                                )
+                                                              : assigned(
+                                                                      NOBODY,
+                                                                      tier.value,
+                                                                  )?.balanced
+                                                                ? TAKES_TURNS
+                                                                : fallbackOf(
+                                                                      tier.value,
+                                                                  )}
+                                                      </span>
+                                                  </span>,
+                                              ];
+                                          }),
+                                      ),
+                                  },
+                              },
+                          ]
+                        : []),
+                ]}
+            />
+        </GroupBox>
     );
 }

@@ -1,3 +1,18 @@
+import {
+    ChatLog,
+    ChatMessage,
+    CommandButton,
+    ContextMenu,
+    Icon,
+    InfoBar,
+    StatusBar,
+    StatusBarField,
+    Text,
+    TextArea,
+    Toolbar,
+    ToolbarButton,
+    useContextMenu,
+} from '@partytown/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     useGetWorldsPartyIdLivesSuspense,
@@ -30,23 +45,23 @@ interface MessengerChatWindowProps {
     spectate?: boolean;
 }
 
-const EMOJI = [
-    '🙂',
-    '😄',
-    '😉',
-    '😛',
-    '😮',
-    '😢',
-    '😠',
-    '😎',
-    '🤔',
-    '😳',
-    '❤️',
-    '💔',
-    '👍',
-    '🌹',
-    '☕',
-    '🎉',
+const EMOTICONS: Array<[string, string]> = [
+    ['🙂', 'Smile'],
+    ['😄', 'Open-mouthed'],
+    ['😉', 'Wink'],
+    ['😛', 'Tongue out'],
+    ['😮', 'Surprised'],
+    ['😢', 'Crying'],
+    ['😠', 'Angry'],
+    ['😎', 'Hot'],
+    ['🤔', 'Thinking'],
+    ['😳', 'Embarrassed'],
+    ['❤️', 'Red heart'],
+    ['💔', 'Broken heart'],
+    ['👍', 'Thumbs up'],
+    ['🌹', 'Red rose'],
+    ['☕', 'Coffee cup'],
+    ['🎉', 'Party'],
 ];
 
 export default function MessengerChatWindow({
@@ -56,8 +71,10 @@ export default function MessengerChatWindow({
 }: MessengerChatWindowProps) {
     if (!chatGroupId) {
         return (
-            <div className="app-surface flex h-full items-center justify-center p-4 text-center text-[#6d7b91]">
-                Open a conversation from the Messenger buddy list.
+            <div className="flex h-full items-center justify-center p-4 text-center">
+                <Text tone="muted">
+                    Open a conversation from the Messenger buddy list.
+                </Text>
             </div>
         );
     }
@@ -153,7 +170,11 @@ function Conversation({
     }, [messages.length, lastContent, isTyping]);
 
     const [draft, setDraft] = useState('');
-    const [emojiOpen, setEmojiOpen] = useState(false);
+    const emoticonMenu = useContextMenu();
+    const emojiOpen = emoticonMenu.menuProps.open;
+    const setEmojiOpen = (open: boolean) => {
+        if (!open) emoticonMenu.menuProps.onClose();
+    };
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
     useEffect(() => inputRef.current?.focus(), []);
 
@@ -181,7 +202,7 @@ function Conversation({
     const insertEmoji = (e: string) => {
         setDraft((d) => `${d}${d && !d.endsWith(' ') ? ' ' : ''}${e} `);
         setEmojiOpen(false);
-        inputRef.current?.focus();
+        requestAnimationFrame(() => inputRef.current?.focus());
     };
 
     const statusLine = (() => {
@@ -200,44 +221,31 @@ function Conversation({
     })();
 
     return (
-        <div
-            className="app-surface flex h-full flex-col"
-            style={{
-                background:
-                    'linear-gradient(180deg, #dbe7fb 0%, #eaf1fc 60px, #f3f7fd 100%)',
-            }}
-        >
-            <div
-                className="flex items-center gap-1 px-2 py-[5px]"
-                style={{
-                    borderBottom: '1px solid #b9cdea',
-                    background:
-                        'linear-gradient(180deg, #f5f9ff 0%, #dbe7fb 100%)',
-                }}
-            >
-                <span style={{ color: '#4a6ea9' }}>To:</span>
-                <BuddyIcon status={theirStatus} size={14} />
-                <span className="truncate" style={{ fontWeight: 700 }}>
+        <div className="flex h-full flex-col">
+            <div className="flex min-w-0 items-center gap-1 px-2 py-1.5">
+                <Text tone="muted">To:</Text>
+                <BuddyIcon status={theirStatus} />
+                <Text strong className="truncate">
                     {withName}
-                </span>
-                <span style={{ color: '#7c7c7c' }}>
-                    ({STATUS_LABEL[theirStatus]})
-                </span>
+                </Text>
+                <Text tone="muted">({STATUS_LABEL[theirStatus]})</Text>
                 {theirNote && (
-                    <span
+                    <Text
+                        tone="muted"
+                        italic
                         className="min-w-0 flex-1 truncate"
-                        style={{ color: '#7c8aa3', fontStyle: 'italic' }}
                         title={theirNote}
                     >
                         - {theirNote}
-                    </span>
+                    </Text>
                 )}
             </div>
 
-            <div className="flex min-h-0 flex-1 gap-2 p-2">
-                <div className="flex min-w-0 flex-1 flex-col gap-[6px]">
-                    <div
+            <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <ChatLog
                         ref={scrollRef}
+                        aria-label={`Conversation with ${withName}`}
                         onScroll={(e) => {
                             const el = e.currentTarget;
                             nearBottom.current =
@@ -246,22 +254,12 @@ function Conversation({
                                     el.clientHeight <
                                 40;
                         }}
-                        className="min-h-0 flex-1 overflow-y-auto px-2 py-[6px]"
-                        style={{
-                            background: '#fff',
-                            border: '1px solid #9db6dc',
-                            borderRadius: 4,
-                            fontSize: 12,
-                            fontFamily: 'Tahoma, Verdana, sans-serif',
-                        }}
+                        className="flex-1 px-2 py-1.5"
                     >
                         {messages.length === 0 && !isTyping && (
-                            <div
-                                style={{ color: '#9aa6b8', fontSize: 11 }}
-                                className="py-1"
-                            >
+                            <Text tone="muted" className="py-1">
                                 Say hi to {withName}!
-                            </div>
+                            </Text>
                         )}
                         {messages.map((m, i) => {
                             const prev = messages[i - 1];
@@ -281,75 +279,55 @@ function Conversation({
                                 />
                             );
                         })}
-                    </div>
+                    </ChatLog>
 
                     {spectate ? (
-                        <div
-                            className="px-2 py-2 text-center"
-                            style={{
-                                border: '1px dashed #9db6dc',
-                                borderRadius: 4,
-                                background: '#fff',
-                                color: '#4a6ea9',
-                            }}
+                        <InfoBar
+                            tone="neutral"
+                            icon={<Icon name="watching" />}
+                            className="justify-center text-center"
                         >
-                            👀 You're reading a private conversation. They can't
+                            You're reading a private conversation. They can't
                             see you.
-                        </div>
+                        </InfoBar>
                     ) : (
-                        <div
-                            className="relative flex flex-col"
-                            style={{
-                                border: '1px solid #9db6dc',
-                                borderRadius: 4,
-                                background: '#fff',
-                            }}
-                        >
-                            <div
-                                className="flex items-center gap-1 px-1 py-[2px]"
-                                style={{
-                                    borderBottom: '1px solid #dbe5f3',
-                                    background:
-                                        'linear-gradient(180deg, #ffffff 0%, #eef3fb 100%)',
-                                    borderRadius: '4px 4px 0 0',
-                                }}
+                        <div className="flex flex-col gap-1">
+                            <Toolbar
+                                variant="bare"
+                                labels="none"
+                                aria-label="Formatting"
                             >
-                                <button
-                                    type="button"
-                                    className="xp-bare rounded-[3px] border border-transparent px-1 hover:border-[#a9c4ea] hover:bg-[#e6effc]"
-                                    style={{ fontSize: 13, lineHeight: '16px' }}
+                                <ToolbarButton
+                                    icon={<Icon name="emoticon" />}
+                                    hasMenu
                                     title="Select an emoticon"
+                                    aria-label="Select an emoticon"
                                     aria-expanded={emojiOpen}
-                                    onClick={() => setEmojiOpen((o) => !o)}
-                                >
-                                    🙂 <span style={{ fontSize: 8 }}>▼</span>
-                                </button>
-                            </div>
-                            {emojiOpen && (
-                                <div
-                                    className="absolute bottom-full left-0 z-10 mb-1 grid grid-cols-8 gap-[2px] p-1"
-                                    style={{
-                                        background: '#fff',
-                                        border: '1px solid #7f9db9',
-                                        boxShadow:
-                                            '2px 2px 4px rgba(0,0,0,0.25)',
+                                    onClick={(e) => {
+                                        if (emojiOpen) {
+                                            setEmojiOpen(false);
+                                            return;
+                                        }
+                                        const r =
+                                            e.currentTarget.getBoundingClientRect();
+                                        emoticonMenu.openAt(
+                                            { x: r.left, y: r.bottom },
+                                            e.currentTarget,
+                                        );
                                     }}
-                                >
-                                    {EMOJI.map((e) => (
-                                        <button
-                                            key={e}
-                                            type="button"
-                                            className="xp-bare h-[22px] w-[22px] rounded-[2px] border border-transparent hover:border-[#316ac5] hover:bg-[#c1d2ee]"
-                                            style={{ fontSize: 14 }}
-                                            onClick={() => insertEmoji(e)}
-                                        >
-                                            {e}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                            <div className="flex items-stretch gap-[6px] p-1">
-                                <textarea
+                                />
+                            </Toolbar>
+                            <ContextMenu
+                                {...emoticonMenu.menuProps}
+                                label="Emoticons"
+                                items={EMOTICONS.map(([e, name]) => ({
+                                    id: name,
+                                    label: `${e}  ${name}`,
+                                    onSelect: () => insertEmoji(e),
+                                }))}
+                            />
+                            <div className="flex items-stretch gap-1.5">
+                                <TextArea
                                     ref={inputRef}
                                     value={draft}
                                     onChange={(e) => setDraft(e.target.value)}
@@ -365,27 +343,16 @@ function Conversation({
                                     maxLength={4000}
                                     aria-label={`Message to ${withName}`}
                                     className="min-w-0 flex-1 resize-none"
-                                    style={{
-                                        border: 'none',
-                                        outline: 'none',
-                                        padding: '2px 3px',
-                                        fontSize: 12,
-                                        fontFamily:
-                                            'Tahoma, Verdana, sans-serif',
-                                    }}
                                 />
-                                <button
-                                    type="button"
+                                <CommandButton
                                     onClick={() => void send()}
                                     disabled={!canSend}
-                                    style={{
-                                        width: 64,
-                                        fontWeight: 700,
-                                        padding: '0 6px',
-                                    }}
+                                    isDefault
+                                    type="button"
+                                    className="w-[64px]"
                                 >
                                     Send
-                                </button>
+                                </CommandButton>
                             </div>
                         </div>
                     )}
@@ -394,28 +361,23 @@ function Conversation({
                 <div className="flex flex-col justify-between">
                     <DisplayPicture
                         who={withId ?? spectators[0] ?? withName}
-                        size={72}
+                        size={96}
                     />
                     <DisplayPicture
                         who={spectate && spectators[1] ? spectators[1] : myName}
-                        size={72}
+                        size={96}
                     />
                 </div>
             </div>
 
-            <div
-                className="flex items-center gap-1 truncate px-2 py-[3px]"
-                style={{
-                    borderTop: '1px solid #b9cdea',
-                    background:
-                        'linear-gradient(180deg, #f4f8fe 0%, #dbe7fa 100%)',
-                    color: isTyping ? '#1d3f73' : '#6d7b91',
-                    minHeight: 20,
-                }}
-            >
-                {isTyping && <span aria-hidden="true">✏️</span>}
-                <span className="truncate">{statusLine}</span>
-            </div>
+            <StatusBar>
+                <StatusBarField
+                    grow
+                    icon={isTyping ? <Icon name="edit" /> : undefined}
+                >
+                    {statusLine}
+                </StatusBarField>
+            </StatusBar>
         </div>
     );
 }
@@ -435,45 +397,23 @@ function MessageLine({
 }) {
     if (message.kind === 'emote') {
         return (
-            <div
-                className="my-[3px]"
-                style={{ color: '#7c7c7c', fontStyle: 'italic' }}
-            >
-                * {name} <MsnText text={message.content ?? ''} />
-            </div>
+            <ChatMessage layout="transcript" kind="emote" sender={`* ${name}`}>
+                <MsnText text={message.content ?? ''} />
+            </ChatMessage>
         );
     }
 
     const failed = !message.content?.trim() && message.error;
     return (
-        <div className={showName ? 'mt-[6px]' : ''}>
-            {showName && (
-                <div style={{ color: '#6d6d6d', fontSize: 11 }}>
-                    {name} says:
-                </div>
-            )}
-            <div
-                className="pl-3 whitespace-pre-wrap break-words"
-                style={{
-                    color: failed ? '#b8241a' : mine ? '#1d3f73' : '#000',
-                    fontStyle: failed ? 'italic' : 'normal',
-                }}
-            >
-                {failed ? (
-                    `${name} couldn't reply right now.`
-                ) : (
-                    <MsnText text={message.content ?? ''} />
-                )}
-                {streaming && !failed && (
-                    <span
-                        className="animate-pulse"
-                        style={{ color: '#9aa6b8' }}
-                    >
-                        {' '}
-                        ▍
-                    </span>
-                )}
-            </div>
-        </div>
+        <ChatMessage
+            layout="transcript"
+            sender={`${name} says:`}
+            own={mine}
+            continued={!showName}
+            live={streaming && !failed}
+            error={failed ? `${name} couldn't reply right now.` : undefined}
+        >
+            {failed ? null : <MsnText text={message.content ?? ''} />}
+        </ChatMessage>
     );
 }

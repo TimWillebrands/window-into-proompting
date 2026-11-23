@@ -2,12 +2,14 @@ import { fn } from 'storybook/test';
 import type {
     CduExchangeSummary,
     ChatGroupInfo,
+    FreePersona,
     LlmProviderEntry,
     MemoryGraphDto,
     ModelAssignment,
     Persona,
     PersonaRoute,
     StanceRecord,
+    WorldList,
 } from './model';
 import { StanceTargetKind } from './model';
 
@@ -551,4 +553,53 @@ export const useGetWorldsPartyIdCduLines = fn(() =>
             },
         ],
     }),
+);
+
+export const mockWorlds: WorldList = {
+    isAdmin: true,
+    worlds: [
+        {
+            id: 'world-1',
+            name: 'Partytown',
+            stopped: false,
+            current: true,
+            people: 12,
+            humans: 2,
+        },
+        {
+            id: 'world-2',
+            name: 'Little Harbour',
+            stopped: false,
+            current: false,
+            people: 3,
+            humans: 0,
+        },
+        {
+            id: 'world-3',
+            name: 'Old Town',
+            stopped: true,
+            current: false,
+            people: 5,
+            humans: 1,
+        },
+    ],
+};
+
+export const useGetWorlds = fn(() => queryResult({ data: mockWorlds }));
+
+const freePersonas: FreePersona[] = [
+    {
+        id: 'persona-1',
+        name: 'Indie Hacker Girl',
+        bio: 'Sharp-witted millennial. Builds fast, ships often.',
+    },
+    {
+        id: 'persona-2',
+        name: 'Shaman Agile Coach',
+        bio: 'Ancient being channelling agile wisdom.',
+    },
+];
+
+export const useGetWorldsPartyIdPlayerFree = fn(() =>
+    queryResult({ data: freePersonas }),
 );

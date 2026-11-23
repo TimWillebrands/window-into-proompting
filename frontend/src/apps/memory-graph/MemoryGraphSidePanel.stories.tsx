@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import { indexGraph } from './graphView';
 import MemoryGraphSidePanel from './MemoryGraphSidePanel';
+import { PERSON_PALETTE } from './palette';
 import type { EnrichedMemoryLink, EnrichedMemoryNode } from './types';
 
 const partyId = '00000000-0000-0000-0000-000000000000';
@@ -29,13 +30,13 @@ const allNodes: EnrichedMemoryNode[] = [
         id: `part:persona-1:${partyId}`,
         kind: 'Participant',
         label: 'Denise',
-        colour: '#7B5CC4',
+        colour: PERSON_PALETTE[0],
     },
     {
         id: `part:persona-2:${partyId}`,
         kind: 'Participant',
         label: 'Vlad',
-        colour: '#D2477A',
+        colour: PERSON_PALETTE[1],
     },
 ];
 
@@ -72,14 +73,7 @@ const meta = {
     parameters: { layout: 'centered' },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 320,
-                    height: 520,
-                    background: '#5C87C2',
-                    padding: 8,
-                }}
-            >
+            <div className="h-[560px] w-[320px]">
                 <Story />
             </div>
         ),

@@ -1,4 +1,12 @@
-import { useEffect, useId, useState } from 'react';
+import {
+    ComboBox,
+    Post,
+    StatusBar,
+    StatusBarField,
+    SunkenField,
+    Text,
+} from '@partytown/ui';
+import { type ReactNode, useEffect, useId, useState } from 'react';
 import {
     useGetWorldsPartyIdDiaryPersonaId,
     useGetWorldsPartyIdLivesSuspense,
@@ -43,18 +51,10 @@ export default function DiaryApp({ personaId }: { personaId?: string }) {
     const selected = personas.find((p) => p.personaId === selectedId);
 
     return (
-        <div className="app-surface flex flex-col h-full">
-            <div
-                className="flex items-center"
-                style={{
-                    gap: 6,
-                    padding: '3px 6px',
-                    background: 'var(--color-xp-face)',
-                    borderBottom: '1px solid #aca899',
-                }}
-            >
+        <div className="flex h-full flex-col">
+            <div className="flex items-center gap-3 px-2 py-1">
                 <label htmlFor={pickerId}>Diary of:</label>
-                <select
+                <ComboBox
                     id={pickerId}
                     value={selectedId ?? ''}
                     onChange={(e) => select(e.currentTarget.value)}
@@ -67,10 +67,8 @@ export default function DiaryApp({ personaId }: { personaId?: string }) {
                             {p.name}
                         </option>
                     ))}
-                </select>
-                <span style={{ marginLeft: 'auto', color: '#666' }}>
-                    Read-only
-                </span>
+                </ComboBox>
+                <span className="ml-auto">Read-only</span>
             </div>
             {selectedId ? (
                 <DiaryPage
@@ -78,12 +76,9 @@ export default function DiaryApp({ personaId }: { personaId?: string }) {
                     name={selected?.name ?? 'Unknown'}
                 />
             ) : (
-                <div
-                    className="flex-1"
-                    style={{ background: '#fff', padding: 12, color: '#666' }}
-                >
-                    No AI personas in this world yet.
-                </div>
+                <SunkenField text="reading" className="mx-1 mb-1 flex-1">
+                    <Note>No AI personas in this world yet.</Note>
+                </SunkenField>
             )}
         </div>
     );
@@ -95,69 +90,46 @@ function DiaryPage({ personaId, name }: { personaId: string; name: string }) {
 
     return (
         <>
-            <div
-                className="flex-1 overflow-y-auto"
-                style={{
-                    background: '#fff',
-                    border: '1px solid',
-                    borderColor: '#7f9db9 #fff #fff #7f9db9',
-                    padding: '6px 8px',
-                    fontFamily: "'Lucida Console', 'Courier New', monospace",
-                    fontSize: 12,
-                    lineHeight: 1.45,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                }}
+            <SunkenField
+                text="reading"
+                role="region"
+                aria-label={`Diary of ${name}`}
+                tabIndex={0}
+                className="mx-1 flex-1"
             >
-                {diaryQuery.isPending ? 'Loading…' : null}
-                {diaryQuery.isError ? 'Could not open this diary.' : null}
-                {diaryQuery.isSuccess && entries.length === 0
-                    ? `${name} hasn't written anything yet.`
-                    : null}
-                {entries.map((entry, i) => (
-                    <div key={entry.id} style={{ marginBottom: 14 }}>
-                        <div style={{ fontWeight: 700 }}>
-                            {formatDate(entry.createdAt)}
-                            {entry.mood ? `  —  mood: ${entry.mood}` : ''}
-                        </div>
-                        <div>{entry.body}</div>
-                        {i < entries.length - 1 ? (
-                            <div style={{ color: '#aaa', marginTop: 10 }}>
-                                {'- '.repeat(30)}
-                            </div>
-                        ) : null}
-                    </div>
+                {diaryQuery.isPending ? <Note>Loading…</Note> : null}
+                {diaryQuery.isError ? (
+                    <Note>Could not open this diary.</Note>
+                ) : null}
+                {diaryQuery.isSuccess && entries.length === 0 ? (
+                    <Note>{name} hasn't written anything yet.</Note>
+                ) : null}
+                {entries.map((entry) => (
+                    <Post
+                        key={entry.id}
+                        variant="flat"
+                        title={formatDate(entry.createdAt)}
+                        meta={entry.mood ? `mood: ${entry.mood}` : undefined}
+                    >
+                        {entry.body}
+                    </Post>
                 ))}
-            </div>
-            <div
-                className="flex"
-                style={{
-                    gap: 2,
-                    padding: 2,
-                    background: 'var(--color-xp-face)',
-                }}
-            >
-                <div
-                    style={{
-                        padding: '1px 6px',
-                        border: '1px solid',
-                        borderColor: '#aca899 #fff #fff #aca899',
-                        flex: 1,
-                    }}
-                >
-                    {name}.txt
-                </div>
-                <div
-                    style={{
-                        padding: '1px 6px',
-                        border: '1px solid',
-                        borderColor: '#aca899 #fff #fff #aca899',
-                    }}
-                >
+            </SunkenField>
+            <StatusBar>
+                <StatusBarField grow>{name}.txt</StatusBarField>
+                <StatusBarField>
                     {entries.length}{' '}
                     {entries.length === 1 ? 'entry' : 'entries'}
-                </div>
-            </div>
+                </StatusBarField>
+            </StatusBar>
         </>
+    );
+}
+
+function Note({ children }: { children: ReactNode }) {
+    return (
+        <Text as="p" tone="muted" className="px-3 py-2">
+            {children}
+        </Text>
     );
 }

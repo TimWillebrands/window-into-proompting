@@ -9,19 +9,12 @@ const meta = {
     parameters: { layout: 'fullscreen' },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 880,
-                    height: 600,
-                    padding: 24,
-                    background: '#5C87C2',
-                }}
-            >
+            <div className="h-[600px] w-[880px] p-4">
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
                 <WindowFrame
                     id="cdu"
                     title="C:\CDU\"
-                    icon="🜂"
+                    icon="cdu"
                     width={840}
                     height={560}
                     zIndex={1}

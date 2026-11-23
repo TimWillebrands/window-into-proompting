@@ -1,5 +1,16 @@
+import {
+    CheckBox,
+    ComboBox,
+    CommandButton,
+    ControlGrid,
+    GroupBox,
+    ListView,
+    StatusText,
+    Text,
+    TextBox,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, Suspense, useId, useState } from 'react';
+import { type FormEvent, Suspense, useState } from 'react';
 import {
     getGetWorldsPartyIdRelationsQueryKey,
     useDeleteWorldsPartyIdRelationsRelationId,
@@ -18,7 +29,7 @@ import { inOrder, isCurrent, KINDS, summary } from './relations-lib';
 
 export default function RelationsApp() {
     return (
-        <div className="app-surface" style={{ padding: 8, overflow: 'auto' }}>
+        <div className="flex h-full flex-col gap-2 overflow-auto p-2">
             <Suspense fallback={null}>
                 <Book />
                 <Doors />
@@ -32,35 +43,30 @@ function Doors() {
         useGetWorldsPartyIdRelationsDoorsSuspense(WORLD_ID).data.data ?? [];
     if (doors.length === 0) return null;
     return (
-        <fieldset className="border border-[#9db2c8] p-2 m-0 mt-2">
-            <legend className="text-xp-legend font-semibold text-[11px] px-1">
-                At the door
-            </legend>
-            <table style={{ width: '100%' }}>
-                <thead>
-                    <tr>
-                        <th align="left">Place</th>
-                        <th align="left">Who</th>
-                        <th align="left">This week</th>
-                        <th align="left">Wants</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {doors.map((d) => (
-                        <tr key={`${d.place}:${d.visitor}`}>
-                            <td>{d.place}</td>
-                            <td>{d.visitor}</td>
-                            <td>{d.hasKey ? 'has a key' : d.doorsteps}</td>
-                            <td>
-                                {[d.visitorWant, d.hostWant]
-                                    .filter(Boolean)
-                                    .join(' / ')}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </fieldset>
+        <GroupBox title="At the door">
+            <ListView
+                view="details"
+                label="At the door"
+                selectionMode="none"
+                columns={[
+                    { key: 'label', header: 'Place' },
+                    { key: 'who', header: 'Who' },
+                    { key: 'week', header: 'This week' },
+                    { key: 'wants', header: 'Wants' },
+                ]}
+                items={doors.map((d) => ({
+                    id: `${d.place}:${d.visitor}`,
+                    label: d.place,
+                    cells: {
+                        who: d.visitor,
+                        week: d.hasKey ? 'has a key' : d.doorsteps,
+                        wants: [d.visitorWant, d.hostWant]
+                            .filter(Boolean)
+                            .join(' / '),
+                    },
+                }))}
+            />
+        </GroupBox>
     );
 }
 
@@ -107,45 +113,36 @@ function Book() {
                 actions={actions}
             />
             {actions.failed ? (
-                <p style={{ color: '#c00' }}>That did not work.</p>
+                <StatusText tone="danger">That did not work.</StatusText>
             ) : null}
             {relations.length === 0 ? (
-                <p>Nobody is anything to anybody yet.</p>
+                <Text as="p" tone="muted">
+                    Nobody is anything to anybody yet.
+                </Text>
             ) : (
-                <table style={{ width: '100%' }}>
-                    <thead>
-                        <tr>
-                            <th align="left">Who</th>
-                            <th align="left">What</th>
-                            <th align="left">Home</th>
-                            <th />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {inOrder(relations).map((r) => (
-                            <Row
-                                key={r.id}
-                                relation={r}
-                                nameOf={nameOf}
-                                actions={actions}
-                            />
-                        ))}
-                    </tbody>
-                </table>
+                <ControlGrid
+                    label="Relations"
+                    columns={[
+                        { key: 'who', header: 'Who' },
+                        { key: 'what', header: 'What' },
+                        { key: 'home', header: 'Home' },
+                        { key: 'actions', header: '', align: 'end' },
+                    ]}
+                    rows={inOrder(relations).map((r) => ({
+                        id: r.id ?? '',
+                        cells: rowCells(r, nameOf, actions),
+                    }))}
+                />
             )}
         </>
     );
 }
 
-function Row({
-    relation,
-    nameOf,
-    actions,
-}: {
-    relation: Relation;
-    nameOf: (id?: string) => string;
-    actions: ReturnType<typeof useRelationActions>;
-}) {
+function rowCells(
+    relation: Relation,
+    nameOf: (id?: string) => string,
+    actions: ReturnType<typeof useRelationActions>,
+) {
     const relationId = relation.id ?? '';
     const first = (id?: string) => nameOf(id).split(' ')[0];
     const moveIn = (hostId: string | null) =>
@@ -167,53 +164,54 @@ function Row({
             });
     };
 
-    return (
-        <tr>
-            <td>
+    return {
+        who: (
+            <>
                 {nameOf(relation.aId)} &amp; {nameOf(relation.bId)}
-            </td>
-            <td>{summary(relation)}</td>
-            <td>
-                {!isCurrent(relation) ? null : relation.liveTogether ? (
-                    <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => moveIn(null)}
-                    >
-                        Move apart
-                    </button>
-                ) : (
-                    <>
-                        <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => moveIn(relation.aId ?? '')}
-                        >
-                            At {first(relation.aId)}'s
-                        </button>{' '}
-                        <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => moveIn(relation.bId ?? '')}
-                        >
-                            At {first(relation.bId)}'s
-                        </button>
-                    </>
-                )}
-            </td>
-            <td align="right">
+            </>
+        ),
+        what: summary(relation),
+        home: !isCurrent(relation) ? null : relation.liveTogether ? (
+            <CommandButton
+                size="small"
+                disabled={isPending}
+                onClick={() => moveIn(null)}
+            >
+                Move apart
+            </CommandButton>
+        ) : (
+            <span className="flex flex-wrap gap-1">
+                <CommandButton
+                    size="small"
+                    disabled={isPending}
+                    onClick={() => moveIn(relation.aId ?? '')}
+                >
+                    At {first(relation.aId)}'s
+                </CommandButton>
+                <CommandButton
+                    size="small"
+                    disabled={isPending}
+                    onClick={() => moveIn(relation.bId ?? '')}
+                >
+                    At {first(relation.bId)}'s
+                </CommandButton>
+            </span>
+        ),
+        actions: (
+            <span className="flex flex-wrap justify-end gap-1">
                 {isCurrent(relation) ? (
-                    <button
-                        type="button"
+                    <CommandButton
+                        size="small"
                         disabled={isPending}
                         onClick={buildHome}
                     >
                         New home
-                    </button>
-                ) : null}{' '}
+                    </CommandButton>
+                ) : null}
                 {isCurrent(relation) ? (
-                    <button
-                        type="button"
+                    <CommandButton
+                        size="small"
+                        tone="caution"
                         disabled={isPending}
                         onClick={() =>
                             actions.end.mutate({
@@ -223,10 +221,11 @@ function Row({
                         }
                     >
                         End
-                    </button>
-                ) : null}{' '}
-                <button
-                    type="button"
+                    </CommandButton>
+                ) : null}
+                <CommandButton
+                    size="small"
+                    tone="danger"
                     disabled={isPending}
                     onClick={() => {
                         if (confirm('Strike this, as if it never was?'))
@@ -237,10 +236,10 @@ function Row({
                     }}
                 >
                     Forget
-                </button>
-            </td>
-        </tr>
-    );
+                </CommandButton>
+            </span>
+        ),
+    };
 }
 
 function NewRelation({
@@ -255,7 +254,6 @@ function NewRelation({
     const [kind, setKind] = useState<RelationKind>(RelationKind.Together);
     const [story, setStory] = useState('');
     const [past, setPast] = useState(false);
-    const pastId = useId();
     const ready = !!aId && !!bId && aId !== bId;
 
     const submit = (e: FormEvent) => {
@@ -276,69 +274,56 @@ function NewRelation({
     };
 
     const pick = (value: string, set: (id: string) => void, label: string) => (
-        <select
+        <ComboBox
             aria-label={label}
             value={value}
             onChange={(e) => set(e.target.value)}
-        >
-            <option value="">{label}</option>
-            {people.map((p) => (
-                <option key={p.id} value={p.id}>
-                    {p.name}
-                </option>
-            ))}
-        </select>
+            options={[
+                { value: '', label },
+                ...people.map((p) => ({ value: p.id, label: p.name })),
+            ]}
+        />
     );
 
     return (
         <form onSubmit={submit}>
-            <fieldset className="border border-[#9db2c8] p-2 m-0">
-                <legend className="text-xp-legend font-semibold text-[11px] px-1">
-                    What are they to each other?
-                </legend>
-                <div
-                    className="flex items-center"
-                    style={{ gap: 6, flexWrap: 'wrap' }}
-                >
+            <GroupBox title="What are they to each other?">
+                <div className="flex flex-wrap items-center gap-1.5">
                     {pick(aId, setAId, 'Someone')}
                     {pick(bId, setBId, 'Someone else')}
-                    <select
+                    <ComboBox
                         aria-label="Kind"
                         value={kind}
                         onChange={(e) =>
                             setKind(e.target.value as RelationKind)
                         }
-                    >
-                        {KINDS.map((k) => (
-                            <option key={k.kind} value={k.kind}>
-                                {k.label}
-                            </option>
-                        ))}
-                    </select>
-                    <input
-                        type="text"
+                        options={KINDS.map((k) => ({
+                            value: k.kind,
+                            label: k.label,
+                        }))}
+                    />
+                    <TextBox
                         aria-label="Their story"
                         placeholder="you dated in high school"
                         value={story}
                         maxLength={200}
-                        style={{ flex: 1, minWidth: 180 }}
+                        className="min-w-[180px] flex-1"
                         onChange={(e) => setStory(e.target.value)}
                     />
-                    <input
-                        id={pastId}
-                        type="checkbox"
+                    <CheckBox
                         checked={past}
                         onChange={(e) => setPast(e.target.checked)}
-                    />
-                    <label htmlFor={pastId}>In the past</label>
-                    <button
-                        type="submit"
+                    >
+                        In the past
+                    </CheckBox>
+                    <CommandButton
+                        isDefault
                         disabled={!ready || actions.isPending}
                     >
                         Add
-                    </button>
+                    </CommandButton>
                 </div>
-            </fieldset>
+            </GroupBox>
         </form>
     );
 }

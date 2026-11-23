@@ -37,8 +37,8 @@ const meta = {
     component: PeoplePicker,
     parameters: {
         layout: 'centered',
-        backgrounds: { default: 'window-body' },
     },
+    globals: { backgrounds: { value: 'window-body' } },
     args: {
         people: samplePeople,
         selectedIds: [],
@@ -46,7 +46,7 @@ const meta = {
     },
     decorators: [
         (Story) => (
-            <div style={{ width: 320, padding: 12, background: '#ECE9D8' }}>
+            <div className="w-[320px] p-3">
                 <Story />
             </div>
         ),

@@ -1,3 +1,11 @@
+import {
+    ComboBox,
+    CommandButton,
+    GroupBox,
+    ListView,
+    type ListViewColumn,
+    TextBox,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import {
@@ -24,11 +32,28 @@ const time = (ts: number | string | undefined) =>
 const whereOf = (g: Gathering) =>
     g.placeId ? `at ${g.roomName}` : `in #${g.roomName}`;
 
-const panel = {
-    background: '#fff',
-    border: '1px solid',
-    borderColor: '#7f9db9 #fff #fff #7f9db9',
-} as const;
+const upcomingColumns: ListViewColumn[] = [
+    { key: 'title', header: 'Gathering', width: 'minmax(140px, 2fr)' },
+    { key: 'when', header: 'When', width: 'minmax(96px, auto)' },
+    { key: 'where', header: 'Where', width: 'minmax(96px, 1fr)' },
+    { key: 'host', header: 'Host', width: 'minmax(80px, 1fr)' },
+    { key: 'who', header: "Who's coming", width: 'minmax(120px, 2fr)' },
+    { key: 'rsvp', header: '', width: 'max-content', align: 'end' },
+];
+
+const pastColumns: ListViewColumn[] = [
+    { key: 'title', header: 'Gathering', width: 'minmax(140px, 2fr)' },
+    { key: 'when', header: 'When', width: 'minmax(96px, auto)' },
+    { key: 'where', header: 'Where', width: 'minmax(96px, 1fr)' },
+    { key: 'outcome', header: 'How it went', width: 'minmax(140px, 2fr)' },
+];
+
+const startsIn = (g: Gathering, now: number) => {
+    const mins = Math.round((Number(g.startsAt) - now) / 60000);
+    return mins < 60
+        ? `in ${Math.max(mins, 0)} min`
+        : `in ${Math.round(mins / 60)} h`;
+};
 
 export default function CalendarApp() {
     const playerId = usePlayerId();
@@ -44,66 +69,67 @@ export default function CalendarApp() {
         .slice(0, 10);
 
     return (
-        <div className="app-surface flex h-full flex-col" style={{ gap: 6 }}>
+        <div className="flex h-full flex-col gap-2 p-2">
             <PlanForm playerId={playerId} />
-            <fieldset
-                className="flex min-h-0 flex-1 flex-col"
-                style={{ margin: '0 6px' }}
+            <GroupBox
+                title="Coming up"
+                className="min-h-0 flex-1 grid-rows-[minmax(0,1fr)] content-stretch"
             >
-                <legend>Coming up</legend>
-                <div className="flex-1 overflow-y-auto" style={panel}>
-                    {upcoming.length === 0 ? (
-                        <p style={{ padding: 8, color: '#666' }}>
-                            Nothing planned. Personas plan get-togethers on
-                            their own — or plan one above.
-                        </p>
-                    ) : null}
-                    {upcoming.map((g) => (
-                        <Row
-                            key={g.id}
-                            g={g}
-                            nameOf={nameOf}
-                            playerId={playerId}
-                            now={now}
-                        />
-                    ))}
-                </div>
-            </fieldset>
-            <fieldset style={{ margin: '0 6px 6px' }}>
-                <legend>Recently</legend>
-                <div style={{ ...panel, maxHeight: 110, overflowY: 'auto' }}>
-                    {past.length === 0 ? (
-                        <p style={{ padding: 6, color: '#666' }}>—</p>
-                    ) : null}
-                    {past.map((g) => (
-                        <div
-                            key={g.id}
-                            style={{ padding: '3px 8px', color: '#555' }}
-                        >
-                            {time(g.startsAt)} — “{g.title}” {whereOf(g)} (
-                            {g.status === 'Missed'
-                                ? 'missed, the world was asleep'
-                                : `${g.attendeeIds?.length ?? 0} said they'd come`}
-                            )
-                        </div>
-                    ))}
-                </div>
-            </fieldset>
+                <ListView
+                    label="Coming up"
+                    className="min-h-0"
+                    columns={upcomingColumns}
+                    selectionMode="none"
+                    empty="Nothing planned. Personas plan get-togethers on their own — or plan one above."
+                    items={upcoming.map((g) => ({
+                        id: g.id ?? '',
+                        label: `“${g.title}”`,
+                        cells: {
+                            when: `${time(g.startsAt)}, ${startsIn(g, now)}`,
+                            where: whereOf(g),
+                            host: g.hostName,
+                            who: (
+                                <span
+                                    title={(g.attendeeIds ?? [])
+                                        .map(nameOf)
+                                        .join(', ')}
+                                >
+                                    {(g.attendeeIds ?? [])
+                                        .map(nameOf)
+                                        .join(', ')}
+                                </span>
+                            ),
+                            rsvp: <Rsvp g={g} playerId={playerId} />,
+                        },
+                    }))}
+                />
+            </GroupBox>
+            <GroupBox title="Recently">
+                <ListView
+                    label="Recently"
+                    className="max-h-[110px]"
+                    columns={pastColumns}
+                    selectionMode="none"
+                    empty="—"
+                    items={past.map((g) => ({
+                        id: g.id ?? '',
+                        label: `“${g.title}”`,
+                        cells: {
+                            when: time(g.startsAt),
+                            where: whereOf(g),
+                            outcome:
+                                g.status === 'Missed'
+                                    ? 'missed, the world was asleep'
+                                    : `${g.attendeeIds?.length ?? 0} said they'd come`,
+                        },
+                    }))}
+                />
+            </GroupBox>
         </div>
     );
 }
 
-function Row({
-    g,
-    nameOf,
-    playerId,
-    now,
-}: {
-    g: Gathering;
-    nameOf: (id: string) => string;
-    playerId: string | null;
-    now: number;
-}) {
+function Rsvp({ g, playerId }: { g: Gathering; playerId: string | null }) {
     const queryClient = useQueryClient();
     const rsvp = usePostWorldsPartyIdGatheringsGatheringIdRsvp({
         mutation: {
@@ -114,45 +140,21 @@ function Row({
         },
     });
     const going = !!playerId && (g.attendeeIds ?? []).includes(playerId);
-    const mins = Math.round((Number(g.startsAt) - now) / 60000);
     return (
-        <div
-            className="flex items-center"
-            style={{
-                gap: 8,
-                padding: '6px 8px',
-                borderBottom: '1px solid #e4e8f0',
-            }}
+        <CommandButton
+            size="small"
+            tone={going ? 'caution' : 'go'}
+            disabled={!playerId || rsvp.isPending}
+            onClick={() =>
+                rsvp.mutate({
+                    partyId: WORLD_ID,
+                    gatheringId: g.id ?? '',
+                    data: { personaId: playerId, going: !going },
+                })
+            }
         >
-            <div style={{ width: 92, textAlign: 'center', color: '#003399' }}>
-                <div style={{ fontWeight: 700 }}>{time(g.startsAt)}</div>
-                <div style={{ fontSize: 10, color: '#666' }}>
-                    {mins < 60
-                        ? `in ${Math.max(mins, 0)} min`
-                        : `in ${Math.round(mins / 60)} h`}
-                </div>
-            </div>
-            <div className="min-w-0 flex-1">
-                <div style={{ fontWeight: 700 }}>“{g.title}”</div>
-                <div style={{ color: '#555' }}>
-                    {whereOf(g)} · hosted by {g.hostName} ·{' '}
-                    {(g.attendeeIds ?? []).map(nameOf).join(', ')}
-                </div>
-            </div>
-            <button
-                type="button"
-                disabled={!playerId || rsvp.isPending}
-                onClick={() =>
-                    rsvp.mutate({
-                        partyId: WORLD_ID,
-                        gatheringId: g.id ?? '',
-                        data: { personaId: playerId, going: !going },
-                    })
-                }
-            >
-                {going ? "Can't make it" : "I'll be there"}
-            </button>
-        </div>
+            {going ? "Can't make it" : "I'll be there"}
+        </CommandButton>
     );
 }
 
@@ -181,8 +183,7 @@ function PlanForm({ playerId }: { playerId: string | null }) {
     const room = roomId || rooms[0]?.id || '';
     return (
         <form
-            className="flex flex-wrap items-center"
-            style={{ gap: 6, padding: '6px 8px 0' }}
+            className="flex flex-wrap items-center gap-1.5"
             onSubmit={(e) => {
                 e.preventDefault();
                 if (!title.trim() || !room) return;
@@ -206,47 +207,56 @@ function PlanForm({ playerId }: { playerId: string | null }) {
             }}
         >
             <label htmlFor={`${ids}-t`}>Plan:</label>
-            <input
+            <TextBox
                 id={`${ids}-t`}
+                className="min-w-[140px] flex-1"
                 value={title}
                 maxLength={120}
                 placeholder="Movie night, storm stories, …"
                 onChange={(e) => setTitle(e.currentTarget.value)}
-                style={{ flex: 1, minWidth: 140 }}
             />
             <label htmlFor={`${ids}-r`}>in</label>
-            <select
+            <ComboBox
                 id={`${ids}-r`}
                 value={room}
                 onChange={(e) => setRoomId(e.currentTarget.value)}
             >
-                {rooms.map((r) => (
-                    <option key={r.id} value={r.id ?? ''}>
-                        #{r.name}
-                    </option>
-                ))}
-                {places.map((p) => (
-                    <option key={p.id} value={`place:${p.id}`}>
-                        📍 {p.name}
-                    </option>
-                ))}
-            </select>
+                {rooms.length > 0 ? (
+                    <optgroup label="Rooms">
+                        {rooms.map((r) => (
+                            <option key={r.id} value={r.id ?? ''}>
+                                #{r.name}
+                            </option>
+                        ))}
+                    </optgroup>
+                ) : null}
+                {places.length > 0 ? (
+                    <optgroup label="Places">
+                        {places.map((p) => (
+                            <option key={p.id} value={`place:${p.id}`}>
+                                {p.name}
+                            </option>
+                        ))}
+                    </optgroup>
+                ) : null}
+            </ComboBox>
             <label htmlFor={`${ids}-m`}>starts in</label>
-            <input
+            <TextBox
                 id={`${ids}-m`}
+                className="w-[64px]"
                 type="number"
                 min={1}
                 value={minutes}
                 onChange={(e) => setMinutes(e.currentTarget.value)}
-                style={{ width: 52 }}
             />
             min
-            <button
+            <CommandButton
                 type="submit"
+                isDefault
                 disabled={!title.trim() || !room || plan.isPending}
             >
                 Plan it
-            </button>
+            </CommandButton>
         </form>
     );
 }

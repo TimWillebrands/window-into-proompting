@@ -1,3 +1,4 @@
+import { CommandButton, TextBox } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -10,7 +11,7 @@ import {
 import type { SkillView } from '../../api/model';
 import { useIsAdmin, WORLD_ID } from '../../lib/world';
 import { skillLabel } from './jobs-lib';
-import { Card, Empty } from './parts';
+import { Card, Empty, Row, Rows } from './parts';
 
 export function SkillsPanel({
     participantId,
@@ -39,14 +40,14 @@ export function SkillsPanel({
         usePostWorldsPartyIdSkillsParticipantIdSkillIdPromote(refresh);
 
     const row = (s: SkillView) => (
-        <li key={s.id} data-faded={s.rusty || undefined}>
-            <span className="wk-grow" title={s.how}>
+        <Row key={s.id}>
+            <span className="min-w-0 flex-1" title={s.how}>
                 {skillLabel(s)}
             </span>
             {isAdmin && !s.intrinsic ? (
                 <>
-                    <button
-                        type="button"
+                    <CommandButton
+                        size="small"
                         title="Make this part of who they are, in every world"
                         onClick={() =>
                             promote.mutate({
@@ -57,9 +58,10 @@ export function SkillsPanel({
                         }
                     >
                         Promote
-                    </button>
-                    <button
-                        type="button"
+                    </CommandButton>
+                    <CommandButton
+                        size="small"
+                        tone="danger"
                         onClick={() =>
                             forget.mutate({
                                 partyId: WORLD_ID,
@@ -69,10 +71,10 @@ export function SkillsPanel({
                         }
                     >
                         Forget
-                    </button>
+                    </CommandButton>
                 </>
             ) : null}
-        </li>
+        </Row>
     );
 
     const intrinsic = mine?.intrinsic ?? [];
@@ -85,14 +87,14 @@ export function SkillsPanel({
                     up more by doing the same thing a few times.
                 </Empty>
             ) : (
-                <ul className="wk-rows">
+                <Rows>
                     {intrinsic.map(row)}
                     {acquired.map(row)}
-                </ul>
+                </Rows>
             )}
             {isAdmin ? (
                 <form
-                    className="wk-inline"
+                    className="flex items-center gap-1.5"
                     onSubmit={(e) => {
                         e.preventDefault();
                         if (!skill.trim()) return;
@@ -114,25 +116,26 @@ export function SkillsPanel({
                         );
                     }}
                 >
-                    <input
+                    <TextBox
                         aria-label="What they know how to do"
                         value={skill}
                         placeholder="fixing bikes"
                         onChange={(e) => setSkill(e.currentTarget.value)}
                     />
-                    <input
-                        className="wk-grow"
+                    <TextBox
+                        className="min-w-0 flex-1"
                         aria-label="How it goes"
                         value={how}
                         placeholder="you check the tyre before the chain"
                         onChange={(e) => setHow(e.currentTarget.value)}
                     />
-                    <button
+                    <CommandButton
                         type="submit"
+                        isDefault
                         disabled={!skill.trim() || add.isPending}
                     >
                         Add
-                    </button>
+                    </CommandButton>
                 </form>
             ) : null}
         </Card>

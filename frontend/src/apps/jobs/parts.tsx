@@ -1,6 +1,16 @@
+import {
+    FieldRow,
+    GroupBox,
+    Hyperlink,
+    Icon,
+    type IconName,
+    PageHeader,
+    Text,
+    type Tone,
+} from '@partytown/ui';
 import type { ReactNode } from 'react';
 import type { ProblemDetails } from '../../api/model';
-import { refusal, type Tone } from './jobs-lib';
+import { refusal, signedPercent, toneOf } from './jobs-lib';
 
 export function PageHead({
     icon,
@@ -8,22 +18,26 @@ export function PageHead({
     sub,
     chip,
 }: {
-    icon: string;
+    icon: IconName;
     title: string;
     sub?: string;
     chip?: string;
 }) {
     return (
-        <header className="wk-head">
-            <span className="wk-head-icon" aria-hidden>
-                {icon}
-            </span>
-            <div className="wk-head-text">
-                <h2>{title}</h2>
-                {sub ? <p>{sub}</p> : null}
-            </div>
-            {chip ? <span className="wk-chip">{chip}</span> : null}
-        </header>
+        <PageHeader
+            icon={<Icon name={icon} size={32} />}
+            title={title}
+            description={sub || undefined}
+            aside={chip || undefined}
+        />
+    );
+}
+
+export function Page({ children }: { children: ReactNode }) {
+    return (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+            {children}
+        </div>
     );
 }
 
@@ -35,26 +49,56 @@ export function Card({
     children: ReactNode;
 }) {
     return (
-        <section className="wk-card">
-            <h3>{title}</h3>
-            <div className="wk-card-body">{children}</div>
-        </section>
+        <GroupBox title={title} className="flex-none">
+            {children}
+        </GroupBox>
     );
 }
 
-export function Stat({
-    label,
-    value,
-    tone,
+export function Stats({ children }: { children: ReactNode }) {
+    return (
+        <GroupBox title="Summary" className="flex-none">
+            <dl className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
+                {children}
+            </dl>
+        </GroupBox>
+    );
+}
+
+export function Stat({ label, value }: { label: string; value: ReactNode }) {
+    return (
+        <div className="flex flex-col gap-0.5">
+            <dt>{label}</dt>
+            <dd>
+                <Text strong>{value}</Text>
+            </dd>
+        </div>
+    );
+}
+
+const INK: Record<ReturnType<typeof toneOf>, Tone | undefined> = {
+    up: 'go',
+    down: 'danger',
+    flat: undefined,
+};
+
+export function Signed({ fraction }: { fraction: number }) {
+    return <Text tone={INK[toneOf(fraction)]}>{signedPercent(fraction)}</Text>;
+}
+
+export function Fields({
+    hidden,
+    children,
 }: {
-    label: string;
-    value: string;
-    tone?: Tone;
+    hidden?: boolean;
+    children: ReactNode;
 }) {
     return (
-        <div className="wk-stat">
-            <span>{label}</span>
-            <strong data-tone={tone}>{value}</strong>
+        <div
+            className="flex flex-wrap items-end gap-x-2 gap-y-1.5"
+            hidden={hidden}
+        >
+            {children}
         </div>
     );
 }
@@ -69,12 +113,26 @@ export function Field({
     children: ReactNode;
 }) {
     return (
-        // biome-ignore lint/a11y/noLabelWithoutControl: the control arrives as children
-        <label className="wk-field" data-grow={grow || undefined}>
-            <span>{label}</span>
+        <FieldRow
+            label={label}
+            layout="stacked"
+            className={grow ? 'min-w-0 flex-[1_1_150px]' : 'flex-none'}
+        >
             {children}
-        </label>
+        </FieldRow>
     );
+}
+
+export function Actions({ children }: { children: ReactNode }) {
+    return <div className="flex items-center gap-1.5">{children}</div>;
+}
+
+export function Rows({ children }: { children: ReactNode }) {
+    return <ul className="grid gap-1">{children}</ul>;
+}
+
+export function Row({ children }: { children: ReactNode }) {
+    return <li className="flex items-center gap-2">{children}</li>;
 }
 
 export function Jump({
@@ -85,23 +143,26 @@ export function Jump({
     children: ReactNode;
 }) {
     return (
-        <button
-            type="button"
-            className="xp-bare wk-jump"
+        <Hyperlink
             onClick={(e) => {
                 e.stopPropagation();
                 onClick();
             }}
         >
             {children}
-        </button>
+        </Hyperlink>
     );
 }
 
 export function Refusal({ error }: { error: ProblemDetails | null }) {
-    return error ? <p className="wk-refusal">{refusal(error)}</p> : null;
+    return error ? (
+        <p className="flex items-center gap-1">
+            <Icon name="error" />
+            {refusal(error)}
+        </p>
+    ) : null;
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-    return <p className="wk-empty">{children}</p>;
+    return <p>{children}</p>;
 }

@@ -1,3 +1,4 @@
+import { ComboBox, CommandButton, TextBox } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -10,7 +11,7 @@ import {
 import type { Desire, DesireKind } from '../../api/model';
 import { WORLD_ID } from '../../lib/world';
 import { desireLabel } from './jobs-lib';
-import { Card, Empty } from './parts';
+import { Card, Empty, Row, Rows } from './parts';
 
 export function WantsPanel({
     participantId,
@@ -41,12 +42,13 @@ export function WantsPanel({
         usePostWorldsPartyIdDesiresParticipantIdDesireIdPromote(refresh);
 
     const row = (d: Desire, acquired: boolean) => (
-        <li key={d.id} data-faded={d.status !== 'Active' || undefined}>
-            <span className="wk-grow">{desireLabel(d, nameOf)}</span>
+        <Row key={d.id}>
+            <span className="min-w-0 flex-1">{desireLabel(d, nameOf)}</span>
             {d.status === 'Active' ? (
                 <>
-                    <button
-                        type="button"
+                    <CommandButton
+                        size="small"
+                        tone="go"
                         onClick={() =>
                             mark.mutate({
                                 partyId: WORLD_ID,
@@ -57,9 +59,10 @@ export function WantsPanel({
                         }
                     >
                         Got it
-                    </button>
-                    <button
-                        type="button"
+                    </CommandButton>
+                    <CommandButton
+                        size="small"
+                        tone="caution"
                         onClick={() =>
                             mark.mutate({
                                 partyId: WORLD_ID,
@@ -70,12 +73,12 @@ export function WantsPanel({
                         }
                     >
                         Drop
-                    </button>
+                    </CommandButton>
                 </>
             ) : null}
             {acquired ? (
-                <button
-                    type="button"
+                <CommandButton
+                    size="small"
                     title="Make this part of who they are, in every world"
                     onClick={() =>
                         promote.mutate({
@@ -86,9 +89,9 @@ export function WantsPanel({
                     }
                 >
                     Promote
-                </button>
+                </CommandButton>
             ) : null}
-        </li>
+        </Row>
     );
 
     const intrinsic = mine?.intrinsic ?? [];
@@ -101,13 +104,13 @@ export function WantsPanel({
                     take a moment.
                 </Empty>
             ) : (
-                <ul className="wk-rows">
+                <Rows>
                     {intrinsic.map((d) => row(d, false))}
                     {acquired.map((d) => row(d, true))}
-                </ul>
+                </Rows>
             )}
             <form
-                className="wk-inline"
+                className="flex items-center gap-1.5"
                 onSubmit={(e) => {
                     e.preventDefault();
                     if (!text.trim()) return;
@@ -121,7 +124,7 @@ export function WantsPanel({
                     );
                 }}
             >
-                <select
+                <ComboBox
                     aria-label="Kind"
                     value={kind}
                     onChange={(e) =>
@@ -130,17 +133,21 @@ export function WantsPanel({
                 >
                     <option value="Having">to have</option>
                     <option value="Being">to become</option>
-                </select>
-                <input
-                    className="wk-grow"
+                </ComboBox>
+                <TextBox
+                    className="min-w-0 flex-1"
                     aria-label="What they want"
                     value={text}
                     placeholder="a navy hoodie, get better at chess"
                     onChange={(e) => setText(e.currentTarget.value)}
                 />
-                <button type="submit" disabled={!text.trim() || add.isPending}>
+                <CommandButton
+                    type="submit"
+                    isDefault
+                    disabled={!text.trim() || add.isPending}
+                >
                     Add
-                </button>
+                </CommandButton>
             </form>
         </Card>
     );

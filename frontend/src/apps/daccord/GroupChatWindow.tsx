@@ -1,3 +1,24 @@
+import {
+    ChatLog,
+    ChatMessage,
+    ComboBox,
+    CommandButton,
+    ContactRow,
+    Dialog,
+    FieldRow,
+    Icon,
+    InfoBar,
+    Presence,
+    RichText,
+    TaskPane,
+    TaskPaneLink,
+    TaskPaneSection,
+    Text,
+    TextArea,
+    type Tone,
+    Toolbar,
+    ToolbarButton,
+} from '@partytown/ui';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
@@ -55,11 +76,10 @@ interface GroupChatWindowProps {
 export default function GroupChatWindow({ chatGroupId }: GroupChatWindowProps) {
     if (!chatGroupId) {
         return (
-            <div
-                className="app-surface h-full flex items-center justify-center"
-                style={{ background: 'transparent', color: '#808080' }}
-            >
-                Open a chat group from the Chat Launcher to start messaging.
+            <div className="flex h-full items-center justify-center">
+                <Text tone="muted">
+                    Open a chat group from the Chat Launcher to start messaging.
+                </Text>
             </div>
         );
     }
@@ -357,139 +377,107 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
     );
 
     return (
-        <div
-            className="app-surface flex h-full"
-            style={{ background: 'transparent' }}
-        >
-            <div className="flex-1 flex flex-col min-w-0 h-full">
-                <div className="flex-1 flex flex-col min-h-0">
-                    <div
-                        ref={scrollRef}
-                        onScroll={(event) => {
-                            const target = event.currentTarget;
-                            const distanceFromBottom =
-                                target.scrollHeight -
-                                target.scrollTop -
-                                target.clientHeight;
-                            setIsNearBottom(distanceFromBottom < 48);
-                        }}
-                        className="flex-1 overflow-y-auto p-2 space-y-2 m-1 bg-white border border-xp-sunken-edge border-r-white border-b-white"
-                    >
-                        {uniqueMessages.length === 0 &&
-                        generationPhases.length === 0 ? (
-                            <div className="flex h-full items-center justify-center">
-                                <div
-                                    className="xp-glass-card"
-                                    style={{
-                                        maxWidth: 320,
-                                        padding: '18px 22px',
-                                        textAlign: 'center',
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            fontSize: 26,
-                                            marginBottom: 6,
-                                        }}
-                                    >
-                                        💬
-                                    </div>
-                                    <p
-                                        style={{
-                                            fontWeight: 700,
-                                            margin: '0 0 4px',
-                                        }}
-                                    >
-                                        The room is quiet
-                                    </p>
-                                    <p style={{ color: '#555', margin: 0 }}>
-                                        Type a message below to kick things off,
-                                        or press Proceed to let a persona speak
-                                        first.
-                                    </p>
-                                </div>
-                            </div>
-                        ) : null}
-                        {uniqueMessages.map((message) => {
-                            if (
-                                !isShownInRoom(
-                                    message,
-                                    activeGenerationSet.has(message.messageId),
-                                    selectedPersonaId,
-                                )
+        <div className="flex h-full min-h-0 gap-2">
+            <div className="flex h-full min-w-0 flex-1 flex-col gap-1.5">
+                <ChatLog
+                    ref={scrollRef}
+                    aria-label="Room conversation"
+                    onScroll={(event) => {
+                        const target = event.currentTarget;
+                        const distanceFromBottom =
+                            target.scrollHeight -
+                            target.scrollTop -
+                            target.clientHeight;
+                        setIsNearBottom(distanceFromBottom < 48);
+                    }}
+                    className="flex-1 p-0"
+                >
+                    {uniqueMessages.length === 0 &&
+                    generationPhases.length === 0 ? (
+                        <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center">
+                            <Icon name="chat" size={32} />
+                            <Text as="p" strong>
+                                The room is quiet
+                            </Text>
+                            <Text as="p" tone="muted" className="max-w-[320px]">
+                                Type a message below to kick things off, or
+                                press Proceed to let a persona speak first.
+                            </Text>
+                        </div>
+                    ) : null}
+                    {uniqueMessages.map((message) => {
+                        if (
+                            !isShownInRoom(
+                                message,
+                                activeGenerationSet.has(message.messageId),
+                                selectedPersonaId,
                             )
-                                return null;
-                            return (
-                                <ChatBubble
-                                    key={`${message.chatGroupId}:${message.messageId}`}
-                                    message={message}
-                                    busy={busy}
-                                    personas={partyPersonas}
-                                    userPersonaId={selectedPersonaId}
-                                    isGenerating={activeGenerationSet.has(
-                                        message.messageId,
-                                    )}
-                                    onDelete={() =>
-                                        deletePartyMessage.mutateAsync({
-                                            id: apiPartyId,
-                                            chatGroupId: chatGroupId,
-                                            messageId: message.messageId,
-                                        })
-                                    }
-                                    onTruncate={() =>
-                                        truncatePartyMessagesAfter.mutateAsync({
-                                            id: apiPartyId,
-                                            chatGroupId: chatGroupId,
-                                            messageId: message.messageId,
-                                        })
-                                    }
-                                    onReprompt={() =>
-                                        repromptParty.mutateAsync({
-                                            id: apiPartyId,
-                                            messageId: message.messageId,
-                                            data: {
-                                                chatGroupId,
-                                                senderId:
-                                                    selectedPersonaId || null,
-                                            },
-                                        })
-                                    }
-                                    onRemember={() =>
-                                        rememberMessage.mutateAsync({
-                                            id: apiPartyId,
+                        )
+                            return null;
+                        return (
+                            <ChatBubble
+                                key={`${message.chatGroupId}:${message.messageId}`}
+                                message={message}
+                                busy={busy}
+                                personas={partyPersonas}
+                                userPersonaId={selectedPersonaId}
+                                isGenerating={activeGenerationSet.has(
+                                    message.messageId,
+                                )}
+                                onDelete={() =>
+                                    deletePartyMessage.mutateAsync({
+                                        id: apiPartyId,
+                                        chatGroupId: chatGroupId,
+                                        messageId: message.messageId,
+                                    })
+                                }
+                                onTruncate={() =>
+                                    truncatePartyMessagesAfter.mutateAsync({
+                                        id: apiPartyId,
+                                        chatGroupId: chatGroupId,
+                                        messageId: message.messageId,
+                                    })
+                                }
+                                onReprompt={() =>
+                                    repromptParty.mutateAsync({
+                                        id: apiPartyId,
+                                        messageId: message.messageId,
+                                        data: {
                                             chatGroupId,
-                                            messageId: message.messageId,
-                                        })
-                                    }
-                                    rememberPending={rememberMessage.isPending}
-                                />
-                            );
-                        })}
-                        {generationPhases.length > 0
-                            ? generationPhases
-                                  .filter((p) => p.phase !== 'deciding')
-                                  .map((phase) => (
-                                      <StreamingIndicator
-                                          key={phase.messageId ?? 'unknown'}
-                                          info={phase}
-                                          personas={partyPersonas}
-                                      />
-                                  ))
-                            : null}
-                    </div>
+                                            senderId: selectedPersonaId || null,
+                                        },
+                                    })
+                                }
+                                onRemember={() =>
+                                    rememberMessage.mutateAsync({
+                                        id: apiPartyId,
+                                        chatGroupId,
+                                        messageId: message.messageId,
+                                    })
+                                }
+                                rememberPending={rememberMessage.isPending}
+                            />
+                        );
+                    })}
+                    {generationPhases.length > 0
+                        ? generationPhases
+                              .filter((p) => p.phase !== 'deciding')
+                              .map((phase) => (
+                                  <StreamingIndicator
+                                      key={phase.messageId ?? 'unknown'}
+                                      info={phase}
+                                      personas={partyPersonas}
+                                  />
+                              ))
+                        : null}
+                </ChatLog>
 
-                    {!isNearBottom && unreadCount > 0 ? (
-                        <div
-                            className="flex items-center justify-between px-2 py-1"
-                            style={{
-                                borderTop: '1px solid #ACA899',
-                                background: '#FFFDD5',
-                                color: '#000',
-                            }}
-                        >
-                            <span>{unreadCount} new message(s)</span>
-                            <button
-                                type="button"
+                {!isNearBottom && unreadCount > 0 ? (
+                    <InfoBar
+                        tone="neutral"
+                        actions={
+                            <CommandButton
+                                size="small"
                                 onClick={() => {
                                     const node = scrollRef.current;
                                     if (!node) {
@@ -501,154 +489,99 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                                 }}
                             >
                                 Jump to latest
-                            </button>
-                        </div>
-                    ) : null}
-
-                    <form
-                        className="p-2 space-y-1"
-                        style={{
-                            borderTop: '1px solid #ACA899',
-                            background:
-                                'linear-gradient(180deg, #F5F5ED 0%, #ECE9D8 100%)',
-                        }}
-                        onSubmit={async (event) => {
-                            event.preventDefault();
-                            await handleSubmit();
-                        }}
+                            </CommandButton>
+                        }
                     >
-                        {pendingInstruction && (
-                            <div
-                                style={{
-                                    background: '#FFFBEA',
-                                    border: '1px solid #E6D87A',
-                                    padding: '4px 8px',
-                                    fontSize: 11,
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        fontWeight: 600,
-                                        color: '#806600',
-                                    }}
-                                >
-                                    ⚖️ As {selectedPersonaName}:
-                                </span>{' '}
-                                <span style={{ color: '#555' }}>
-                                    {pendingInstruction.instruction}
-                                </span>
-                            </div>
-                        )}
-                        <textarea
-                            ref={textareaRef}
-                            rows={3}
-                            className="w-full text-[11px]"
-                            style={{ padding: '4px' }}
-                            placeholder="Type a message to the chat group..."
-                            value={inputValue}
-                            onChange={(event) =>
-                                setInputValue(event.currentTarget.value)
+                        {unreadCount} new message(s)
+                    </InfoBar>
+                ) : null}
+
+                <form
+                    className="flex flex-col gap-1"
+                    onSubmit={async (event) => {
+                        event.preventDefault();
+                        await handleSubmit();
+                    }}
+                >
+                    {pendingInstruction && (
+                        <InfoBar icon={<Icon name="scales" />}>
+                            <Text strong>As {selectedPersonaName}:</Text>{' '}
+                            {pendingInstruction.instruction}
+                        </InfoBar>
+                    )}
+                    <TextArea
+                        ref={textareaRef}
+                        rows={3}
+                        aria-label="Message"
+                        className="w-full"
+                        placeholder="Type a message to the chat group..."
+                        value={inputValue}
+                        onChange={(event) =>
+                            setInputValue(event.currentTarget.value)
+                        }
+                    />
+                    {promptParty.isError ? (
+                        <Text as="p" tone="danger">
+                            {promptParty.error instanceof Error
+                                ? promptParty.error.message
+                                : 'Failed to send'}
+                        </Text>
+                    ) : null}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <FieldRow
+                            label="Speak as"
+                            labelWidth="auto"
+                            className="min-w-0 flex-1"
+                        >
+                            <ComboBox
+                                className="w-full"
+                                title="The participant your message is sent as"
+                                value={selectedPersonaId}
+                                onChange={(event) =>
+                                    setSelectedPersonaId(
+                                        event.currentTarget.value,
+                                    )
+                                }
+                                options={promptablePersonas.map((persona) => ({
+                                    value: persona.id ?? '',
+                                    label: persona.name,
+                                }))}
+                            />
+                        </FieldRow>
+                        <CommandButton
+                            disabled={busy}
+                            title="Skip your turn — a persona decides who speaks next"
+                            onClick={() =>
+                                proceedParty.mutateAsync({
+                                    id: apiPartyId,
+                                    data: {
+                                        chatGroupId,
+                                        senderId: selectedPersonaId || null,
+                                    },
+                                })
                             }
-                        />
-                        {promptParty.isError ? (
-                            <p
-                                className="text-[10px]"
-                                style={{ color: '#c00' }}
-                            >
-                                {promptParty.error instanceof Error
-                                    ? promptParty.error.message
-                                    : 'Failed to send'}
-                            </p>
-                        ) : null}
-                        <div className="flex items-center gap-1">
-                            <label
-                                className="text-[11px]"
-                                style={{
-                                    color: '#555',
-                                    whiteSpace: 'nowrap',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    flex: 1,
-                                    minWidth: 0,
-                                }}
-                            >
-                                Speak as
-                                <select
-                                    className="flex-1 text-[11px]"
-                                    title="The participant your message is sent as"
-                                    value={selectedPersonaId}
-                                    onChange={(event) =>
-                                        setSelectedPersonaId(
-                                            event.currentTarget.value,
-                                        )
-                                    }
-                                >
-                                    {promptablePersonas.map((persona) => (
-                                        <option
-                                            key={persona.id}
-                                            value={persona.id}
-                                        >
-                                            {persona.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <button
-                                type="button"
-                                disabled={busy}
-                                className="text-[11px]"
-                                title="Skip your turn — a persona decides who speaks next"
-                                style={{
-                                    padding: '2px 10px',
-                                    background: busy ? '#D4D0C8' : '#ECE9D8',
-                                }}
+                        >
+                            {busy ? '...' : 'Proceed'}
+                        </CommandButton>
+                        <CommandButton type="submit" isDefault disabled={busy}>
+                            {busy ? '...' : 'Send'}
+                        </CommandButton>
+                        {isStreaming && (
+                            <CommandButton
+                                tone="danger"
+                                icon={<Icon name="stop" />}
+                                title="Cancel the replies being generated right now"
                                 onClick={() =>
-                                    proceedParty.mutateAsync({
+                                    cancelGenerations.mutateAsync({
                                         id: apiPartyId,
-                                        data: {
-                                            chatGroupId,
-                                            senderId: selectedPersonaId || null,
-                                        },
                                     })
                                 }
                             >
-                                {busy ? '...' : 'Proceed'}
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={busy}
-                                className="text-[11px]"
-                                style={{
-                                    padding: '2px 16px',
-                                    background: busy ? '#D4D0C8' : '#ECE9D8',
-                                }}
-                            >
-                                {busy ? '...' : 'Send'}
-                            </button>
-                            {isStreaming && (
-                                <button
-                                    type="button"
-                                    title="Cancel the replies being generated right now"
-                                    onClick={() =>
-                                        cancelGenerations.mutateAsync({
-                                            id: apiPartyId,
-                                        })
-                                    }
-                                    className="text-[11px]"
-                                    style={{
-                                        padding: '2px 10px',
-                                        color: '#CC0000',
-                                        background: '#FFF0F0',
-                                        border: '1px solid #CC0000',
-                                    }}
-                                >
-                                    ■ Stop
-                                </button>
-                            )}
-                        </div>
-                    </form>
-                </div>
+                                Stop
+                            </CommandButton>
+                        )}
+                    </div>
+                </form>
             </div>
 
             <ParticipantsSidebar
@@ -834,514 +767,274 @@ function ParticipantsSidebar({
         return entries.sort((a, b) => b.sortKey - a.sortKey);
     }, [allMessages, declinedDecisions, raceEvaluations, personas]);
 
-    const sectionLabel = (text: string, badge?: number) => (
-        <div
-            style={{
-                padding: '4px 8px 2px',
-                fontSize: 10,
-                fontWeight: 700,
-                color: '#808080',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-            }}
-        >
-            {text}
-            {badge !== undefined && badge > 0 && (
-                <span
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 14,
-                        height: 14,
-                        borderRadius: '50%',
-                        background: '#808080',
-                        color: '#fff',
-                        fontSize: 8,
-                        fontWeight: 700,
-                    }}
-                >
-                    {badge}
-                </span>
-            )}
-        </div>
-    );
+    const kindLook = (
+        kind: (typeof thoughtLog)[number]['kind'],
+    ): { tone: Tone; label: string } => {
+        switch (kind) {
+            case 'go':
+                return { tone: 'go', label: 'go' };
+            case 'decline':
+                return { tone: 'caution', label: 'decline' };
+            case 'skip-obvious':
+                return { tone: 'caution', label: 'skip' };
+            case 'race-cancel-decision':
+                return { tone: 'danger', label: 'race·cancel·dec' };
+            case 'race-cancel-generation':
+                return { tone: 'danger', label: 'race·cancel·gen' };
+            case 'race-past-pnr':
+                return { tone: 'neutral', label: 'race·past-pnr' };
+            case 'race-continue':
+                return { tone: 'neutral', label: 'race·continue' };
+            case 'emote':
+                return { tone: 'neutral', label: 'emote' };
+        }
+    };
+
+    const thoughtCount = decidingPhases.length + thoughtLog.length;
 
     return (
-        <div
-            className="participant-sidebar"
-            style={{
-                width: 180,
-                minWidth: 180,
-                height: '100%',
-                display: 'grid',
-                gridTemplateRows: thoughtsOpen ? 'auto 1fr' : '1fr auto',
-                overflow: 'hidden',
-            }}
-        >
-            <div style={{ overflow: 'hidden auto' }}>
-                {sectionLabel(`Participants — ${totalActive}`)}
+        <TaskPane className="w-[224px] shrink-0 overflow-y-auto">
+            <TaskPaneSection
+                title="Participants"
+                aside={totalActive}
+                icon={<Icon name="users" size={32} />}
+                special
+                collapsible={false}
+            >
+                <div className="flex flex-col gap-0.5">
+                    {visibleAiPersonas.map((persona) => {
+                        const id = persona.id ?? '';
+                        const isActive = participantSet.has(id);
+                        const isWorking = activePersonaIds.has(id);
+                        const phase = personaPhases.get(id);
+                        const isDeciding = phase?.phase === 'deciding';
 
-                {visibleAiPersonas.map((persona) => {
-                    const id = persona.id ?? '';
-                    const isActive = participantSet.has(id);
-                    const isWorking = activePersonaIds.has(id);
-                    const phase = personaPhases.get(id);
-                    const isDeciding = phase?.phase === 'deciding';
-
-                    return (
-                        <button
-                            key={id}
-                            type="button"
-                            className={`participant-row w-full text-left${isActive ? ' active' : ''}`}
-                            onClick={() => onToggleParticipant(id)}
-                            title={
-                                isActive
-                                    ? 'Click to remove from chat'
-                                    : 'Click to add to chat'
-                            }
-                        >
-                            <Portrait
-                                who={id}
-                                alt={persona.name ?? id}
-                                style={{
-                                    width: 24,
-                                    height: 24,
-                                    flexShrink: 0,
-                                    imageRendering: 'pixelated',
-                                }}
+                        return (
+                            <ContactRow
+                                key={id}
+                                selected={isActive}
+                                dimmed={!isActive}
+                                aria-pressed={isActive}
+                                onClick={() => onToggleParticipant(id)}
+                                title={
+                                    isActive
+                                        ? 'Click to remove from chat'
+                                        : 'Click to add to chat'
+                                }
+                                picture={
+                                    <Portrait
+                                        who={id}
+                                        alt={persona.name ?? id}
+                                        size={24}
+                                    />
+                                }
+                                name={persona.name ?? id.slice(0, 8)}
+                                meta={
+                                    isDeciding ? (
+                                        <Presence
+                                            status="away"
+                                            size="small"
+                                            active
+                                            label="Deciding whether to respond"
+                                        />
+                                    ) : (
+                                        <Presence
+                                            status={
+                                                isActive ? 'online' : 'offline'
+                                            }
+                                            size="small"
+                                            active={isWorking}
+                                        />
+                                    )
+                                }
                             />
-                            <span
-                                className={isWorking ? 'animate-pulse' : ''}
-                                style={{
-                                    flex: 1,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    fontSize: 11,
-                                    fontWeight: isActive ? 600 : 400,
-                                    color: isActive ? '#000' : '#808080',
-                                }}
-                            >
-                                {persona.name ?? id.slice(0, 8)}
-                            </span>
-                            {isDeciding ? (
-                                <span
-                                    className="animate-pulse"
-                                    style={{
-                                        fontSize: 8,
-                                        color: '#CC8800',
-                                        flexShrink: 0,
-                                    }}
-                                    title="Deciding whether to respond"
-                                >
-                                    ●
-                                </span>
-                            ) : (
-                                <span
-                                    className={`participant-status-dot${isActive ? ' online' : ' offline'}${isWorking ? ' working' : ''}`}
-                                />
-                            )}
-                        </button>
-                    );
-                })}
+                        );
+                    })}
+                </div>
 
                 {(hiddenCount > 0 || libraryOpen) &&
                     participantPersonaIds.length > 0 && (
-                        <button
-                            type="button"
-                            className="participant-row w-full text-left"
-                            style={{ color: '#316AC5', fontSize: 10 }}
+                        <TaskPaneLink
+                            icon={<Icon name={showLibrary ? 'up' : 'add'} />}
                             onClick={() => setLibraryOpen((v) => !v)}
                         >
                             {showLibrary
-                                ? '− Hide personas not in this room'
-                                : `＋ Add personas… (${hiddenCount} more)`}
-                        </button>
+                                ? 'Hide personas not in this room'
+                                : `Add personas… (${hiddenCount} more)`}
+                        </TaskPaneLink>
                     )}
 
                 {userPersona && (
-                    <>
-                        <div
-                            style={{
-                                margin: '4px 8px 0',
-                                borderTop: '1px solid #D4D0C8',
-                            }}
-                        />
-                        <div className="participant-row active">
+                    <ContactRow
+                        selected
+                        picture={
                             <Portrait
                                 who={userPersona.name ?? selectedPersonaId}
                                 alt={userPersona.name ?? 'You'}
-                                style={{
-                                    width: 24,
-                                    height: 24,
-                                    flexShrink: 0,
-                                    imageRendering: 'pixelated',
-                                }}
+                                size={24}
                             />
-                            <span
-                                style={{
-                                    flex: 1,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    color: '#003399',
-                                }}
-                            >
-                                {userPersona.name ?? 'You'}
-                            </span>
-                            <span
-                                style={{
-                                    fontSize: 8,
-                                    color: '#808080',
-                                    flexShrink: 0,
-                                }}
-                            >
-                                you
-                            </span>
-                        </div>
-                    </>
+                        }
+                        name={userPersona.name ?? 'You'}
+                        meta="you"
+                    />
                 )}
 
                 {participantPersonaIds.length === 0 &&
                     aiPersonas.length > 0 && (
-                        <div
-                            style={{
-                                padding: '3px 8px',
-                                fontSize: 10,
-                                color: '#996600',
-                                background: '#FFFBEA',
-                                borderTop: '1px solid #E6D87A',
-                            }}
-                        >
+                        <InfoBar icon={<Icon name="warning" />}>
                             No AI participants — AI won't respond.
-                        </div>
+                        </InfoBar>
                     )}
                 {saveError && (
-                    <div
-                        style={{
-                            padding: '3px 8px',
-                            fontSize: 10,
-                            color: '#c00',
-                            borderTop: '1px solid #ACA899',
-                        }}
-                    >
+                    <Text as="p" tone="danger">
                         {saveError}
-                    </div>
+                    </Text>
                 )}
                 {hasChanges && (
-                    <div
-                        className="flex gap-1 p-1"
-                        style={{ borderTop: '1px solid #ACA899' }}
-                    >
-                        <button
-                            type="button"
+                    <div className="flex gap-1">
+                        <CommandButton
+                            size="small"
                             disabled={isSaving}
-                            className="flex-1 text-[10px]"
+                            className="flex-1"
                             onClick={onReset}
                         >
                             Reset
-                        </button>
-                        <button
+                        </CommandButton>
+                        <CommandButton
+                            size="small"
+                            isDefault
                             type="button"
                             disabled={isSaving}
-                            className="flex-1 text-[10px]"
+                            className="flex-1"
                             onClick={onSave}
                         >
                             {isSaving ? 'Saving...' : 'Save'}
-                        </button>
+                        </CommandButton>
                     </div>
                 )}
-            </div>
+            </TaskPaneSection>
 
-            <div
-                style={{
-                    borderTop: '2px solid #ACA899',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                }}
+            <TaskPaneSection
+                title={
+                    <span
+                        className="flex items-center gap-1"
+                        title="Why each persona chose to speak, stay silent, or got cut off"
+                    >
+                        Thought Log
+                        {decidingPhases.length > 0 ? (
+                            <Presence
+                                status="away"
+                                size="small"
+                                active
+                                label="A persona is deciding right now"
+                            />
+                        ) : null}
+                    </span>
+                }
+                aside={thoughtCount > 0 ? thoughtCount : undefined}
+                open={thoughtsOpen}
+                onOpenChange={setThoughtsOpen}
             >
-                <button
-                    type="button"
-                    onClick={() => setThoughtsOpen((v) => !v)}
-                    title="Why each persona chose to speak, stay silent, or got cut off"
-                    style={{
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        padding: '4px 8px 2px',
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: '#808080',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        width: '100%',
-                        textAlign: 'left',
-                    }}
-                >
-                    <span aria-hidden>{thoughtsOpen ? '▾' : '▸'}</span>
-                    Thought Log
-                    {decidingPhases.length > 0 ? (
-                        <span
-                            className="animate-pulse"
-                            style={{ color: '#CC8800' }}
-                            title="A persona is deciding right now"
-                        >
-                            ●
-                        </span>
-                    ) : null}
-                    {decidingPhases.length + thoughtLog.length > 0 && (
-                        <span
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                minWidth: 14,
-                                height: 14,
-                                borderRadius: 7,
-                                padding: '0 3px',
-                                background: '#808080',
-                                color: '#fff',
-                                fontSize: 8,
-                                fontWeight: 700,
-                            }}
-                        >
-                            {decidingPhases.length + thoughtLog.length}
-                        </span>
-                    )}
-                </button>
-
-                {thoughtsOpen && (
-                    <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {decidingPhases.map((phase) => {
-                            const personaId = phase.personaName;
-                            const persona = personas.find(
-                                (p) => p.id === personaId,
-                            );
-                            const name =
-                                persona?.name ?? personaId?.slice(0, 8);
-                            const decisionText =
-                                phase.phase === 'deciding'
-                                    ? phase.decisionText
-                                    : '';
-                            return (
-                                <div
-                                    key={phase.messageId ?? personaId}
-                                    style={{
-                                        borderBottom: '1px solid #E6D87A',
-                                        background: '#FFFBEA',
-                                        borderLeft: '3px solid #CC8800',
-                                        padding: '5px 8px',
-                                    }}
-                                >
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                        <Portrait
-                                            who={personaId}
-                                            alt={name}
-                                            style={{
-                                                width: 14,
-                                                height: 14,
-                                                imageRendering: 'pixelated',
-                                                flexShrink: 0,
-                                            }}
-                                        />
-                                        <span
-                                            className="animate-pulse"
-                                            style={{
-                                                fontSize: 10,
-                                                fontWeight: 700,
-                                                color: '#806600',
-                                            }}
-                                        >
-                                            {name}…
-                                        </span>
-                                    </div>
-                                    {decisionText && (
-                                        <div
-                                            style={{
-                                                fontSize: 9,
-                                                color: '#666',
-                                                fontFamily: 'monospace',
-                                                whiteSpace: 'pre-wrap',
-                                                wordBreak: 'break-all',
-                                                maxHeight: 100,
-                                                overflowY: 'auto',
-                                                lineHeight: 1.4,
-                                            }}
-                                        >
-                                            {decisionText}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-
-                        {thoughtLog.length === 0 &&
-                        decidingPhases.length === 0 ? (
-                            <div
-                                style={{
-                                    padding: '10px 8px',
-                                    fontSize: 10,
-                                    color: '#ACA899',
-                                    textAlign: 'center',
-                                    lineHeight: 1.5,
-                                }}
+                <div className="flex flex-col gap-1">
+                    {decidingPhases.map((phase) => {
+                        const personaId = phase.personaName;
+                        const persona = personas.find(
+                            (p) => p.id === personaId,
+                        );
+                        const name = persona?.name ?? personaId?.slice(0, 8);
+                        const decisionText =
+                            phase.phase === 'deciding'
+                                ? phase.decisionText
+                                : '';
+                        return (
+                            <ChatMessage
+                                key={phase.messageId ?? personaId}
+                                tone="caution"
+                                live
+                                sender={`${name}…`}
+                                picture={
+                                    <Portrait
+                                        who={personaId}
+                                        alt={name}
+                                        size={16}
+                                    />
+                                }
                             >
-                                No decisions yet
-                            </div>
-                        ) : (
-                            thoughtLog.map((entry) => {
-                                const variantStyle = (() => {
-                                    switch (entry.kind) {
-                                        case 'go':
-                                            return {
-                                                color: '#009900',
-                                                label: 'go',
-                                            };
-                                        case 'decline':
-                                            return {
-                                                color: '#CC8800',
-                                                label: 'decline',
-                                            };
-                                        case 'skip-obvious':
-                                            return {
-                                                color: '#CC8800',
-                                                label: 'skip',
-                                            };
-                                        case 'race-cancel-decision':
-                                            return {
-                                                color: '#C03030',
-                                                label: 'race·cancel·dec',
-                                            };
-                                        case 'race-cancel-generation':
-                                            return {
-                                                color: '#C03030',
-                                                label: 'race·cancel·gen',
-                                            };
-                                        case 'race-past-pnr':
-                                            return {
-                                                color: '#7A40C0',
-                                                label: 'race·past-pnr',
-                                            };
-                                        case 'race-continue':
-                                            return {
-                                                color: '#7A40C0',
-                                                label: 'race·continue',
-                                            };
-                                        case 'emote':
-                                            return {
-                                                color: '#7A40C0',
-                                                label: 'emote',
-                                            };
-                                    }
-                                })();
-                                return (
-                                    <div
-                                        key={entry.key}
-                                        style={{
-                                            borderBottom: '1px solid #D4D0C8',
-                                            padding: '4px 8px',
-                                            borderLeft: `3px solid ${variantStyle.color}`,
-                                        }}
+                                {decisionText ? (
+                                    <Text
+                                        as="div"
+                                        mono
+                                        size="chrome"
+                                        tone="muted"
+                                        className="max-h-[100px] overflow-y-auto whitespace-pre-wrap break-all"
                                     >
-                                        <div className="flex items-center gap-1.5">
-                                            {entry.personaId && (
-                                                <Portrait
-                                                    who={entry.personaId}
-                                                    alt={entry.personaName}
-                                                    style={{
-                                                        width: 13,
-                                                        height: 13,
-                                                        imageRendering:
-                                                            'pixelated',
-                                                        flexShrink: 0,
-                                                    }}
-                                                />
-                                            )}
-                                            <span
-                                                style={{
-                                                    fontSize: 10,
-                                                    fontWeight: 600,
-                                                    color: '#333',
-                                                    flex: 1,
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                }}
-                                            >
-                                                {entry.personaName}
-                                            </span>
-                                            <span
-                                                style={{
-                                                    fontSize: 9,
-                                                    color: variantStyle.color,
-                                                    fontWeight: 700,
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                {variantStyle.label}
-                                            </span>
-                                        </div>
-                                        {entry.reason && (
-                                            <div
-                                                style={{
-                                                    fontSize: 9,
-                                                    color: '#666',
-                                                    fontStyle: 'italic',
-                                                    lineHeight: 1.3,
-                                                    marginTop: 1,
-                                                }}
-                                            >
-                                                {entry.reason}
-                                            </div>
-                                        )}
-                                        {entry.salience !== null && (
-                                            <div
-                                                style={{
-                                                    fontSize: 9,
-                                                    color: '#806600',
-                                                    fontFamily: 'monospace',
-                                                    lineHeight: 1.3,
-                                                }}
-                                            >
-                                                salience=
-                                                {entry.salience.toFixed(2)}
-                                                {entry.cancelScore !== null
-                                                    ? ` cancel=${entry.cancelScore.toFixed(2)}`
-                                                    : ''}
-                                            </div>
-                                        )}
-                                        {entry.instruction &&
-                                            (entry.kind === 'decline' ||
-                                                entry.kind ===
-                                                    'skip-obvious') && (
-                                                <div
-                                                    style={{
-                                                        fontSize: 9,
-                                                        color: '#806600',
-                                                        lineHeight: 1.3,
-                                                    }}
-                                                >
-                                                    → {entry.instruction}
-                                                </div>
-                                            )}
-                                    </div>
-                                );
-                            })
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
+                                        {decisionText}
+                                    </Text>
+                                ) : null}
+                            </ChatMessage>
+                        );
+                    })}
+
+                    {thoughtLog.length === 0 && decidingPhases.length === 0 ? (
+                        <Text as="p" tone="muted" className="py-2 text-center">
+                            No decisions yet
+                        </Text>
+                    ) : (
+                        thoughtLog.map((entry) => {
+                            const look = kindLook(entry.kind);
+                            return (
+                                <ChatMessage
+                                    key={entry.key}
+                                    tone={look.tone}
+                                    sender={entry.personaName}
+                                    picture={
+                                        entry.personaId ? (
+                                            <Portrait
+                                                who={entry.personaId}
+                                                alt={entry.personaName}
+                                                size={16}
+                                            />
+                                        ) : undefined
+                                    }
+                                    time={
+                                        <Text tone={look.tone} strong>
+                                            {look.label}
+                                        </Text>
+                                    }
+                                >
+                                    {entry.reason ? (
+                                        <Text as="div" italic tone="muted">
+                                            {entry.reason}
+                                        </Text>
+                                    ) : null}
+                                    {entry.salience !== null ? (
+                                        <Text
+                                            as="div"
+                                            mono
+                                            size="chrome"
+                                            tone="caution"
+                                        >
+                                            salience=
+                                            {entry.salience.toFixed(2)}
+                                            {entry.cancelScore !== null
+                                                ? ` cancel=${entry.cancelScore.toFixed(2)}`
+                                                : ''}
+                                        </Text>
+                                    ) : null}
+                                    {entry.instruction &&
+                                    (entry.kind === 'decline' ||
+                                        entry.kind === 'skip-obvious') ? (
+                                        <Text as="div" tone="caution">
+                                            → {entry.instruction}
+                                        </Text>
+                                    ) : null}
+                                </ChatMessage>
+                            );
+                        })
+                    )}
+                </div>
+            </TaskPaneSection>
+        </TaskPane>
     );
 }
 
@@ -1400,307 +1093,135 @@ function ChatBubble({
     const userPersonaName =
         personas.find((p) => p.id === userPersonaId)?.name ?? 'you';
 
+    const actions = (withDetails: boolean) => (
+        <Toolbar variant="bare" labels="none" aria-label="Message actions">
+            {withDetails && hasDetails && (
+                <ToolbarButton
+                    icon={<Icon name="info" />}
+                    pressed={showDetails}
+                    title={showDetails ? 'Hide details' : 'Details'}
+                    aria-label={showDetails ? 'Hide' : 'Details'}
+                    onClick={() => setShowDetails((v) => !v)}
+                />
+            )}
+            <ToolbarButton
+                icon={<Icon name="redo" />}
+                disabled={busy}
+                title="Redo"
+                aria-label="redo"
+                onClick={onReprompt}
+            />
+            <ToolbarButton
+                icon={<Icon name="scissors" />}
+                disabled={busy}
+                title="Cut the conversation after this message"
+                aria-label="cut"
+                onClick={onTruncate}
+            />
+            <ToolbarButton
+                icon={<Icon name="delete" />}
+                disabled={busy}
+                title="Delete"
+                aria-label="del"
+                onClick={onDelete}
+            />
+            {withDetails && (
+                <ToolbarButton
+                    icon={<Icon name="memory-graph" />}
+                    disabled={busy || rememberPending}
+                    title="Capture as memory for personas present"
+                    aria-label={rememberPending ? '...' : 'remember'}
+                    onClick={onRemember}
+                />
+            )}
+        </Toolbar>
+    );
+
     if (message.kind === 'emote') {
         return (
-            <div
-                className="p-2 group"
-                style={{
-                    borderBottom: '1px solid #E8E4D8',
-                    background: 'transparent',
-                    borderLeft: '3px solid transparent',
-                }}
-            >
-                <div
-                    style={{
-                        fontSize: 11,
-                        fontStyle: 'italic',
-                        color: '#888',
-                        lineHeight: 1.4,
-                    }}
-                >
-                    <span
-                        style={{
-                            fontWeight: 600,
-                            marginRight: 6,
-                            color: '#999',
-                        }}
-                    >
-                        {senderName}
-                    </span>
-                    {message.content}
-                </div>
-            </div>
+            <ChatMessage kind="emote" sender={senderName}>
+                {message.content}
+            </ChatMessage>
         );
     }
 
     if (isDirectedAtUser && appraisalData) {
         return (
-            <div
-                className="group"
-                style={{
-                    borderBottom: '1px solid #B0C4F0',
-                    background:
-                        'linear-gradient(135deg, #EDF3FF 0%, #E6EEFF 100%)',
-                    borderLeft: '4px solid #316AC5',
-                    padding: '8px 10px',
-                }}
+            <ChatMessage
+                tone="neutral"
+                picture={<Icon name="film" />}
+                sender={`Your turn, ${userPersonaName}`}
+                actions={actions(false)}
             >
-                <div className="flex items-center justify-between mb-2">
-                    <span
-                        style={{
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: '#1a3a8f',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 5,
-                        }}
-                    >
-                        <span style={{ fontSize: 14 }}>🎬</span>
-                        Your turn,{' '}
-                        <span style={{ color: '#003399' }}>
-                            {userPersonaName}
-                        </span>
-                    </span>
-                    <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                            type="button"
-                            disabled={busy}
-                            onClick={onReprompt}
-                            style={{ fontSize: '10px', color: '#666' }}
-                        >
-                            redo
-                        </button>
-                        <button
-                            type="button"
-                            disabled={busy}
-                            onClick={onTruncate}
-                            style={{ fontSize: '10px', color: '#666' }}
-                        >
-                            cut
-                        </button>
-                        <button
-                            type="button"
-                            disabled={busy}
-                            onClick={onDelete}
-                            style={{ fontSize: '10px', color: '#666' }}
-                        >
-                            del
-                        </button>
-                    </span>
-                </div>
-                <div
-                    style={{
-                        fontSize: 12,
-                        color: '#1a1a4a',
-                        fontWeight: 500,
-                        marginBottom: appraisalData.reason ? 4 : 0,
-                        lineHeight: 1.4,
-                    }}
-                >
-                    {appraisalData.instruction}
-                </div>
+                {appraisalData.instruction}
                 {appraisalData.reason && (
-                    <div
-                        style={{
-                            fontSize: 10,
-                            color: '#5560AA',
-                            fontStyle: 'italic',
-                        }}
-                    >
+                    <Text as="div" size="chrome" tone="muted" italic>
                         {appraisalData.reason}
-                    </div>
+                    </Text>
                 )}
-            </div>
+            </ChatMessage>
         );
     }
 
+    const time = formatTime(message.sendAt);
+
     return (
-        <div
-            className="p-2 group"
-            style={{
-                borderBottom: '1px solid #D4D0C8',
-                background: isAppraisalStop
-                    ? '#FFFBEA'
-                    : isUser
-                      ? '#FFFEF5'
-                      : '#F8F8F8',
-                borderLeft: isGenerating
-                    ? '3px solid #316AC5'
-                    : isAppraisalStop
-                      ? '3px solid #CC8800'
-                      : '3px solid transparent',
-            }}
-        >
-            <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2">
-                    {isAppraisalStop ? (
-                        <span
-                            title="Appraisal"
-                            style={{
-                                width: 22,
-                                height: 22,
-                                flexShrink: 0,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 14,
-                            }}
-                        >
-                            ⚖️
-                        </span>
-                    ) : (
-                        <Portrait
-                            who={isUser ? senderName : message.senderId}
-                            alt={senderName}
-                            style={{
-                                width: 22,
-                                height: 22,
-                                flexShrink: 0,
-                                imageRendering: 'pixelated',
-                            }}
-                        />
-                    )}
-                    <span
-                        style={{
-                            fontWeight: 600,
-                            color: isAppraisalStop
-                                ? '#806600'
-                                : isUser
-                                  ? '#003399'
-                                  : '#006600',
-                        }}
-                    >
-                        {isAppraisalStop ? 'Appraisal' : senderName}
-                    </span>
-                    {formatTime(message.sendAt) ? (
-                        <span style={{ color: '#ACA899', fontSize: 10 }}>
-                            {formatTime(message.sendAt)}
-                        </span>
-                    ) : null}
-                </div>
-                <span
-                    className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ flexShrink: 0 }}
-                >
-                    {hasDetails && (
-                        <button
-                            type="button"
-                            onClick={() => setShowDetails((v) => !v)}
-                            style={{ fontSize: '10px', color: '#316AC5' }}
-                        >
-                            {showDetails ? 'Hide' : 'Details'}
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={onReprompt}
-                        style={{ fontSize: '10px' }}
-                    >
-                        redo
-                    </button>
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={onTruncate}
-                        style={{ fontSize: '10px' }}
-                    >
-                        cut
-                    </button>
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={onDelete}
-                        style={{ fontSize: '10px' }}
-                    >
-                        del
-                    </button>
-                    <button
-                        type="button"
-                        disabled={busy || rememberPending}
-                        onClick={onRemember}
-                        style={{ fontSize: '10px' }}
-                        title="Capture as memory for personas present"
-                    >
-                        {rememberPending ? '...' : 'remember'}
-                    </button>
-                </span>
-            </div>
-
-            {message.content ? (
-                <MarkdownContent
-                    content={message.content}
-                    isStreaming={isGenerating}
-                />
-            ) : null}
-
-            {message.error ? (
-                <div style={{ color: '#c00', marginTop: '4px' }}>
-                    {message.error}
-                </div>
-            ) : null}
-
-            {showDetails && hasDetails && (
-                <div
-                    className="mt-2 p-2"
-                    style={{
-                        background: '#FFF',
-                        border: '1px solid #D4D0C8',
-                    }}
-                >
-                    {(message.metadata?.modelName ||
-                        message.metadata?.provider) && (
-                        <div className="mb-2">
-                            <div
-                                className="text-[10px] font-semibold"
-                                style={{ color: '#316AC5' }}
-                            >
-                                Model
+        <ChatMessage
+            own={isUser}
+            tone={isAppraisalStop ? 'caution' : undefined}
+            live={isGenerating}
+            picture={
+                isAppraisalStop ? (
+                    <Icon name="scales" label="Appraisal" />
+                ) : (
+                    <Portrait
+                        who={isUser ? senderName : message.senderId}
+                        alt={senderName}
+                        size={24}
+                    />
+                )
+            }
+            sender={isAppraisalStop ? 'Appraisal' : senderName}
+            time={time || undefined}
+            actions={actions(true)}
+            error={message.error || undefined}
+            details={
+                showDetails && hasDetails ? (
+                    <>
+                        {(message.metadata?.modelName ||
+                            message.metadata?.provider) && (
+                            <div>
+                                <Text as="div" tone="neutral" strong>
+                                    Model
+                                </Text>
+                                <Text as="div">
+                                    {message.metadata?.provider
+                                        ? `${message.metadata.provider} / ${message.metadata.modelName ?? '?'}`
+                                        : (message.metadata?.modelName ?? '')}
+                                </Text>
                             </div>
-                            <div
-                                className="text-[11px]"
-                                style={{ color: '#000' }}
-                            >
-                                {message.metadata?.provider
-                                    ? `${message.metadata.provider} / ${message.metadata.modelName ?? '?'}`
-                                    : (message.metadata?.modelName ?? '')}
-                            </div>
-                        </div>
-                    )}
+                        )}
 
-                    {message.reasoning && (
-                        <div className="mb-2">
-                            <div
-                                className="text-[10px] font-semibold"
-                                style={{ color: '#316AC5' }}
-                            >
-                                Reasoning
+                        {message.reasoning && (
+                            <div>
+                                <Text as="div" tone="neutral" strong>
+                                    Reasoning
+                                </Text>
+                                <Text
+                                    as="div"
+                                    tone="muted"
+                                    className="whitespace-pre-wrap"
+                                >
+                                    {message.reasoning}
+                                </Text>
                             </div>
-                            <div
-                                className="text-[11px]"
-                                style={{
-                                    color: '#666',
-                                    whiteSpace: 'pre-wrap',
-                                }}
-                            >
-                                {message.reasoning}
-                            </div>
-                        </div>
-                    )}
+                        )}
 
-                    {(message.generationEvents?.length ?? 0) > 0 && (
-                        <div>
-                            <div
-                                className="text-[10px] font-semibold"
-                                style={{ color: '#316AC5' }}
-                            >
-                                Generation Events
-                            </div>
-                            <div
-                                className="text-[10px]"
-                                style={{ color: '#808080' }}
-                            >
+                        {(message.generationEvents?.length ?? 0) > 0 && (
+                            <div>
+                                <Text as="div" tone="neutral" strong>
+                                    Generation Events
+                                </Text>
                                 {message.generationEvents
                                     ?.filter(
                                         (e) =>
@@ -1713,17 +1234,16 @@ function ChatBubble({
                                     .map((e, i) => (
                                         <div
                                             key={`${e.event}-${e.at}-${i}`}
-                                            className="flex gap-2 mt-1"
+                                            className="mt-1 flex gap-2"
                                         >
-                                            <span
-                                                style={{
-                                                    fontWeight: 600,
-                                                    minWidth: '80px',
-                                                }}
+                                            <Text
+                                                tone="muted"
+                                                strong
+                                                className="min-w-[80px]"
                                             >
                                                 {e.event}:
-                                            </span>
-                                            <span style={{ color: '#000' }}>
+                                            </Text>
+                                            <Text>
                                                 {e.event === 'overseerStop'
                                                     ? '(stopped)'
                                                     : e.event === 'attend'
@@ -1738,15 +1258,22 @@ function ChatBubble({
                                                 e.data.length > 50
                                                     ? '...'
                                                     : ''}
-                                            </span>
+                                            </Text>
                                         </div>
                                     ))}
                             </div>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
+                        )}
+                    </>
+                ) : undefined
+            }
+        >
+            {message.content ? (
+                <MarkdownContent
+                    content={message.content}
+                    isStreaming={isGenerating}
+                />
+            ) : null}
+        </ChatMessage>
     );
 }
 
@@ -1805,13 +1332,7 @@ function MarkdownContent({
         };
     }, []);
 
-    return (
-        <div
-            ref={containerRef}
-            className="markdown-content"
-            style={{ color: '#000' }}
-        />
-    );
+    return <RichText ref={containerRef} />;
 }
 
 function StreamingIndicator({
@@ -1823,14 +1344,9 @@ function StreamingIndicator({
 }) {
     if (info.phase === 'waiting') {
         return (
-            <div
-                className="flex items-center gap-2 animate-pulse"
-                style={{
-                    color: '#808080',
-                    padding: '4px 8px',
-                }}
-            >
-                <span>Waiting for responses...</span>
+            <div className="flex items-center gap-2 px-2 py-1">
+                <Icon name="hourglass" />
+                <Text tone="muted">Waiting for responses...</Text>
             </div>
         );
     }
@@ -1843,78 +1359,26 @@ function StreamingIndicator({
             personas?.find((p) => p.id === personaId)?.name ??
             personaId.slice(0, 8);
         return (
-            <div
-                style={{
-                    borderBottom: '1px solid #D4D0C8',
-                    background: '#F8F8F8',
-                    borderLeft: '3px solid #316AC5',
-                    padding: '6px 8px',
-                }}
+            <ChatMessage
+                live
+                picture={
+                    <Portrait who={personaId} alt={resolvedName} size={24} />
+                }
+                sender={resolvedName}
+                time={
+                    info.phase === 'streaming'
+                        ? `(${info.charCount} chars)`
+                        : undefined
+                }
             >
-                <div className="flex items-center gap-2 mb-1">
-                    <Portrait
-                        who={personaId}
-                        alt={resolvedName}
-                        style={{
-                            width: 22,
-                            height: 22,
-                            flexShrink: 0,
-                            imageRendering: 'pixelated',
-                        }}
-                    />
-                    <span style={{ fontWeight: 600, color: '#006600' }}>
-                        {resolvedName}
-                    </span>
-                    {info.phase === 'streaming' && (
-                        <span style={{ color: '#808080', fontSize: 10 }}>
-                            ({info.charCount} chars)
-                        </span>
-                    )}
-                </div>
-                <div
-                    className="flex items-center gap-1 pl-1"
-                    style={{ color: '#808080' }}
-                >
-                    <span
-                        className="inline-block animate-bounce"
-                        style={{
-                            animationDelay: '0ms',
-                            fontSize: 16,
-                            lineHeight: 1,
-                        }}
-                    >
-                        •
-                    </span>
-                    <span
-                        className="inline-block animate-bounce"
-                        style={{
-                            animationDelay: '150ms',
-                            fontSize: 16,
-                            lineHeight: 1,
-                        }}
-                    >
-                        •
-                    </span>
-                    <span
-                        className="inline-block animate-bounce"
-                        style={{
-                            animationDelay: '300ms',
-                            fontSize: 16,
-                            lineHeight: 1,
-                        }}
-                    >
-                        •
-                    </span>
-                </div>
-            </div>
+                <Text tone="muted">typing…</Text>
+            </ChatMessage>
         );
     }
     return (
-        <div
-            className="flex items-center gap-2 animate-pulse"
-            style={{ color: '#808080', padding: '4px' }}
-        >
-            <span>Working...</span>
+        <div className="flex items-center gap-2 p-1">
+            <Icon name="hourglass" />
+            <Text tone="muted">Working...</Text>
         </div>
     );
 }
@@ -1980,106 +1444,65 @@ export function ScenarioChip({
             : scenario;
 
     return (
-        <span style={{ position: 'relative' }}>
-            <button
-                type="button"
+        <>
+            <CommandButton
+                size="small"
+                icon={<Icon name={scenario ? 'film' : 'add'} />}
+                className="min-w-0 max-w-[240px]"
+                pressed={isEditing}
                 onClick={() => setIsEditing((v) => !v)}
                 title={scenario ?? 'Set the in-fiction setting / scenario'}
-                style={{
-                    fontSize: 10,
-                    padding: '2px 9px',
-                    color: scenario ? '#333' : '#666',
-                    background: scenario
-                        ? 'rgba(255,248,225,0.9)'
-                        : 'rgba(255,255,255,0.75)',
-                    border: '1px solid rgba(255,255,255,0.9)',
-                    borderRadius: 999,
-                    boxShadow:
-                        'inset 0 1px 0 rgba(255,255,255,0.7), 0 2px 6px -2px rgba(31,55,148,0.18)',
-                    fontStyle: scenario ? 'normal' : 'italic',
-                    maxWidth: 240,
-                    overflow: 'hidden',
-                    whiteSpace: 'nowrap',
-                    textOverflow: 'ellipsis',
-                    cursor: 'pointer',
-                }}
             >
-                {scenario ? `🎬 ${truncated}` : '+ Add scenario'}
-            </button>
+                <span className="truncate">
+                    {scenario ? truncated : 'Add scenario'}
+                </span>
+            </CommandButton>
             {isEditing && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        marginTop: 4,
-                        zIndex: 10,
-                        width: 320,
-                        background: '#FFFFFF',
-                        border: '1px solid #ACA899',
-                        boxShadow: '2px 2px 6px rgba(0,0,0,0.2)',
-                        padding: 8,
-                    }}
+                <Dialog
+                    title="Scenario"
+                    icon={<Icon name="film" />}
+                    contained
+                    className="w-[320px] max-w-[92%]"
+                    onClose={handleCancel}
+                    buttons={
+                        <>
+                            <CommandButton
+                                onClick={handleCancel}
+                                disabled={updateScenario.isPending}
+                            >
+                                Cancel
+                            </CommandButton>
+                            <CommandButton
+                                isDefault
+                                type="button"
+                                onClick={handleSave}
+                                disabled={updateScenario.isPending}
+                            >
+                                {updateScenario.isPending ? '...' : 'Save'}
+                            </CommandButton>
+                        </>
+                    }
                 >
-                    <div
-                        style={{
-                            fontSize: 10,
-                            fontWeight: 600,
-                            marginBottom: 4,
-                            color: '#000',
-                        }}
+                    <FieldRow
+                        label="Scenario"
+                        layout="stacked"
+                        error={
+                            updateScenario.isError
+                                ? 'Failed to save scenario.'
+                                : undefined
+                        }
                     >
-                        Scenario
-                    </div>
-                    <textarea
-                        rows={4}
-                        maxLength={500}
-                        className="w-full text-[11px]"
-                        style={{
-                            padding: '4px',
-                            resize: 'vertical',
-                            border: '1px solid #ACA899',
-                        }}
-                        placeholder="In-fiction setting (optional). Leave blank to clear."
-                        value={draft}
-                        onChange={(e) => setDraft(e.currentTarget.value)}
-                    />
-                    <div
-                        className="flex justify-end gap-1"
-                        style={{ marginTop: 6 }}
-                    >
-                        <button
-                            type="button"
-                            onClick={handleCancel}
-                            disabled={updateScenario.isPending}
-                            className="text-[11px]"
-                            style={{ padding: '2px 8px' }}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={updateScenario.isPending}
-                            className="text-[11px]"
-                            style={{ padding: '2px 8px' }}
-                        >
-                            {updateScenario.isPending ? '...' : 'Save'}
-                        </button>
-                    </div>
-                    {updateScenario.isError && (
-                        <div
-                            style={{
-                                fontSize: 10,
-                                color: '#c00',
-                                marginTop: 4,
-                            }}
-                        >
-                            Failed to save scenario.
-                        </div>
-                    )}
-                </div>
+                        <TextArea
+                            rows={4}
+                            maxLength={500}
+                            className="w-full"
+                            placeholder="In-fiction setting (optional). Leave blank to clear."
+                            value={draft}
+                            onChange={(e) => setDraft(e.currentTarget.value)}
+                        />
+                    </FieldRow>
+                </Dialog>
             )}
-        </span>
+        </>
     );
 }

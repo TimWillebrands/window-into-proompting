@@ -9,19 +9,12 @@ const meta = {
     parameters: { layout: 'fullscreen' },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 1040,
-                    height: 720,
-                    padding: 24,
-                    background: '#5C87C2',
-                }}
-            >
+            <div className="h-[720px] w-[1040px] p-6">
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
                 <WindowFrame
                     id="memory-graph"
                     title="Memory Graph"
-                    icon="🧠"
+                    icon="memory-graph"
                     width={960}
                     height={640}
                     zIndex={1}

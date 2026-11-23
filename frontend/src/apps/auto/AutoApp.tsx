@@ -1,4 +1,5 @@
-import { useId, useState } from 'react';
+import { CommandButton, FieldRow, StatusText, TextBox } from '@partytown/ui';
+import { useState } from 'react';
 import { ProblemDetailsError } from '../../api/custom-fetch';
 import { usePlayerAccount, useSetAuto } from '../../lib/world';
 
@@ -7,7 +8,6 @@ const MAX_MISSION = 160;
 export default function AutoApp() {
     const { account } = usePlayerAccount();
     const setAuto = useSetAuto();
-    const missionId = useId();
     const [mission, setMission] = useState(account?.mission ?? '');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -38,46 +38,46 @@ export default function AutoApp() {
             }}
             className="flex h-full flex-col gap-2 p-3"
         >
-            <p>
+            <p className="m-0">
                 {on
                     ? `${name} is living on their own. You can watch and read, but not act until you take over.`
                     : `Let ${name} live without you: they post, message, walk around and remember things, just like the Personas here.`}
             </p>
-            <label htmlFor={missionId}>Give them a mission (optional)</label>
-            <input
-                id={missionId}
-                value={mission}
-                onChange={(e) => setMission(e.target.value)}
-                maxLength={MAX_MISSION}
-                autoComplete="off"
-                placeholder="Find a job. Make Denise laugh."
-            />
-            <p className="text-xs opacity-70">
-                They'll go after it their own way. Signed-in people can see it
-                in Work & Wants. Taking over ends it.
-            </p>
+            <FieldRow
+                label="Give them a mission (optional)"
+                layout="stacked"
+                hint="They'll go after it their own way. Signed-in people can see it in Work & Wants. Taking over ends it."
+            >
+                <TextBox
+                    value={mission}
+                    onChange={(e) => setMission(e.target.value)}
+                    maxLength={MAX_MISSION}
+                    autoComplete="off"
+                    placeholder="Find a job. Make Denise laugh."
+                />
+            </FieldRow>
             {error && (
-                <p role="alert" className="text-sm">
+                <StatusText tone="danger" role="alert">
                     {error}
-                </p>
+                </StatusText>
             )}
             <div className="mt-auto flex justify-end gap-2">
                 {on && (
-                    <button
-                        type="button"
+                    <CommandButton
+                        tone="caution"
                         disabled={busy}
                         onClick={() => void apply(false)}
                     >
                         Take over
-                    </button>
+                    </CommandButton>
                 )}
-                <button type="submit" disabled={busy}>
+                <CommandButton isDefault disabled={busy}>
                     {busy
                         ? 'One moment…'
                         : on
                           ? 'Update mission'
                           : 'Go on auto'}
-                </button>
+                </CommandButton>
             </div>
         </form>
     );

@@ -1,5 +1,15 @@
+import {
+    CommandButton,
+    FieldRow,
+    GroupBox,
+    Slider,
+    StatusText,
+    Text,
+    TextArea,
+    TextBox,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     getGetPersonaQueryKey,
     getGetWorldsPartyIdLivesQueryKey,
@@ -30,10 +40,6 @@ export default function PersonaEditor({
     onSaved?: () => void;
 }) {
     const queryClient = useQueryClient();
-    const nameId = useId();
-    const promptId = useId();
-    const bioId = useId();
-    const auraId = useId();
 
     const [name, setName] = useState(persona.name ?? '');
     const [systemPrompt, setSystemPrompt] = useState(
@@ -118,7 +124,7 @@ export default function PersonaEditor({
 
     return (
         <form
-            className="space-y-3"
+            className="flex flex-col gap-3"
             noValidate
             onSubmit={(event) => {
                 event.preventDefault();
@@ -138,157 +144,81 @@ export default function PersonaEditor({
             }}
         >
             <div className="flex items-center gap-2">
-                <Portrait
-                    who={persona.id}
-                    alt=""
-                    style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '50%',
-                        background: '#fff',
-                        boxShadow:
-                            '0 0 0 1px rgba(255,255,255,0.9), 0 1px 3px rgba(31,55,148,0.25)',
-                    }}
-                />
-                <div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>
-                        {name || 'Unnamed persona'}
-                    </div>
-                    <div style={{ color: '#666', fontSize: 10 }}>
+                <Portrait who={persona.id} alt="" width={32} height={32} />
+                <div className="flex flex-col">
+                    <strong>{name || 'Unnamed persona'}</strong>
+                    <Text as="p" tone="muted">
                         Changes apply after you click Save Changes.
-                    </div>
+                    </Text>
                 </div>
             </div>
 
-            <fieldset className="border border-[#9db2c8] p-2 m-0">
-                <legend className="text-xp-legend font-semibold text-[11px] px-1">
-                    Details
-                </legend>
-                <div className="space-y-2 p-1">
-                    <div>
-                        <label
-                            htmlFor={nameId}
-                            style={{ fontWeight: 600, color: '#000' }}
-                        >
-                            Persona Name
-                        </label>
-                        <input
-                            id={nameId}
-                            type="text"
-                            value={name}
-                            onChange={(event) =>
-                                setName(event.currentTarget.value)
-                            }
-                            className="w-full"
-                        />
-                    </div>
-                    <div>
-                        <label
-                            htmlFor={auraId}
-                            style={{ fontWeight: 600, color: '#000' }}
-                        >
-                            Aura
-                        </label>
-                        <input
-                            id={auraId}
-                            type="text"
-                            maxLength={AURA_MAX}
-                            value={aura}
-                            placeholder="How they come across up close (optional)"
-                            onChange={(event) =>
-                                setAura(event.currentTarget.value)
-                            }
-                            className="w-full"
-                        />
-                    </div>
-                    <div>
-                        <div
-                            className="flex items-center justify-between"
-                            style={{ marginBottom: '2px' }}
-                        >
-                            <label
-                                htmlFor={bioId}
-                                style={{ fontWeight: 600, color: '#000' }}
-                            >
-                                Bio
-                            </label>
-                            <button
-                                type="button"
-                                style={{ fontSize: '11px', padding: '1px 6px' }}
-                                title={
-                                    systemPrompt.trim()
-                                        ? 'Write a short bio from the system prompt below'
-                                        : 'Write a system prompt first — the bio is generated from it'
-                                }
-                                disabled={
-                                    isGeneratingBio || !systemPrompt.trim()
-                                }
-                                onClick={handleGenerateBio}
-                            >
-                                {isGeneratingBio
-                                    ? 'Generating...'
-                                    : 'Generate Bio'}
-                            </button>
-                        </div>
-                        {bioGenError && (
-                            <p style={{ color: '#c00', fontSize: '11px' }}>
-                                {bioGenError}
-                            </p>
-                        )}
-                        <textarea
-                            id={bioId}
-                            rows={3}
-                            value={bio}
-                            onChange={(event) =>
-                                setBio(event.currentTarget.value)
-                            }
-                            className="w-full"
-                        />
-                    </div>
-                </div>
-            </fieldset>
-
-            <fieldset className="border border-[#9db2c8] p-2 m-0">
-                <legend className="text-xp-legend font-semibold text-[11px] px-1">
-                    Personality Dials
-                </legend>
-                <div className="space-y-2 p-1">
-                    <DialSlider
-                        label="Chattiness"
-                        help="How much they want to talk / act."
-                        value={chattiness}
-                        onChange={setChattiness}
+            <GroupBox title="Details">
+                <FieldRow label="Persona Name">
+                    <TextBox
+                        value={name}
+                        onChange={(event) => setName(event.currentTarget.value)}
                     />
-                    <DialSlider
-                        label="Impulsivity"
-                        help="How hard they commit once they start speaking."
-                        value={impulsivity}
-                        onChange={setImpulsivity}
+                </FieldRow>
+                <FieldRow label="Aura">
+                    <TextBox
+                        maxLength={AURA_MAX}
+                        value={aura}
+                        placeholder="How they come across up close (optional)"
+                        onChange={(event) => setAura(event.currentTarget.value)}
                     />
-                </div>
-            </fieldset>
-
-            <fieldset className="border border-[#9db2c8] p-2 m-0">
-                <legend className="text-xp-legend font-semibold text-[11px] px-1">
-                    System Prompt
-                </legend>
-                <div className="p-1">
-                    <p style={{ color: '#666', margin: '0 0 3px' }}>
-                        The instructions this persona follows in every chat —
-                        who it is, how it talks, what it cares about.
-                    </p>
-                    <textarea
-                        id={promptId}
-                        rows={10}
-                        value={systemPrompt}
-                        onChange={(event) =>
-                            setSystemPrompt(event.currentTarget.value)
+                </FieldRow>
+                <FieldRow label="Bio" error={bioGenError || undefined}>
+                    <TextArea
+                        rows={3}
+                        value={bio}
+                        onChange={(event) => setBio(event.currentTarget.value)}
+                    />
+                    <CommandButton
+                        size="small"
+                        title={
+                            systemPrompt.trim()
+                                ? 'Write a short bio from the system prompt below'
+                                : 'Write a system prompt first — the bio is generated from it'
                         }
-                        className="w-full"
-                        style={{ fontFamily: 'monospace' }}
-                    />
-                </div>
-            </fieldset>
+                        disabled={isGeneratingBio || !systemPrompt.trim()}
+                        onClick={handleGenerateBio}
+                    >
+                        {isGeneratingBio ? 'Generating...' : 'Generate Bio'}
+                    </CommandButton>
+                </FieldRow>
+            </GroupBox>
+
+            <GroupBox title="Personality Dials">
+                <DialSlider
+                    label="Chattiness"
+                    help="How much they want to talk / act."
+                    value={chattiness}
+                    onChange={setChattiness}
+                />
+                <DialSlider
+                    label="Impulsivity"
+                    help="How hard they commit once they start speaking."
+                    value={impulsivity}
+                    onChange={setImpulsivity}
+                />
+            </GroupBox>
+
+            <GroupBox title="System Prompt">
+                <Text as="p" tone="muted">
+                    The instructions this persona follows in every chat — who it
+                    is, how it talks, what it cares about.
+                </Text>
+                <TextArea
+                    mono
+                    aria-label="System Prompt"
+                    rows={10}
+                    value={systemPrompt}
+                    onChange={(event) =>
+                        setSystemPrompt(event.currentTarget.value)
+                    }
+                />
+            </GroupBox>
 
             <Residence
                 persona={persona}
@@ -298,19 +228,19 @@ export default function PersonaEditor({
             />
 
             {saveMutation.isError ? (
-                <p style={{ color: '#c00' }}>
+                <StatusText tone="danger">
                     {saveMutation.error instanceof Error
                         ? saveMutation.error.message
                         : 'Save failed.'}
-                </p>
+                </StatusText>
             ) : null}
             {saveMutation.isSuccess ? (
-                <p style={{ color: '#006600' }}>Saved.</p>
+                <StatusText tone="go">Saved.</StatusText>
             ) : null}
 
-            <div className="flex justify-between">
-                <button
-                    type="button"
+            <div className="flex justify-between gap-2">
+                <CommandButton
+                    tone="danger"
                     disabled={deleteMutation.isPending}
                     onClick={() => {
                         if (!persona.id) return;
@@ -324,10 +254,10 @@ export default function PersonaEditor({
                     }}
                 >
                     {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-                </button>
-                <button type="submit" disabled={saveMutation.isPending}>
+                </CommandButton>
+                <CommandButton isDefault disabled={saveMutation.isPending}>
                     {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
-                </button>
+                </CommandButton>
             </div>
         </form>
     );
@@ -344,39 +274,23 @@ function DialSlider({
     value: number;
     onChange: (value: number) => void;
 }) {
-    const id = useId();
     return (
-        <div>
-            <div className="flex items-center justify-between">
-                <label htmlFor={id} style={{ fontWeight: 600, color: '#000' }}>
-                    {label}
-                </label>
-                <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {value.toFixed(2)}
-                </span>
-            </div>
-            <div className="flex items-center" style={{ gap: 6 }}>
-                <span style={{ color: '#666', fontSize: 10 }}>Low</span>
-                <input
-                    id={id}
-                    type="range"
+        <FieldRow label={label} hint={help}>
+            <span className="flex w-full items-center gap-2">
+                <Slider
                     min={0}
                     max={100}
                     step={5}
+                    startLabel="Low"
+                    endLabel="High"
                     value={Math.round(value * 100)}
                     onChange={(event) =>
                         onChange(Number(event.currentTarget.value) / 100)
                     }
                     className="flex-1"
-                    style={{
-                        border: 'none',
-                        background: 'transparent',
-                        padding: 0,
-                    }}
                 />
-                <span style={{ color: '#666', fontSize: 10 }}>High</span>
-            </div>
-            <p style={{ color: '#666', margin: '1px 0 0' }}>{help}</p>
-        </div>
+                <span>{value.toFixed(2)}</span>
+            </span>
+        </FieldRow>
     );
 }

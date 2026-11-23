@@ -1,3 +1,10 @@
+import {
+    CheckBox,
+    CommandButton,
+    Icon,
+    ProgressBar,
+    TaskPaneSection,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     getGetWorldsPartyIdGrowthQueryKey,
@@ -27,34 +34,32 @@ export default function GrowingPane() {
     const auto = usePutWorldsPartyIdGrowthAuto(refresh);
     if (!report) return null;
     return (
-        <section className="pl-pane">
-            <div className="pl-pane-head">
-                Growing
-                <small>{report.rows.length} offscreen</small>
-            </div>
-            <label className="pl-grow">
-                <span>
-                    <input
-                        type="checkbox"
-                        checked={report.auto}
-                        onChange={(e) =>
-                            auto.mutate({
-                                partyId: WORLD_ID,
-                                data: { on: e.currentTarget.checked },
-                            })
-                        }
-                    />{' '}
-                    Open automatically (one a day)
-                </span>
-            </label>
+        <TaskPaneSection
+            title="Growing"
+            aside={`${report.rows.length} offscreen`}
+        >
+            <CheckBox
+                checked={report.auto}
+                onChange={(e) =>
+                    auto.mutate({
+                        partyId: WORLD_ID,
+                        data: { on: e.currentTarget.checked },
+                    })
+                }
+            >
+                Open automatically (one a day)
+            </CheckBox>
             {report.rows.slice(0, 8).map((row) => {
                 const s = growingSummary(row, Number(report.openAt));
                 return (
-                    <div key={row.localeId} className="pl-grow" title={s.who}>
-                        <span className="pl-grow-name">{s.name}</span>
-                        <button
-                            type="button"
-                            className="pl-grow-act"
+                    <div
+                        key={row.localeId}
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-0.5"
+                        title={s.who}
+                    >
+                        <span className="truncate">{s.name}</span>
+                        <CommandButton
+                            size="small"
                             disabled={open.isPending}
                             onClick={() =>
                                 open.mutate({
@@ -64,26 +69,31 @@ export default function GrowingPane() {
                             }
                         >
                             Open
-                        </button>
-                        <span
-                            className="pl-occ-bar"
-                            data-level={s.ready ? 'full' : 'some'}
-                        >
-                            <i style={{ width: `${s.share * 100}%` }} />
-                        </span>
-                        <span className="pl-grow-note">{s.note}</span>
+                        </CommandButton>
+                        <ProgressBar
+                            className="col-span-full"
+                            value={s.share * 100}
+                            tone="neutral"
+                            label={`${s.name} footfall`}
+                        />
+                        <span className="col-span-full">{s.note}</span>
                     </div>
                 );
             })}
             {report.opened.map((o) => (
-                <div key={o.placeId} className="pl-grow">
-                    <span className="pl-grow-name">
-                        🆕 {o.name}
-                        {o.district ? ` (${o.district})` : ''}
+                <div
+                    key={o.placeId}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5"
+                >
+                    <span className="flex min-w-0 items-center gap-1">
+                        <Icon name="new" />
+                        <span className="truncate">
+                            {o.name}
+                            {o.district ? ` (${o.district})` : ''}
+                        </span>
                     </span>
-                    <button
-                        type="button"
-                        className="pl-grow-act"
+                    <CommandButton
+                        size="small"
                         disabled={close.isPending}
                         onClick={() =>
                             close.mutate({
@@ -93,9 +103,9 @@ export default function GrowingPane() {
                         }
                     >
                         Close
-                    </button>
+                    </CommandButton>
                 </div>
             ))}
-        </section>
+        </TaskPaneSection>
     );
 }
