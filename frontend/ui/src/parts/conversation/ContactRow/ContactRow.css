@@ -1,0 +1,120 @@
+@layer ui {
+    .ui-contact-row {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-3);
+        width: 100%;
+        min-width: 0;
+        min-height: 24px;
+        margin: 0;
+        padding: var(--ui-space-1) var(--ui-space-3);
+        border: 1px solid transparent;
+        border-radius: var(--ui-radius-control);
+        background: transparent;
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+        text-align: start;
+        transition:
+            background-color var(--ui-dur-instant) var(--ui-ease-out),
+            border-color var(--ui-dur-instant) var(--ui-ease-out);
+    }
+
+    .ui-contact-row[data-has-details] {
+        align-items: flex-start;
+        padding-block: var(--ui-space-2);
+    }
+
+    button.ui-contact-row {
+        cursor: default;
+    }
+
+    button.ui-contact-row:hover:not(:disabled),
+    .ui-contact-row[data-ui-preview~="hover"] {
+        border-color: color-mix(
+            in oklab,
+            var(--ui-select) 40%,
+            var(--ui-field)
+        );
+        background: color-mix(in oklab, var(--ui-select) 10%, var(--ui-field));
+    }
+
+    .ui-contact-row[data-selected] {
+        border-color: color-mix(
+            in oklab,
+            var(--ui-select) 60%,
+            var(--ui-field)
+        );
+        background: color-mix(in oklab, var(--ui-select) 18%, var(--ui-field));
+    }
+
+    button.ui-contact-row:disabled {
+        cursor: progress;
+    }
+
+    .ui-contact-row-picture {
+        display: inline-flex;
+        flex: none;
+    }
+
+    .ui-contact-row-text {
+        display: grid;
+        flex: 1;
+        gap: var(--ui-space-1);
+        min-width: 0;
+    }
+
+    .ui-contact-row-line {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-2);
+        min-width: 0;
+    }
+
+    .ui-contact-row-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ui-contact-row[data-unread] .ui-contact-row-name,
+    .ui-contact-row[data-selected] .ui-contact-row-name {
+        font-weight: 700;
+    }
+
+    .ui-contact-row[data-dimmed] .ui-contact-row-name {
+        color: var(--ui-text-muted);
+    }
+
+    .ui-contact-row-meta {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: var(--ui-space-2);
+        color: var(--ui-text-muted);
+    }
+
+    .ui-contact-row-details {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--ui-text-muted);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ui-contact-row[data-unread] .ui-contact-row-details {
+        color: var(--ui-text);
+        font-weight: 700;
+    }
+}
+
+@layer ui {
+    .ui-contact-row[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: 2px;
+    }
+}

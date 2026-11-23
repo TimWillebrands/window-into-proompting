@@ -1,0 +1,97 @@
+@layer ui {
+    .ui-desktop-icon {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--ui-space-2);
+        box-sizing: border-box;
+        width: 88px;
+        margin: 0;
+        padding: var(--ui-space-2);
+        border: 0;
+        border-radius: var(--ui-radius-control);
+        background: transparent;
+        color: var(--ui-text-on-chrome);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+        cursor: default;
+        user-select: none;
+    }
+
+    .ui-desktop-icon-image {
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        font-size: 40px;
+        line-height: 1;
+        filter: drop-shadow(
+            1px 2px 2px
+                color-mix(in srgb, var(--ui-control-edge) 70%, transparent)
+        );
+        transition: filter var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-desktop-icon-image > :is(img, svg) {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+    }
+
+    .ui-desktop-icon-label {
+        display: -webkit-box;
+        max-width: 100%;
+        overflow: hidden;
+        padding: 0 var(--ui-space-2);
+        border-radius: var(--ui-radius-control);
+        text-align: center;
+        text-shadow:
+            1px 1px 1px var(--ui-control-edge),
+            0 0 3px var(--ui-control-edge);
+        overflow-wrap: anywhere;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+
+    .ui-desktop-icon:is(:hover, [data-ui-preview~="hover"])
+        .ui-desktop-icon-image {
+        filter: drop-shadow(
+                1px 2px 2px
+                    color-mix(in srgb, var(--ui-control-edge) 70%, transparent)
+            )
+            brightness(1.12);
+    }
+
+    .ui-desktop-icon:is(:hover, [data-ui-preview~="hover"])
+        .ui-desktop-icon-label {
+        background: color-mix(in srgb, var(--ui-select) 35%, transparent);
+    }
+
+    .ui-desktop-icon:is(:active, [data-ui-preview~="active"])
+        .ui-desktop-icon-image {
+        filter: brightness(0.85);
+    }
+
+    .ui-desktop-icon[data-selected] .ui-desktop-icon-image {
+        filter: sepia(1) hue-rotate(185deg) saturate(2.6) brightness(0.78);
+    }
+
+    .ui-desktop-icon[data-selected] .ui-desktop-icon-label {
+        background: var(--ui-select);
+        color: var(--ui-select-text);
+        text-shadow: none;
+    }
+
+    .ui-desktop-icon:focus-visible,
+    .ui-desktop-icon[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-text-on-chrome);
+        outline-offset: 0;
+        box-shadow: 0 0 0 4px var(--ui-focus);
+    }
+
+    .ui-desktop-icon:disabled {
+        opacity: 0.55;
+    }
+}

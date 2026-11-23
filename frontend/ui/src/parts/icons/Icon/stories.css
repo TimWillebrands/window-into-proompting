@@ -1,0 +1,171 @@
+@layer ui {
+    .ui-sg-icon-menu {
+        display: grid;
+        justify-self: start;
+        min-inline-size: 220px;
+        padding: var(--ui-space-1);
+        border: 1px solid var(--ui-face-edge);
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-content);
+    }
+
+    .ui-sg-icon-menu > span {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-3);
+        padding: var(--ui-space-1) var(--ui-space-3);
+    }
+
+    .ui-sg-icon-menu > span[data-selected] {
+        background: var(--ui-select);
+        color: var(--ui-select-text);
+    }
+
+    .ui-sg-icon-dialog {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--ui-space-5);
+        justify-self: start;
+        max-inline-size: 420px;
+        padding: var(--ui-space-5);
+        border: 1px solid var(--ui-face-edge);
+        border-radius: var(--ui-radius-pane);
+        background: var(--ui-face);
+    }
+
+    .ui-sg-icon-desktop {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ui-space-5);
+        padding: var(--ui-space-5);
+        border-radius: var(--ui-radius-pane);
+        background: var(--ui-titlebar);
+    }
+
+    .ui-sg-icon-desktop > span {
+        display: grid;
+        justify-items: center;
+        gap: var(--ui-space-2);
+        inline-size: 76px;
+        color: var(--ui-titlebar-text);
+        text-align: center;
+    }
+
+    .ui-sg-icon-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: var(--ui-space-5);
+    }
+
+    .ui-sg-icon-line {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--ui-space-2);
+    }
+
+    .ui-sg-icon-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+        gap: var(--ui-space-3);
+    }
+
+    .ui-sg-icon-card {
+        display: grid;
+        gap: var(--ui-space-2);
+        margin: 0;
+        padding: var(--ui-space-3);
+        border: 1px solid var(--ui-face-edge);
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-content);
+    }
+
+    .ui-sg-icon-sizes {
+        display: flex;
+        align-items: flex-end;
+        gap: var(--ui-space-3);
+    }
+
+    .ui-sg-icon-cell {
+        display: inline-grid;
+        place-items: center;
+        padding: var(--ui-space-1);
+        border-radius: var(--ui-radius-control);
+        outline: 1px dashed transparent;
+    }
+
+    .ui-sg-icon-card[data-tier="real"] .ui-sg-icon-cell[data-tier="pixel"] {
+        outline-color: var(--ui-tone-caution);
+    }
+
+    .ui-sg-icon-card figcaption {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ui-space-2);
+    }
+
+    .ui-sg-icon-card code {
+        font-family: var(--ui-font-mono);
+        font-size: var(--ui-text-chrome);
+        color: var(--ui-text);
+    }
+
+    .ui-sg-icon-tier {
+        padding: 0 var(--ui-space-2);
+        border-radius: var(--ui-radius-control);
+        font-size: var(--ui-text-chrome);
+    }
+
+    .ui-sg-icon-tier[data-tier="real"] {
+        background: var(--ui-tone-go);
+        color: var(--ui-tone-go-text);
+    }
+
+    .ui-sg-icon-tier[data-tier="pixel"] {
+        background: var(--ui-tone-caution);
+        color: var(--ui-tone-caution-text);
+    }
+
+    .ui-sg-icon-note {
+        flex-basis: 100%;
+        color: var(--ui-text-muted);
+        font-size: var(--ui-text-chrome);
+    }
+
+    .ui-sg-icon-emoji {
+        font-family: var(--ui-font-emoji);
+        font-size: var(--ui-text-title);
+        line-height: 1;
+    }
+
+    .ui-sg-icon-faces {
+        display: grid;
+        gap: var(--ui-space-4);
+    }
+
+    .ui-sg-icon-face {
+        padding: var(--ui-space-5);
+        border-radius: var(--ui-radius-pane);
+        background: var(--ui-face);
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+    }
+
+    .ui-sg-icon-sheet {
+        display: grid;
+        grid-template-columns: repeat(5, max-content);
+        gap: var(--ui-space-4) var(--ui-space-6);
+    }
+
+    .ui-sg-icon-sample {
+        display: grid;
+        gap: var(--ui-space-1);
+    }
+
+    .ui-sg-icon-sample code {
+        font-family: var(--ui-font-mono);
+        font-size: var(--ui-text-chrome);
+    }
+}

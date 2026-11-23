@@ -1,0 +1,33 @@
+@layer ui {
+    .ui-story-feed {
+        display: grid;
+        gap: var(--ui-space-4);
+        width: 520px;
+        padding: var(--ui-space-5);
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-face-lite);
+    }
+
+    .ui-story-feed-narrow {
+        width: 300px;
+    }
+
+    .ui-story-console {
+        width: 560px;
+        height: 220px;
+    }
+
+    .ui-story-pane {
+        width: 420px;
+        height: 240px;
+    }
+
+    .ui-story-header {
+        width: 560px;
+    }
+
+    .ui-story-portrait {
+        display: block;
+        background: var(--ui-face);
+    }
+}

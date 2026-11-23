@@ -1,0 +1,27 @@
+@layer ui {
+    .ui-sunken-field {
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+        overscroll-behavior: contain;
+        padding: var(--ui-space-2);
+        border: 1px solid var(--ui-field-edge);
+        background: var(--ui-content);
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-sunken-field[data-text="reading"] {
+        font-size: var(--ui-text-reading);
+        line-height: var(--ui-leading-reading);
+        overflow-wrap: anywhere;
+    }
+
+    .ui-sunken-field:focus-visible {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: -2px;
+    }
+}

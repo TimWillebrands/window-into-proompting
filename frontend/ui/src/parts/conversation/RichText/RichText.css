@@ -1,0 +1,123 @@
+@layer ui {
+    .ui-richtext {
+        min-width: 0;
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-reading);
+        line-height: var(--ui-leading-reading);
+        overflow-wrap: anywhere;
+    }
+
+    .ui-richtext :where(p) {
+        margin: 0 0 var(--ui-space-3);
+    }
+
+    .ui-richtext > :last-child,
+    .ui-richtext :where(p:last-child) {
+        margin-block-end: 0;
+    }
+
+    .ui-richtext :where(h1, h2, h3, h4, h5, h6) {
+        margin: var(--ui-space-4) 0 var(--ui-space-2);
+        font-size: var(--ui-text-reading);
+        font-weight: 700;
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-richtext :where(h1, h2) {
+        font-family: var(--ui-font-title);
+        font-size: var(--ui-text-title);
+    }
+
+    .ui-richtext > :where(h1, h2, h3, h4, h5, h6):first-child {
+        margin-block-start: 0;
+    }
+
+    .ui-richtext :where(ul, ol) {
+        margin: var(--ui-space-2) 0;
+        padding-inline-start: var(--ui-space-6);
+    }
+
+    .ui-richtext :where(ul) {
+        list-style: disc;
+    }
+
+    .ui-richtext :where(ol) {
+        list-style: decimal;
+    }
+
+    .ui-richtext :where(li) {
+        margin: var(--ui-space-1) 0;
+    }
+
+    .ui-richtext :where(code) {
+        padding: 0 var(--ui-space-1);
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-face-lite);
+        font-family: var(--ui-font-mono);
+        font-size: var(--ui-text-chrome);
+    }
+
+    .ui-richtext :where(pre) {
+        margin: var(--ui-space-2) 0;
+        padding: var(--ui-space-3) var(--ui-space-4);
+        overflow-x: auto;
+        border: 1px solid var(--ui-face-edge);
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-face-lite);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-richtext :where(pre code) {
+        padding: 0;
+        background: none;
+    }
+
+    .ui-richtext :where(blockquote) {
+        margin: var(--ui-space-2) 0;
+        padding: var(--ui-space-1) var(--ui-space-4);
+        border-inline-start: 3px solid var(--ui-face-edge);
+        color: var(--ui-text-muted);
+    }
+
+    .ui-richtext :where(a) {
+        color: var(--ui-link);
+        text-decoration: underline;
+    }
+
+    .ui-richtext :where(a:hover) {
+        color: var(--ui-link-hover);
+    }
+
+    .ui-richtext :where(strong, b) {
+        font-weight: 700;
+    }
+
+    .ui-richtext :where(em, i) {
+        font-style: italic;
+    }
+
+    .ui-richtext :where(hr) {
+        margin: var(--ui-space-3) 0;
+        border: 0;
+        border-block-start: 1px solid var(--ui-face-edge);
+    }
+
+    .ui-richtext :where(table) {
+        margin: var(--ui-space-2) 0;
+        border-collapse: collapse;
+        font-size: var(--ui-text-chrome);
+    }
+
+    .ui-richtext :where(th, td) {
+        padding: var(--ui-space-1) var(--ui-space-3);
+        border: 1px solid var(--ui-face-edge);
+        text-align: start;
+    }
+
+    .ui-richtext :where(th) {
+        background: var(--ui-face);
+        font-weight: 700;
+    }
+}

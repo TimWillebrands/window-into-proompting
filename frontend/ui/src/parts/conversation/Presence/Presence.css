@@ -1,0 +1,77 @@
+@layer ui {
+    .ui-presence {
+        --ui-presence-size: 10px;
+        display: inline-block;
+        flex: none;
+        box-sizing: border-box;
+        width: var(--ui-presence-size);
+        height: var(--ui-presence-size);
+        vertical-align: middle;
+        color: var(--ui-tone-go);
+    }
+
+    .ui-presence[data-size="small"] {
+        --ui-presence-size: 8px;
+    }
+
+    .ui-presence[data-status="away"] {
+        color: var(--ui-tone-caution);
+    }
+
+    .ui-presence[data-status="busy"] {
+        color: var(--ui-tone-danger);
+    }
+
+    .ui-presence[data-status="offline"] {
+        color: var(--ui-text-disabled);
+    }
+
+    .ui-presence[data-shape="dot"] {
+        border-radius: var(--ui-radius-pill);
+        background: radial-gradient(
+            circle at 35% 30%,
+            color-mix(in oklab, currentColor 40%, var(--ui-text-on-chrome)) 0%,
+            currentColor 65%
+        );
+        box-shadow: inset 0 0 0 1px
+            color-mix(in oklab, currentColor 55%, var(--ui-control-edge));
+    }
+
+    .ui-presence[data-shape="buddy"] {
+        --ui-presence-size: 16px;
+    }
+
+    .ui-presence[data-shape="buddy"][data-size="small"] {
+        --ui-presence-size: 12px;
+    }
+
+    .ui-presence-buddy {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+    }
+
+    .ui-presence-buddy-fill {
+        fill: color-mix(in oklab, currentColor 85%, var(--ui-text-on-chrome));
+        stroke: color-mix(in oklab, currentColor 75%, var(--ui-control-edge));
+        stroke-width: 0.7;
+    }
+
+    .ui-presence-buddy-shine {
+        fill: var(--ui-text-on-chrome);
+        opacity: 0.65;
+    }
+
+    .ui-presence[data-active] {
+        animation: ui-presence-active calc(var(--ui-dur-move) * 2)
+            var(--ui-ease-out) infinite alternate;
+    }
+
+    @keyframes ui-presence-active {
+        to {
+            opacity: calc(1 - 0.5 * var(--ui-motion-travel));
+            scale: calc(1 + 0.25 * var(--ui-motion-travel));
+        }
+    }
+}

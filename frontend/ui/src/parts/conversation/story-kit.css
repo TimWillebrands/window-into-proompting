@@ -1,0 +1,32 @@
+@layer ui {
+    .ui-story-chat-w-420 {
+        width: 420px;
+    }
+
+    .ui-story-chat-w-260 {
+        width: 260px;
+    }
+
+    .ui-story-chat-h-300 {
+        height: 300px;
+    }
+
+    .ui-story-chat-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ui-space-5);
+    }
+
+    .ui-story-chat-column {
+        display: grid;
+        gap: var(--ui-space-5);
+        align-content: start;
+    }
+
+    .ui-story-chat-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ui-space-1);
+    }
+}

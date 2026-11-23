@@ -1,0 +1,36 @@
+@layer ui {
+    .ui-radio-dot {
+        border-radius: 50%;
+    }
+
+    .ui-radio-dot::after {
+        content: "";
+        position: absolute;
+        inset: 3px;
+        border-radius: 50%;
+        background: radial-gradient(
+            circle at 35% 35%,
+            oklch(from var(--ui-check-mark) calc(l + 0.25) c h) 0%,
+            var(--ui-check-mark) 60%,
+            oklch(from var(--ui-check-mark) calc(l - 0.08) c h) 100%
+        );
+        opacity: 0;
+    }
+
+    .ui-radio-input:checked + .ui-radio-dot::after {
+        opacity: 1;
+    }
+
+    .ui-radio-group {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--ui-space-1);
+    }
+
+    .ui-radio-group[data-orientation="horizontal"] {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: var(--ui-space-1) var(--ui-space-6);
+    }
+}

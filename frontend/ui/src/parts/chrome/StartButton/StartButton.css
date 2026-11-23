@@ -1,0 +1,78 @@
+@layer ui {
+    .ui-start-button {
+        position: relative;
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: var(--ui-space-3);
+        box-sizing: border-box;
+        min-width: 97px;
+        height: 100%;
+        min-height: 28px;
+        margin: 0;
+        padding: 0 var(--ui-space-6) 0 var(--ui-space-5);
+        border: 0;
+        border-radius: 0 var(--ui-radius-float) var(--ui-radius-float) 0 / 0 50%
+            50% 0;
+        background: var(--ui-start);
+        box-shadow:
+            var(--ui-glass-rim),
+            var(--ui-chrome-gloss),
+            inset -2px 0 3px var(--ui-chrome-edge),
+            2px 0 3px var(--ui-chrome-edge);
+        color: var(--ui-text-on-chrome);
+        font-family: var(--ui-font-title);
+        font-size: var(--ui-text-display);
+        font-style: italic;
+        font-weight: 700;
+        line-height: 1;
+        text-shadow: var(--ui-chrome-text-shadow);
+        cursor: default;
+        transition:
+            filter var(--ui-dur-quick) var(--ui-ease-out),
+            box-shadow var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-start-button-label {
+        padding-inline-end: var(--ui-space-1);
+    }
+
+    .ui-start-button-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 16px;
+        height: 20px;
+        font-style: normal;
+        filter: drop-shadow(var(--ui-chrome-text-shadow));
+    }
+
+    .ui-start-button-icon > :is(img, svg) {
+        max-width: 20px;
+        max-height: 20px;
+        object-fit: contain;
+    }
+
+    .ui-start-button:is(:hover, [data-ui-preview~="hover"]) {
+        filter: brightness(1.12);
+        box-shadow:
+            var(--ui-glass-rim),
+            var(--ui-chrome-gloss),
+            inset -2px 0 3px var(--ui-chrome-edge),
+            var(--ui-chrome-glow);
+    }
+
+    .ui-start-button:is(:active, [data-open], [data-ui-preview~="active"]) {
+        filter: brightness(0.88);
+        box-shadow:
+            var(--ui-chrome-press),
+            inset 2px 2px 4px var(--ui-chrome-edge),
+            2px 0 3px var(--ui-chrome-edge);
+    }
+
+    .ui-start-button:focus-visible,
+    .ui-start-button[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus-on-chrome);
+        outline-offset: -4px;
+    }
+}

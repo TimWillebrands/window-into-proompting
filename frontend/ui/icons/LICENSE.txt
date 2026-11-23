@@ -1,0 +1,26 @@
+Partytown icons
+
+real/   XP-style application icons from frontend/public/img/icons/, converted to PNG per size
+        (frames scaled down where a size was missing). Same terms as the originals.
+
+pixel/  Derived from Twemoji (https://github.com/jdecked/twemoji, release 15.1.0, originally
+        https://github.com/twitter/twemoji).
+        Emoji graphics: Copyright 2020 Twitter, Inc and other contributors.
+        Licensed under CC-BY 4.0: https://creativecommons.org/licenses/by/4.0/
+        Changes: rendered from SVG, scaled to 16, 32 and 48 pixels, alpha hardened, colours
+        quantised to a fixed palette, outlined, lit from the top left and given a drop shadow,
+        by tools/icons/pixelate.py. The source SVGs are in tools/icons/twemoji/, unchanged.
+
+        pixel/power-*.png and pixel/cdu-*.png are drawn from glyphs in tools/icons/glyphs/,
+        made for Partytown and not part of Twemoji.
+
+No endorsement by Twitter, Inc or the Twemoji contributors is implied.
+
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/legalcode
+
+You are free to share (copy and redistribute the material in any medium or format) and adapt
+(remix, transform, and build upon the material for any purpose, even commercially), under the
+term of attribution: you must give appropriate credit, provide a link to the license, and
+indicate if changes were made. No additional restrictions: you may not apply legal terms or
+technological measures that legally restrict others from doing anything the license permits.

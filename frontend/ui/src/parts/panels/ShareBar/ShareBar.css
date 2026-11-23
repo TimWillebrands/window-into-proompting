@@ -1,0 +1,68 @@
+@layer ui {
+    .ui-share-bar {
+        display: grid;
+        gap: var(--ui-space-1);
+        min-width: 0;
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-share-bar-track,
+    .ui-share-bar-captions {
+        display: flex;
+        gap: var(--ui-space-1);
+        min-width: 0;
+    }
+
+    .ui-share-bar-track {
+        overflow: hidden;
+        border-radius: var(--ui-radius-control);
+        box-shadow: 0 0 0 1px
+            color-mix(in oklab, var(--ui-face-edge) 60%, transparent);
+    }
+
+    .ui-share-bar-segment,
+    .ui-share-bar-caption {
+        flex: var(--ui-share) 1 0;
+        min-width: 4px;
+        overflow: hidden;
+        text-align: center;
+        text-overflow: clip;
+        white-space: nowrap;
+    }
+
+    .ui-share-bar-segment {
+        box-sizing: border-box;
+        block-size: 18px;
+        background:
+            linear-gradient(
+                180deg,
+                color-mix(in oklab, var(--ui-content) 28%, transparent) 0%,
+                transparent 55%
+            ), var(--ui-share-colour);
+        color: oklch(
+            from var(--ui-share-colour) clamp(0, (0.68 - l) * 999, 1) 0 0
+        );
+        font-weight: 700;
+        line-height: 18px;
+    }
+
+    .ui-share-bar-segment[data-state="dim"] {
+        opacity: 0.7;
+    }
+
+    .ui-share-bar-segment[data-state="off"] {
+        background:
+            repeating-linear-gradient(
+                135deg,
+                color-mix(in oklab, var(--ui-content) 55%, transparent) 0 3px,
+                transparent 3px 7px
+            ), var(--ui-share-colour);
+        opacity: 0.55;
+    }
+
+    .ui-share-bar-caption {
+        color: var(--ui-text-muted);
+    }
+}

@@ -1,0 +1,148 @@
+@layer ui {
+    .ui-command-button {
+        --ui-cb-face: var(--ui-control);
+        --ui-cb-face-hover: var(--ui-control-hover);
+        --ui-cb-face-active: var(--ui-control-active);
+        --ui-cb-edge: var(--ui-control-edge);
+        --ui-cb-text: var(--ui-text);
+        --ui-cb-glow: 0 0 transparent;
+        --ui-cb-ring: 0 0 transparent;
+        --ui-cb-hot: var(--ui-control-hot);
+        --ui-cb-hot-lite: oklch(from var(--ui-control-hot) calc(l + 0.14) c h);
+        --ui-cb-blue: var(--ui-focus);
+        --ui-cb-blue-lite: oklch(
+            from var(--ui-focus) calc(l + 0.3) calc(c * 0.45) h
+        );
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--ui-space-3);
+        box-sizing: border-box;
+        min-width: 75px;
+        min-height: 23px;
+        margin: 0;
+        padding: var(--ui-space-1) var(--ui-space-5);
+        border: 1px solid var(--ui-cb-edge);
+        border-radius: var(--ui-radius-inner);
+        background: var(--ui-cb-face);
+        box-shadow:
+            var(--ui-cb-glow), var(--ui-cb-ring), var(--ui-shadow-control);
+        color: var(--ui-cb-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+        white-space: nowrap;
+        cursor: default;
+        user-select: none;
+        transition:
+            box-shadow var(--ui-dur-quick) var(--ui-ease-out),
+            background-color var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-command-button::before {
+        content: "";
+        position: absolute;
+        inset: -4px -2px;
+    }
+
+    .ui-command-button-icon {
+        display: inline-flex;
+        flex: none;
+    }
+
+    .ui-command-button[data-size="small"] {
+        min-width: 60px;
+        min-height: 19px;
+        padding-inline: var(--ui-space-4);
+    }
+
+    .ui-command-button[data-size="large"] {
+        min-width: 96px;
+        min-height: 29px;
+        padding-inline: var(--ui-space-6);
+    }
+
+    .ui-command-button[data-default] {
+        --ui-cb-glow:
+            inset 0 -1px 0 1px var(--ui-cb-blue), inset 0 0 0 2px
+            var(--ui-cb-blue-lite);
+        --ui-cb-ring: 0 0 0 1px var(--ui-cb-edge);
+    }
+
+    .ui-command-button:focus-visible,
+    .ui-command-button[data-ui-preview~="focus"] {
+        --ui-cb-glow:
+            inset 0 -1px 0 1px var(--ui-cb-blue), inset 0 0 0 2px
+            var(--ui-cb-blue-lite);
+    }
+
+    .ui-command-button[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: 2px;
+    }
+
+    .ui-command-button:enabled:is(:hover, [data-ui-preview~="hover"]) {
+        --ui-cb-glow:
+            inset 0 -1px 0 1px var(--ui-cb-hot), inset 0 0 0 2px
+            var(--ui-cb-hot-lite);
+        background: var(--ui-cb-face-hover);
+    }
+
+    .ui-command-button:enabled:is(
+            :active,
+            [data-ui-preview~="active"],
+            [aria-pressed="true"]
+        ) {
+        --ui-cb-glow: 0 0 transparent;
+        background: var(--ui-cb-face-active);
+        box-shadow: var(--ui-cb-ring);
+    }
+
+    .ui-command-button[data-tone="go"] {
+        --ui-cb-tone: var(--ui-tone-go);
+        --ui-cb-text: var(--ui-tone-go-text);
+    }
+
+    .ui-command-button[data-tone="caution"] {
+        --ui-cb-tone: var(--ui-tone-caution);
+        --ui-cb-text: var(--ui-tone-caution-text);
+    }
+
+    .ui-command-button[data-tone="danger"] {
+        --ui-cb-tone: var(--ui-tone-danger);
+        --ui-cb-text: var(--ui-tone-danger-text);
+    }
+
+    .ui-command-button:is(
+            [data-tone="go"],
+            [data-tone="caution"],
+            [data-tone="danger"]
+        ) {
+        --ui-cb-face: var(--ui-tone-gloss), var(--ui-cb-tone);
+        --ui-cb-face-hover: var(--ui-tone-gloss-hover), var(--ui-cb-tone);
+        --ui-cb-face-active: var(--ui-tone-gloss-active), var(--ui-cb-tone);
+        --ui-cb-edge: oklch(from var(--ui-cb-tone) calc(l - 0.22) c h);
+        --ui-cb-hot: oklch(from var(--ui-cb-tone) calc(l + 0.1) c h);
+        --ui-cb-hot-lite: oklch(from var(--ui-cb-tone) calc(l + 0.26) c h);
+        font-weight: 700;
+    }
+
+    .ui-command-button:is(
+            [data-tone="go"],
+            [data-tone="caution"],
+            [data-tone="danger"]
+        ):is(:focus-visible, [data-ui-preview~="focus"], [data-default]) {
+        --ui-cb-blue: oklch(from var(--ui-cb-tone) calc(l + 0.1) c h);
+        --ui-cb-blue-lite: oklch(from var(--ui-cb-tone) calc(l + 0.2) c h);
+    }
+
+    .ui-command-button:disabled {
+        --ui-cb-glow: 0 0 transparent;
+        --ui-cb-ring: 0 0 transparent;
+        border-color: var(--ui-face-edge);
+        background: var(--ui-face-lite);
+        box-shadow: none;
+        color: var(--ui-text-disabled);
+    }
+}

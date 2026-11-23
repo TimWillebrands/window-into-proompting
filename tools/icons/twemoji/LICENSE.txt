@@ -1,0 +1,6 @@
+Twemoji SVGs, unchanged, from https://github.com/jdecked/twemoji release 15.1.0 (via jsDelivr),
+only the ones Partytown's icon set needs. Fetched by tools/icons/pixelate.py fetch.
+
+Graphics: Copyright 2020 Twitter, Inc and other contributors.
+Licensed under CC-BY 4.0: https://creativecommons.org/licenses/by/4.0/
+The derived PNGs and their attribution are in frontend/ui/icons/ (see LICENSE.txt there).

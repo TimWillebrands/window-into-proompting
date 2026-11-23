@@ -1,0 +1,801 @@
+@layer properties, theme, base, components, ui, utilities;
+@layer ui.tokens, ui.base;
+
+@layer ui.tokens {
+    :root {
+        --ui-font-ui:
+            Tahoma, "Partytown Tahoma", Verdana, "Partytown Emoji", system-ui,
+            sans-serif;
+        --ui-font-title:
+            "Trebuchet MS", "Partytown Fira Sans", Tahoma, "Partytown Tahoma",
+            Verdana, "Partytown Emoji", system-ui, sans-serif;
+        --ui-font-mono:
+            "Lucida Console", "Courier New", "Partytown Emoji", monospace;
+        --ui-font-display:
+            "Franklin Gothic Medium", "Franklin Gothic", "ITC Franklin Gothic",
+            "Partytown Libre Franklin", "Trebuchet MS", "Partytown Fira Sans",
+            Tahoma, "Partytown Tahoma", "Partytown Emoji", system-ui, sans-serif;
+        --ui-font-emoji:
+            "Partytown Emoji", "Apple Color Emoji", "Segoe UI Emoji",
+            "Noto Color Emoji", emoji;
+
+        --ui-text-chrome: 11px;
+        --ui-text-reading: 13px;
+        --ui-text-caption: 13px;
+        --ui-text-title: 15px;
+        --ui-text-display: 18px;
+        --ui-text-logon: 48px;
+        --ui-leading-chrome: 1.25;
+        --ui-leading-reading: 1.5;
+
+        --ui-space-1: 2px;
+        --ui-space-2: 4px;
+        --ui-space-3: 6px;
+        --ui-space-4: 8px;
+        --ui-space-5: 12px;
+        --ui-space-6: 16px;
+
+        --ui-radius-control: 3px;
+        --ui-radius-pane: 8px;
+        --ui-radius-float: 10px;
+        --ui-radius-window: 14px;
+        --ui-radius-pill: 999px;
+        --ui-frame-width: 3px;
+        --ui-radius-here: 0px;
+        --ui-inset: 0px;
+
+        --ui-dur-instant: 80ms;
+        --ui-dur-quick: 160ms;
+        --ui-dur-move: 320ms;
+        --ui-dur-loop: 2560ms;
+        --ui-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --ui-ease-step: steps(1, jump-end);
+        --ui-ease-spring: linear(
+            0,
+            0.098 4%,
+            0.306 8%,
+            0.531 13%,
+            0.726 17%,
+            0.871 21%,
+            0.965 25%,
+            1.018 29%,
+            1.042 33%,
+            1.046 38%,
+            1.04 42%,
+            1.03 46%,
+            1.02 50%,
+            1.011 54%,
+            1.005 58%,
+            1.001 63%,
+            0.999 67%,
+            0.998 75%,
+            0.999 83%,
+            1 92%,
+            1
+        );
+        --ui-motion-travel: 1;
+    }
+
+    *,
+    ::before,
+    ::after {
+        --ui-radius-inner: max(
+            var(--ui-radius-control),
+            var(--ui-radius-here) -
+            var(--ui-inset)
+        );
+    }
+
+    :root,
+    [data-ui-scheme="luna-blue"] {
+        --ui-color-scheme: light;
+
+        --ui-face: #ece9d8;
+        --ui-face-lite: #f5f5ed;
+        --ui-face-edge: #aca899;
+        --ui-field: #ffffff;
+        --ui-field-edge: #7f9db9;
+        --ui-content: #ffffff;
+
+        --ui-text: #000000;
+        --ui-text-muted: #5f5d54;
+        --ui-text-disabled: #a1a192;
+        --ui-text-on-chrome: #ffffff;
+        --ui-link: #215dc6;
+        --ui-link-hover: #1c4ba8;
+
+        --ui-select: #316ac5;
+        --ui-select-text: #ffffff;
+        --ui-focus: #316ac5;
+        --ui-select-inactive: #ece9d8;
+        --ui-select-inactive-text: #000000;
+        --ui-focus-on-chrome: #ffffff;
+        --ui-text-error: var(--ui-tone-danger-ink);
+
+        --ui-titlebar: linear-gradient(
+            180deg,
+            #2e61e4 0%,
+            #5292f7 6%,
+            #255ae1 25%,
+            #2f6bf6 80%,
+            #1133a0 100%
+        );
+        --ui-titlebar-inactive: linear-gradient(
+            180deg,
+            #7b95dc 0%,
+            #a1b6e6 6%,
+            #7f95d9 25%,
+            #89a6e3 80%,
+            #7f92d9 100%
+        );
+        --ui-titlebar-text: #ffffff;
+        --ui-frame: linear-gradient(
+            180deg,
+            #0b4ddc 0%,
+            #0a49d8 70%,
+            #073cc6 100%
+        );
+        --ui-frame-inactive: linear-gradient(
+            180deg,
+            #8ba3e3 0%,
+            #8199dd 70%,
+            #7389d2 100%
+        );
+        --ui-frame-edge: #001b8c;
+        --ui-frame-edge-inactive: #6a7fc4;
+        --ui-chrome-gloss:
+            inset 0 1px 0 rgb(255 255 255 / 0.42), inset 1px 0 0
+            rgb(255 255 255 / 0.2);
+        --ui-chrome-press: inset 1px 1px 2px rgb(0 18 70 / 0.65);
+        --ui-chrome-glow: 0 0 6px rgb(255 255 255 / 0.45);
+        --ui-chrome-edge: rgb(10 35 120 / 0.7);
+        --ui-chrome-text-shadow: 1px 1px 1px rgb(0 32 100 / 0.75);
+        --ui-taskbar: linear-gradient(
+            180deg,
+            rgb(49 104 213 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0 1px,
+            rgb(56 136 233 / calc(var(--ui-glass-alpha-regular) * 1.15)) 1px 2px,
+            rgb(73 147 230 / calc(var(--ui-glass-alpha-regular) * 1.15)) 2px 3px,
+            rgb(48 123 229 / calc(var(--ui-glass-alpha-regular) * 1.15)) 3px 4px,
+            rgb(40 105 222 / calc(var(--ui-glass-alpha-regular) * 1.15)) 4px 5px,
+            rgb(35 90 216 / calc(var(--ui-glass-alpha-regular) * 1.15)) 5px 6px,
+            rgb(34 87 213 / calc(var(--ui-glass-alpha-regular) * 1.15)) 8px,
+            rgb(36 93 219 / calc(var(--ui-glass-alpha-regular) * 1.15)) 45%,
+            rgb(38 98 222 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                calc(100% - 3px),
+            rgb(35 90 216 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                calc(100% - 3px) calc(100% - 2px),
+            rgb(30 80 196 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                calc(100% - 2px) calc(100% - 1px),
+            rgb(25 65 165 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                calc(100% - 1px)
+        );
+        --ui-taskbar-button: linear-gradient(
+            180deg,
+            #5d9cf8 0%,
+            #3c7eed 10%,
+            #2f6fe3 22%,
+            #2c6ade 60%,
+            #2a66d9 88%,
+            #2459c6 100%
+        );
+        --ui-taskbar-button-hover: linear-gradient(
+            180deg,
+            #7ab3ff 0%,
+            #4a8ff7 14%,
+            #3b7eee 55%,
+            #3878ea 88%,
+            #2d68d8 100%
+        );
+        --ui-taskbar-button-active: linear-gradient(
+            180deg,
+            #16409a 0%,
+            #1b4cad 12%,
+            #1e52b7 60%,
+            #2158c0 100%
+        );
+        --ui-tray:
+            linear-gradient(
+                90deg,
+                rgb(28 200 247 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0
+                    2px,
+                transparent 2px
+            ),
+            linear-gradient(
+                180deg,
+                rgb(10 82 180 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0
+                    1px,
+                rgb(13 104 196 / calc(var(--ui-glass-alpha-regular) * 1.15)) 1px
+                    2px,
+                rgb(14 112 202 / calc(var(--ui-glass-alpha-regular) * 1.15)) 2px
+                    3px,
+                rgb(14 114 203 / calc(var(--ui-glass-alpha-regular) * 1.15)) 45%,
+                rgb(11 108 200 / calc(var(--ui-glass-alpha-regular) * 1.15)) 58%,
+                rgb(12 116 206 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                    calc(100% - 5px),
+                rgb(15 134 216 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                    calc(100% - 3px) calc(100% - 2px),
+                rgb(18 116 204 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                    calc(100% - 2px) calc(100% - 1px),
+                rgb(20 72 170 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                    calc(100% - 1px)
+            );
+        --ui-start: linear-gradient(
+            180deg,
+            #5eac56 0%,
+            #3b9c2c 18%,
+            #36942b 60%,
+            #2a7d23 100%
+        );
+        --ui-start-menu-header: linear-gradient(
+            180deg,
+            rgb(45 96 197 / var(--ui-glass-alpha-regular)) 0%,
+            rgb(113 180 255 / var(--ui-glass-alpha-regular)) 2%,
+            rgb(45 96 197 / var(--ui-glass-alpha-regular)) 8%,
+            rgb(62 114 208 / var(--ui-glass-alpha-regular)) 100%
+        );
+        --ui-start-menu-footer: linear-gradient(
+            180deg,
+            rgb(62 114 206 / var(--ui-glass-alpha-regular)) 0%,
+            rgb(40 96 192 / var(--ui-glass-alpha-regular)) 100%
+        );
+        --ui-start-menu-places: rgb(
+            214 228 248 /
+            var(--ui-glass-alpha-regular)
+        );
+        --ui-start-menu-places-text: #112366;
+        --ui-close: radial-gradient(
+            circle at 85% 85%,
+            #cd512e 50%,
+            #d45b34 70%,
+            #e4a491 100%
+        );
+        --ui-control: linear-gradient(
+            180deg,
+            #ffffff 0%,
+            #ecebe6 86%,
+            #d6d0c5 100%
+        );
+        --ui-control-hover: linear-gradient(
+            180deg,
+            #ffffff 0%,
+            #f4f3ee 86%,
+            #e2ddd3 100%
+        );
+        --ui-control-active: linear-gradient(
+            180deg,
+            #cdcac3 0%,
+            #e3e3db 8%,
+            #e5e5de 94%,
+            #f2f2f1 100%
+        );
+        --ui-control-edge: #003c74;
+        --ui-control-hot: #f5b335;
+        --ui-taskpane: linear-gradient(180deg, #7ba2e7 0%, #6375d6 100%);
+        --ui-taskpane-section: linear-gradient(90deg, #ffffff 0%, #c6d3f7 100%);
+        --ui-taskpane-body: #d6dff7;
+        --ui-taskpane-body-special: #eff3ff;
+        --ui-group-title: #0046d5;
+        --ui-combo-button: linear-gradient(
+            180deg,
+            #e2eafe 0%,
+            #cad9fc 45%,
+            #b7cbf8 100%
+        );
+        --ui-combo-button-edge: #9db5ee;
+        --ui-combo-arrow: #4d6185;
+        --ui-check-mark: #21a121;
+        --ui-progress-chunk: linear-gradient(
+            180deg,
+            #a3e3a0 0%,
+            #6fd26c 15%,
+            #3fbf3c 35%,
+            #2fae2c 55%,
+            #45bd42 75%,
+            #86d983 100%
+        );
+        --ui-logon-band: #00309c;
+        --ui-logon-band-bottom: linear-gradient(
+            90deg,
+            #3833ac 0%,
+            #00309c 100%
+        );
+        --ui-logon-face: radial-gradient(
+            circle 180px at 7% 10%,
+            #94b3ef 0%,
+            #7d9fe8 40%,
+            #6487df 75%,
+            #5a7edc 100%
+        );
+        --ui-logon-rule-top: linear-gradient(
+            90deg,
+            rgb(140 170 230 / 0) 0%,
+            #b8cdf6 30%,
+            #ffffff 50%,
+            #b8cdf6 70%,
+            rgb(140 170 230 / 0) 100%
+        );
+        --ui-logon-rule-bottom: linear-gradient(
+            90deg,
+            rgb(245 160 60 / 0) 0%,
+            #f5a83c 30%,
+            #ffd9a0 50%,
+            #f5a83c 70%,
+            rgb(245 160 60 / 0) 100%
+        );
+        --ui-logon-divider: linear-gradient(
+            180deg,
+            rgb(255 255 255 / 0) 0%,
+            rgb(255 255 255 / 0.75) 50%,
+            rgb(255 255 255 / 0) 100%
+        );
+        --ui-logon-text: #ffffff;
+        --ui-logon-text-muted: #dbe6ff;
+        --ui-logon-tile-hover: linear-gradient(
+            90deg,
+            rgb(0 48 156 / 0.35) 0%,
+            rgb(0 48 156 / 0) 100%
+        );
+        --ui-logon-tile-selected: linear-gradient(
+            90deg,
+            #00309c 0%,
+            rgb(0 48 156 / 0.85) 55%,
+            rgb(0 48 156 / 0) 100%
+        );
+        --ui-logon-picture-edge: #ffffff;
+
+        --ui-series-1: #2f6fd6;
+        --ui-series-2: #e8742a;
+        --ui-series-3: #12a08c;
+        --ui-series-4: #c99400;
+        --ui-series-5: #e374a8;
+        --ui-series-6: #3a9a2e;
+        --ui-series-7: #6a54c8;
+        --ui-series-8: #d8453a;
+        --ui-series-other: #8c897d;
+
+        --ui-tone-neutral: #316ac5;
+        --ui-tone-neutral-text: #ffffff;
+        --ui-tone-go: #2a7d23;
+        --ui-tone-go-text: #ffffff;
+        --ui-tone-caution: #f0a030;
+        --ui-tone-caution-text: #000000;
+        --ui-tone-danger: #c4402a;
+        --ui-tone-danger-text: #ffffff;
+        --ui-tone-neutral-ink: #215dc6;
+        --ui-tone-go-ink: #1f6b1a;
+        --ui-tone-caution-ink: #8a5a00;
+        --ui-tone-danger-ink: #b0281a;
+        --ui-tone-gloss: linear-gradient(
+            180deg,
+            rgb(255 255 255 / 0.4) 0%,
+            rgb(255 255 255 / 0.12) 30%,
+            rgb(255 255 255 / 0) 50%,
+            rgb(0 0 0 / 0.08) 100%
+        );
+        --ui-tone-gloss-hover: linear-gradient(
+            180deg,
+            rgb(255 255 255 / 0.5) 0%,
+            rgb(255 255 255 / 0.2) 35%,
+            rgb(255 255 255 / 0.06) 100%
+        );
+        --ui-tone-gloss-active: linear-gradient(
+            180deg,
+            rgb(0 0 0 / 0.22) 0%,
+            rgb(0 0 0 / 0.08) 100%
+        );
+
+        --ui-glass-alpha-regular: 0.8;
+        --ui-glass-alpha-clear: 0.55;
+        --ui-glass-tint-regular: rgb(
+            238 243 252 /
+            var(--ui-glass-alpha-regular)
+        );
+        --ui-glass-tint-clear: rgb(22 42 190 / var(--ui-glass-alpha-clear));
+        --ui-glass-blur-regular: blur(20px) saturate(1.4);
+        --ui-glass-blur-clear: blur(14px) saturate(1.2);
+        --ui-glass-blur-canvas: blur(6px) saturate(1.1);
+        --ui-glass-rim: inset 1px 1px 0 rgb(255 255 255 / 0.6);
+        --ui-glass-edge: rgb(16 36 150 / 0.45);
+        --ui-glass-shadow: 0 10px 28px -8px rgb(8 24 96 / 0.45);
+
+        --ui-shadow-control: 0 1px 1px rgb(0 0 0 / 0.12);
+        --ui-shadow-window:
+            0 2px 6px rgb(0 16 64 / 0.25), 0 14px 36px -10px rgb(0 16 64 / 0.5);
+        --ui-shadow-window-inactive:
+            0 1px 3px rgb(0 16 64 / 0.2), 0 8px 20px -10px rgb(0 16 64 / 0.3);
+        --ui-shadow-float: 0 18px 48px -12px rgb(0 0 0 / 0.55);
+    }
+
+    [data-ui-scheme="noir"] {
+        --ui-color-scheme: dark;
+
+        --ui-face: #2b2d34;
+        --ui-face-lite: #33363f;
+        --ui-face-edge: #4a4e5a;
+        --ui-field: #1d1f24;
+        --ui-field-edge: #56688c;
+        --ui-content: #202227;
+
+        --ui-text: #ececec;
+        --ui-text-muted: #a3a8b4;
+        --ui-text-disabled: #6b6e78;
+        --ui-text-on-chrome: #ffffff;
+        --ui-link: #8ab4ff;
+        --ui-link-hover: #b5cfff;
+
+        --ui-select: #3a63b8;
+        --ui-select-text: #ffffff;
+        --ui-focus: #6ea8ff;
+        --ui-select-inactive: #3a3d46;
+        --ui-select-inactive-text: #ececec;
+        --ui-focus-on-chrome: #ffffff;
+        --ui-text-error: var(--ui-tone-danger-ink);
+
+        --ui-titlebar: linear-gradient(
+            180deg,
+            #6c7894 0%,
+            #3b4560 6%,
+            #1f2533 25%,
+            #181c27 80%,
+            #0b0d13 100%
+        );
+        --ui-titlebar-inactive: linear-gradient(
+            180deg,
+            #6a6e78 0%,
+            #575b65 6%,
+            #44474f 25%,
+            #4a4d55 80%,
+            #3a3c43 100%
+        );
+        --ui-titlebar-text: #ffffff;
+        --ui-frame: linear-gradient(
+            180deg,
+            #36456a 0%,
+            #29344f 70%,
+            #1a2131 100%
+        );
+        --ui-frame-inactive: linear-gradient(
+            180deg,
+            #50535c 0%,
+            #45484f 70%,
+            #393b41 100%
+        );
+        --ui-frame-edge: #04050a;
+        --ui-frame-edge-inactive: #26272c;
+        --ui-chrome-gloss:
+            inset 0 1px 0 rgb(170 195 255 / 0.28), inset 1px 0 0
+            rgb(170 195 255 / 0.12);
+        --ui-chrome-press: inset 1px 1px 3px rgb(0 0 0 / 0.75);
+        --ui-chrome-glow: 0 0 6px rgb(140 175 255 / 0.4);
+        --ui-chrome-edge: rgb(0 0 0 / 0.65);
+        --ui-chrome-text-shadow: 1px 1px 1px rgb(0 0 0 / 0.85);
+        --ui-taskbar-button: linear-gradient(
+            180deg,
+            #56627e 0%,
+            #3a4359 14%,
+            #30384b 60%,
+            #2b3243 100%
+        );
+        --ui-taskbar-button-hover: linear-gradient(
+            180deg,
+            #69779a 0%,
+            #465170 14%,
+            #3a4459 60%,
+            #343d50 100%
+        );
+        --ui-taskbar-button-active: linear-gradient(
+            180deg,
+            #0f1118 0%,
+            #161a24 15%,
+            #1b202c 100%
+        );
+        --ui-tray:
+            linear-gradient(
+                90deg,
+                rgb(96 114 152 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0
+                    2px,
+                transparent 2px
+            ),
+            linear-gradient(
+                180deg,
+                rgb(40 48 66 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0 1px,
+                rgb(62 74 100 / calc(var(--ui-glass-alpha-regular) * 1.15)) 1px
+                    2px,
+                rgb(48 58 80 / calc(var(--ui-glass-alpha-regular) * 1.15)) 2px
+                    3px,
+                rgb(36 43 61 / calc(var(--ui-glass-alpha-regular) * 1.15)) 45%,
+                rgb(33 40 56 / calc(var(--ui-glass-alpha-regular) * 1.15)) 58%,
+                rgb(40 48 66 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                    calc(100% - 3px) calc(100% - 2px),
+                rgb(24 28 38 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                    calc(100% - 2px) calc(100% - 1px),
+                rgb(12 14 19 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                    calc(100% - 1px)
+            );
+        --ui-taskbar: linear-gradient(
+            180deg,
+            rgb(44 50 66 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0 1px,
+            rgb(70 80 106 / calc(var(--ui-glass-alpha-regular) * 1.15)) 1px 2px,
+            rgb(82 94 122 / calc(var(--ui-glass-alpha-regular) * 1.15)) 2px 3px,
+            rgb(56 64 84 / calc(var(--ui-glass-alpha-regular) * 1.15)) 3px 4px,
+            rgb(40 46 61 / calc(var(--ui-glass-alpha-regular) * 1.15)) 4px 5px,
+            rgb(31 36 48 / calc(var(--ui-glass-alpha-regular) * 1.15)) 5px 6px,
+            rgb(27 31 42 / calc(var(--ui-glass-alpha-regular) * 1.15)) 8px,
+            rgb(29 34 46 / calc(var(--ui-glass-alpha-regular) * 1.15)) 45%,
+            rgb(32 37 50 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                calc(100% - 3px),
+            rgb(26 30 40 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                calc(100% - 3px) calc(100% - 2px),
+            rgb(17 19 26 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                calc(100% - 2px) calc(100% - 1px),
+            rgb(9 10 14 / calc(var(--ui-glass-alpha-regular) * 1.15))
+                calc(100% - 1px)
+        );
+        --ui-start: linear-gradient(
+            180deg,
+            #55a04c 0%,
+            #2f8a24 50%,
+            #1f5e19 100%
+        );
+        --ui-start-menu-header: linear-gradient(
+            180deg,
+            rgb(40 47 66 / var(--ui-glass-alpha-regular)) 0%,
+            rgb(100 114 148 / var(--ui-glass-alpha-regular)) 2%,
+            rgb(40 47 66 / var(--ui-glass-alpha-regular)) 8%,
+            rgb(58 68 94 / var(--ui-glass-alpha-regular)) 100%
+        );
+        --ui-start-menu-footer: linear-gradient(
+            180deg,
+            rgb(52 60 82 / var(--ui-glass-alpha-regular)) 0%,
+            rgb(32 38 54 / var(--ui-glass-alpha-regular)) 100%
+        );
+        --ui-start-menu-places: rgb(44 52 72 / var(--ui-glass-alpha-regular));
+        --ui-start-menu-places-text: #c8d5f0;
+        --ui-close: radial-gradient(
+            circle at 85% 85%,
+            #b8432a 50%,
+            #c4502f 70%,
+            #d98e7a 100%
+        );
+        --ui-control: linear-gradient(
+            180deg,
+            #4d515b 0%,
+            #3c3f47 86%,
+            #30323a 100%
+        );
+        --ui-control-hover: linear-gradient(
+            180deg,
+            #575c67 0%,
+            #464a53 86%,
+            #383b43 100%
+        );
+        --ui-control-active: linear-gradient(
+            180deg,
+            #24262b 0%,
+            #303238 8%,
+            #34363d 94%,
+            #3f424a 100%
+        );
+        --ui-control-edge: #0f1116;
+        --ui-control-hot: #e8a33a;
+        --ui-taskpane: linear-gradient(180deg, #34373f 0%, #141519 100%);
+        --ui-taskpane-section: linear-gradient(90deg, #3c404b 0%, #2b2d34 100%);
+        --ui-taskpane-body: #283044;
+        --ui-taskpane-body-special: #252a35;
+        --ui-group-title: #8fb4ff;
+        --ui-combo-button: linear-gradient(
+            180deg,
+            #4b5569 0%,
+            #3d4558 50%,
+            #343b4c 100%
+        );
+        --ui-combo-button-edge: #15181f;
+        --ui-combo-arrow: #c8d5f0;
+        --ui-check-mark: #6ccf5c;
+        --ui-progress-chunk: linear-gradient(
+            180deg,
+            #7fc47a 0%,
+            #4ea84a 20%,
+            #2f8a2b 55%,
+            #3c9838 80%,
+            #64b060 100%
+        );
+        --ui-logon-band: #121419;
+        --ui-logon-band-bottom: linear-gradient(
+            90deg,
+            #2a2540 0%,
+            #121419 100%
+        );
+        --ui-logon-face: radial-gradient(
+            circle 180px at 7% 10%,
+            #3e4a66 0%,
+            #2f3749 40%,
+            #232733 75%,
+            #1e222c 100%
+        );
+        --ui-logon-rule-top: linear-gradient(
+            90deg,
+            rgb(90 120 190 / 0) 0%,
+            #5a78be 30%,
+            #a9c0f0 50%,
+            #5a78be 70%,
+            rgb(90 120 190 / 0) 100%
+        );
+        --ui-logon-rule-bottom: linear-gradient(
+            90deg,
+            rgb(232 163 58 / 0) 0%,
+            #b37a2a 30%,
+            #e8a33a 50%,
+            #b37a2a 70%,
+            rgb(232 163 58 / 0) 100%
+        );
+        --ui-logon-divider: linear-gradient(
+            180deg,
+            rgb(169 192 240 / 0) 0%,
+            rgb(169 192 240 / 0.55) 50%,
+            rgb(169 192 240 / 0) 100%
+        );
+        --ui-logon-text: #ffffff;
+        --ui-logon-text-muted: #b9c4dc;
+        --ui-logon-tile-hover: linear-gradient(
+            90deg,
+            rgb(80 110 180 / 0.3) 0%,
+            rgb(80 110 180 / 0) 100%
+        );
+        --ui-logon-tile-selected: linear-gradient(
+            90deg,
+            #2c3d66 0%,
+            rgb(44 61 102 / 0.85) 55%,
+            rgb(44 61 102 / 0) 100%
+        );
+        --ui-logon-picture-edge: #d8deea;
+
+        --ui-series-1: #4a82e8;
+        --ui-series-2: #d96a24;
+        --ui-series-3: #14a08a;
+        --ui-series-4: #b8861c;
+        --ui-series-5: #d66a9e;
+        --ui-series-6: #40a034;
+        --ui-series-7: #8a78e6;
+        --ui-series-8: #e05a4e;
+        --ui-series-other: #7d818c;
+
+        --ui-tone-neutral: #3a63b8;
+        --ui-tone-neutral-text: #ffffff;
+        --ui-tone-go: #2a7d23;
+        --ui-tone-go-text: #ffffff;
+        --ui-tone-caution: #e0a030;
+        --ui-tone-caution-text: #000000;
+        --ui-tone-danger: #c4402a;
+        --ui-tone-danger-text: #ffffff;
+        --ui-tone-neutral-ink: #8ab4ff;
+        --ui-tone-go-ink: #7fd46f;
+        --ui-tone-caution-ink: #f0b44a;
+        --ui-tone-danger-ink: #ff8a7a;
+        --ui-tone-gloss: linear-gradient(
+            180deg,
+            rgb(255 255 255 / 0.26) 0%,
+            rgb(255 255 255 / 0.08) 30%,
+            rgb(255 255 255 / 0) 50%,
+            rgb(0 0 0 / 0.12) 100%
+        );
+        --ui-tone-gloss-hover: linear-gradient(
+            180deg,
+            rgb(255 255 255 / 0.36) 0%,
+            rgb(255 255 255 / 0.14) 35%,
+            rgb(255 255 255 / 0.04) 100%
+        );
+        --ui-tone-gloss-active: linear-gradient(
+            180deg,
+            rgb(0 0 0 / 0.35) 0%,
+            rgb(0 0 0 / 0.15) 100%
+        );
+
+        --ui-glass-alpha-regular: 0.82;
+        --ui-glass-alpha-clear: 0.55;
+        --ui-glass-tint-regular: rgb(28 33 46 / var(--ui-glass-alpha-regular));
+        --ui-glass-tint-clear: rgb(36 52 92 / var(--ui-glass-alpha-clear));
+        --ui-glass-blur-regular: blur(20px) saturate(1.4);
+        --ui-glass-blur-clear: blur(14px) saturate(1.2);
+        --ui-glass-blur-canvas: blur(6px) saturate(1.1);
+        --ui-glass-rim: inset 1px 1px 0 rgb(170 195 255 / 0.22);
+        --ui-glass-edge: rgb(0 0 0 / 0.6);
+        --ui-glass-shadow: 0 10px 28px -8px rgb(0 0 0 / 0.65);
+
+        --ui-shadow-control: 0 1px 1px rgb(0 0 0 / 0.4);
+        --ui-shadow-window:
+            0 2px 6px rgb(0 0 0 / 0.45), 0 14px 36px -10px rgb(0 0 0 / 0.7);
+        --ui-shadow-window-inactive:
+            0 1px 3px rgb(0 0 0 / 0.35), 0 8px 20px -10px rgb(0 0 0 / 0.5);
+        --ui-shadow-float: 0 18px 48px -12px rgb(0 0 0 / 0.75);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        :root {
+            --ui-dur-instant: 60ms;
+            --ui-dur-quick: 70ms;
+            --ui-dur-move: 80ms;
+            --ui-ease-spring: var(--ui-ease-out);
+            --ui-motion-travel: 0;
+        }
+    }
+
+    [data-ui-reduce-motion] {
+        --ui-dur-instant: 60ms;
+        --ui-dur-quick: 70ms;
+        --ui-dur-move: 80ms;
+        --ui-ease-spring: var(--ui-ease-out);
+        --ui-motion-travel: 0;
+    }
+
+    /* biome-ignore lint/correctness/noUnknownMediaFeatureName: prefers-reduced-transparency is Media Queries 5 */
+    @media (prefers-reduced-transparency: reduce) {
+        :root,
+        [data-ui-scheme] {
+            --ui-glass-alpha-regular: 1;
+            --ui-glass-alpha-clear: 1;
+            --ui-glass-blur-regular: none;
+            --ui-glass-blur-clear: none;
+            --ui-glass-blur-canvas: none;
+        }
+    }
+
+    @supports not (
+            (backdrop-filter: blur(1px)) or
+            (-webkit-backdrop-filter: blur(1px))
+        ) {
+        :root,
+        [data-ui-scheme] {
+            --ui-glass-alpha-regular: 1;
+            --ui-glass-alpha-clear: 1;
+            --ui-glass-blur-regular: none;
+            --ui-glass-blur-clear: none;
+            --ui-glass-blur-canvas: none;
+        }
+    }
+
+    [data-ui-reduce-transparency],
+    [data-ui-reduce-transparency] [data-ui-scheme] {
+        --ui-glass-alpha-regular: 1;
+        --ui-glass-alpha-clear: 1;
+        --ui-glass-blur-regular: none;
+        --ui-glass-blur-clear: none;
+        --ui-glass-blur-canvas: none;
+    }
+
+    @media (prefers-contrast: more) {
+        :root,
+        [data-ui-scheme] {
+            --ui-glass-alpha-regular: 1;
+            --ui-glass-alpha-clear: 1;
+            --ui-glass-blur-regular: none;
+            --ui-glass-blur-clear: none;
+            --ui-glass-blur-canvas: none;
+            --ui-glass-edge: var(--ui-text);
+            --ui-face-edge: var(--ui-text);
+            --ui-field-edge: var(--ui-text);
+            --ui-control-edge: var(--ui-text);
+            --ui-frame-edge: var(--ui-text);
+            --ui-frame-edge-inactive: var(--ui-text);
+            --ui-chrome-edge: var(--ui-text);
+            --ui-text-muted: var(--ui-text);
+        }
+    }
+
+    [data-ui-contrast="more"],
+    [data-ui-contrast="more"] [data-ui-scheme] {
+        --ui-glass-alpha-regular: 1;
+        --ui-glass-alpha-clear: 1;
+        --ui-glass-blur-regular: none;
+        --ui-glass-blur-clear: none;
+        --ui-glass-blur-canvas: none;
+        --ui-glass-edge: var(--ui-text);
+        --ui-face-edge: var(--ui-text);
+        --ui-field-edge: var(--ui-text);
+        --ui-control-edge: var(--ui-text);
+        --ui-frame-edge: var(--ui-text);
+        --ui-frame-edge-inactive: var(--ui-text);
+        --ui-chrome-edge: var(--ui-text);
+        --ui-text-muted: var(--ui-text);
+    }
+}

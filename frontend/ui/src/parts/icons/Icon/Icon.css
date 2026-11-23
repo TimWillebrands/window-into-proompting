@@ -1,0 +1,13 @@
+@layer ui {
+    .ui-icon {
+        display: inline-block;
+        flex: none;
+        vertical-align: middle;
+        object-fit: contain;
+        user-select: none;
+    }
+
+    .ui-icon[data-tier="pixel"] {
+        image-rendering: pixelated;
+    }
+}

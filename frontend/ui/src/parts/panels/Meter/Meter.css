@@ -1,0 +1,53 @@
+@layer ui {
+    .ui-meter {
+        --ui-meter-tone: var(--ui-tone-neutral);
+        position: relative;
+        display: inline-block;
+        flex: none;
+        box-sizing: border-box;
+        inline-size: 60px;
+        block-size: 8px;
+        overflow: hidden;
+        border: 1px solid var(--ui-face-edge);
+        border-radius: calc(var(--ui-radius-control) * 0.8);
+        background: var(--ui-field);
+        box-shadow: inset 1px 1px 1px
+            color-mix(in oklab, var(--ui-face-edge) 45%, transparent);
+        vertical-align: middle;
+    }
+
+    .ui-meter[data-tone="go"],
+    .ui-meter[data-diverging][data-sign="positive"] {
+        --ui-meter-tone: var(--ui-tone-go);
+    }
+
+    .ui-meter[data-tone="caution"] {
+        --ui-meter-tone: var(--ui-tone-caution);
+    }
+
+    .ui-meter[data-tone="danger"],
+    .ui-meter[data-diverging][data-sign="negative"] {
+        --ui-meter-tone: var(--ui-tone-danger);
+    }
+
+    .ui-meter-fill {
+        position: absolute;
+        inset-block: 0;
+        inset-inline-start: calc(var(--ui-meter-start) * 100%);
+        inline-size: calc((var(--ui-meter-end) - var(--ui-meter-start)) * 100%);
+        background: linear-gradient(
+            180deg,
+            oklch(from var(--ui-meter-tone) calc(l + 0.18) c h) 0%,
+            var(--ui-meter-tone) 100%
+        );
+    }
+
+    .ui-meter[data-diverging]::after {
+        content: "";
+        position: absolute;
+        inset-block: 0;
+        inset-inline-start: calc(50% - 0.5px);
+        inline-size: 1px;
+        background: var(--ui-text-muted);
+    }
+}

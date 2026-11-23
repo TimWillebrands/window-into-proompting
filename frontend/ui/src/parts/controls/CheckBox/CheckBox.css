@@ -1,0 +1,115 @@
+@layer ui {
+    .ui-checkbox,
+    .ui-radio {
+        --ui-check-edge: var(--ui-control-edge);
+        --ui-check-field: linear-gradient(
+            135deg,
+            color-mix(in oklab, var(--ui-face-edge) 35%, var(--ui-field)) 0%,
+            var(--ui-field) 85%
+        );
+        --ui-check-hot: var(--ui-control-hot);
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--ui-space-3);
+        min-height: 20px;
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+        cursor: default;
+        user-select: none;
+    }
+
+    .ui-checkbox-input,
+    .ui-radio-input {
+        position: absolute;
+        inset-block-start: 50%;
+        inset-inline-start: 0;
+        width: 13px;
+        height: 13px;
+        margin: 0;
+        opacity: 0;
+        translate: 0 -50%;
+    }
+
+    .ui-checkbox-box,
+    .ui-radio-dot {
+        position: relative;
+        flex: none;
+        box-sizing: border-box;
+        width: 13px;
+        height: 13px;
+        border: 1px solid var(--ui-check-edge);
+        background: var(--ui-check-field);
+        transition: box-shadow var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-checkbox-box {
+        border-radius: min(2px, var(--ui-radius-control));
+    }
+
+    .ui-checkbox-box::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--ui-check-mark);
+        opacity: 0;
+        mask:
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 11 11'%3E%3Cpath d='M2 4.5 4.3 6.8 9 2.1v2.3L4.3 9.1 2 6.8z'/%3E%3C/svg%3E")
+            center / 11px 11px no-repeat;
+    }
+
+    .ui-checkbox-input:checked + .ui-checkbox-box::after {
+        opacity: 1;
+    }
+
+    .ui-checkbox-input:indeterminate + .ui-checkbox-box::after {
+        inset: 2px;
+        border-radius: 1px;
+        mask: none;
+        opacity: 1;
+    }
+
+    :where(.ui-checkbox, .ui-radio):not([data-disabled]):hover
+        :is(.ui-checkbox-box, .ui-radio-dot),
+    :is(.ui-checkbox-input, .ui-radio-input)[data-ui-preview~="hover"]
+        + :is(.ui-checkbox-box, .ui-radio-dot) {
+        box-shadow:
+            inset -1px -1px 0 0 var(--ui-check-hot),
+            inset 1px 1px 0 0 oklch(from var(--ui-check-hot) calc(l + 0.12) c h);
+    }
+
+    :is(.ui-checkbox-input, .ui-radio-input):enabled:active
+        + :is(.ui-checkbox-box, .ui-radio-dot),
+    :is(.ui-checkbox-input, .ui-radio-input)[data-ui-preview~="active"]
+        + :is(.ui-checkbox-box, .ui-radio-dot) {
+        background: color-mix(
+            in oklab,
+            var(--ui-face-edge) 45%,
+            var(--ui-field)
+        );
+        box-shadow: none;
+    }
+
+    :is(.ui-checkbox-input, .ui-radio-input):focus-visible
+        + :is(.ui-checkbox-box, .ui-radio-dot),
+    :is(.ui-checkbox-input, .ui-radio-input)[data-ui-preview~="focus"]
+        + :is(.ui-checkbox-box, .ui-radio-dot) {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: 1px;
+    }
+
+    :is(.ui-checkbox-input, .ui-radio-input)[aria-invalid="true"]
+        + :is(.ui-checkbox-box, .ui-radio-dot) {
+        --ui-check-edge: var(--ui-tone-danger);
+        box-shadow: 0 0 0 1px var(--ui-tone-danger);
+    }
+
+    :is(.ui-checkbox, .ui-radio)[data-disabled] {
+        --ui-check-edge: var(--ui-face-edge);
+        --ui-check-field: var(--ui-field);
+        --ui-check-mark: var(--ui-text-disabled);
+        color: var(--ui-text-disabled);
+    }
+}

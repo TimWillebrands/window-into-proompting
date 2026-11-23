@@ -9,6 +9,10 @@ const config: StorybookConfig = {
         options: {},
     },
     addons: ['@storybook/addon-mcp'],
+    refs: (_config, { configType }) =>
+        configType === 'DEVELOPMENT'
+            ? { ui: { title: 'Partytown UI', url: 'http://localhost:6006' } }
+            : {},
     typescript: {
         reactDocgen: 'react-docgen',
     },

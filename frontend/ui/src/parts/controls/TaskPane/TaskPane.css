@@ -1,0 +1,226 @@
+@layer ui {
+    .ui-taskpane {
+        --ui-radius-here: var(--ui-radius-pane);
+        --ui-inset: var(--ui-space-5);
+        display: flex;
+        flex-direction: column;
+        gap: var(--ui-space-6);
+        box-sizing: border-box;
+        min-width: 0;
+        padding: var(--ui-inset);
+        overflow: auto;
+        background: var(--ui-taskpane);
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-taskpane-section {
+        position: relative;
+        flex: none;
+    }
+
+    .ui-taskpane-heading {
+        display: flex;
+        align-items: center;
+        min-height: 25px;
+        margin: 0;
+        border-radius: var(--ui-radius-inner) var(--ui-radius-inner) 0 0;
+        background: var(--ui-taskpane-section);
+        font: inherit;
+        font-weight: 700;
+    }
+
+    .ui-taskpane-section[data-special] .ui-taskpane-heading {
+        background: linear-gradient(
+            90deg,
+            oklch(from var(--ui-tone-neutral) calc(l - 0.06) c h) 0%,
+            oklch(from var(--ui-tone-neutral) calc(l + 0.04) c h) 100%
+        );
+    }
+
+    .ui-taskpane-section-icon {
+        display: inline-flex;
+        flex: none;
+        margin-block: calc(var(--ui-space-4) * -1) 0;
+        margin-inline: var(--ui-space-2) calc(var(--ui-space-2) * -1);
+        align-self: flex-end;
+    }
+
+    .ui-taskpane-title,
+    .ui-taskpane-title-text {
+        flex: 1;
+        min-width: 0;
+        overflow-wrap: break-word;
+    }
+
+    .ui-taskpane-toggle > .ui-taskpane-title,
+    .ui-taskpane-title-text {
+        min-width: auto;
+    }
+
+    .ui-taskpane-aside {
+        flex: 0 1 auto;
+        min-width: 0;
+        color: var(--ui-text);
+        text-align: end;
+        font-weight: 400;
+        overflow-wrap: break-word;
+    }
+
+    .ui-taskpane-section[data-special] .ui-taskpane-aside {
+        color: var(--ui-text-on-chrome);
+    }
+
+    .ui-taskpane-toggle,
+    .ui-taskpane-heading > .ui-taskpane-title {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        gap: var(--ui-space-4);
+        min-width: 0;
+        min-height: 25px;
+        margin: 0;
+        padding: var(--ui-space-1) var(--ui-space-2) var(--ui-space-1)
+            var(--ui-space-5);
+        border: 0;
+        border-radius: inherit;
+        background: transparent;
+        color: var(--ui-link);
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+    }
+
+    .ui-taskpane-section[data-special]
+        :is(.ui-taskpane-toggle, .ui-taskpane-title) {
+        color: var(--ui-text-on-chrome);
+    }
+
+    .ui-taskpane-toggle:focus-visible {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: -2px;
+    }
+
+    .ui-taskpane-toggle:is(:hover, [data-ui-preview~="hover"]) {
+        color: var(--ui-link-hover);
+    }
+
+    .ui-taskpane-section[data-special] .ui-taskpane-toggle:hover {
+        color: var(--ui-text-on-chrome);
+        text-shadow: 0 0 6px
+            color-mix(in oklab, var(--ui-text-on-chrome) 60%, transparent);
+    }
+
+    .ui-taskpane-chevron {
+        position: relative;
+        flex: none;
+        width: 17px;
+        height: 17px;
+        border: 1px solid
+            color-mix(in oklab, var(--ui-tone-neutral) 35%, var(--ui-content));
+        border-radius: 50%;
+        background: linear-gradient(
+            180deg,
+            var(--ui-content) 0%,
+            color-mix(in oklab, var(--ui-tone-neutral) 15%, var(--ui-content))
+                100%
+        );
+        box-shadow: var(--ui-shadow-control);
+    }
+
+    .ui-taskpane-chevron::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--ui-link);
+        mask:
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='8' viewBox='0 0 7 8'%3E%3Cpath d='M3.5 0 7 3.5 5.9 4.5 3.5 2.1 1.1 4.5 0 3.5zm0 3.5L7 7 5.9 8 3.5 5.6 1.1 8 0 7z'/%3E%3C/svg%3E")
+            center / 7px 8px no-repeat;
+        rotate: 180deg;
+    }
+
+    .ui-taskpane-section[data-open] .ui-taskpane-chevron::after {
+        rotate: 0deg;
+    }
+
+    .ui-taskpane-toggle:hover .ui-taskpane-chevron {
+        box-shadow:
+            0 0 0 1px var(--ui-control-hot),
+            var(--ui-shadow-control);
+    }
+
+    .ui-taskpane-body {
+        display: grid;
+        gap: var(--ui-space-3);
+        padding: var(--ui-space-5);
+        border: 1px solid var(--ui-content);
+        border-block-start: 0;
+        background: var(--ui-taskpane-body);
+    }
+
+    .ui-taskpane-section[data-special] .ui-taskpane-body {
+        background: var(--ui-taskpane-body-special);
+    }
+
+    .ui-taskpane-body[hidden] {
+        display: none;
+    }
+
+    .ui-taskpane-body p {
+        margin: 0;
+    }
+
+    .ui-taskpane-link {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--ui-space-3);
+        margin: 0;
+        padding: var(--ui-space-1) 0;
+        border: 0;
+        background: transparent;
+        color: var(--ui-link);
+        font: inherit;
+        text-align: start;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .ui-taskpane-link:is(:hover, [data-ui-preview~="hover"]) {
+        color: var(--ui-link-hover);
+    }
+
+    .ui-taskpane-link:is(:hover, [data-ui-preview~="hover"])
+        .ui-taskpane-link-text {
+        text-decoration: underline;
+    }
+
+    .ui-taskpane-link:focus-visible,
+    .ui-taskpane-link[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: 1px;
+        border-radius: var(--ui-radius-control);
+    }
+
+    .ui-taskpane-link[aria-current]:not([aria-current="false"]) {
+        color: var(--ui-text);
+        font-weight: 700;
+        cursor: default;
+    }
+
+    .ui-taskpane-link[aria-current]:not([aria-current="false"])
+        .ui-taskpane-link-text {
+        text-decoration: none;
+    }
+
+    .ui-taskpane-link:disabled {
+        color: var(--ui-text-disabled);
+        cursor: default;
+    }
+
+    .ui-taskpane-link-icon {
+        display: inline-flex;
+        flex: none;
+    }
+}

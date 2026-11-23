@@ -1,0 +1,6 @@
+@layer ui {
+    .ui-chatlog {
+        display: flex;
+        flex-direction: column;
+    }
+}

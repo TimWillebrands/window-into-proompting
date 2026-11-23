@@ -1,0 +1,1541 @@
+{
+    "sizes": [16, 32, 48],
+    "icons": [
+        {
+            "name": "add",
+            "tier": "pixel",
+            "source": "➕",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "auto",
+            "tier": "pixel",
+            "source": "🤖",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "back",
+            "tier": "pixel",
+            "source": "⬅️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "bell",
+            "tier": "pixel",
+            "source": "🔔",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "board",
+            "tier": "real",
+            "source": "frontend/public/img/icons/board.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "pixel"
+            },
+            "emoji": "📌",
+            "scaled": [16]
+        },
+        {
+            "name": "books",
+            "tier": "pixel",
+            "source": "📚",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "calculator",
+            "tier": "pixel",
+            "source": "🧮",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "calendar",
+            "tier": "real",
+            "source": "frontend/public/img/icons/calendar.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "📅",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "camera",
+            "tier": "pixel",
+            "source": "📷",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "cancel",
+            "tier": "pixel",
+            "source": "🚫",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "cdu",
+            "tier": "pixel",
+            "source": "🜂",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "chair",
+            "tier": "pixel",
+            "source": "🪑",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "chat",
+            "tier": "pixel",
+            "source": "💬",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "chat-rooms",
+            "tier": "real",
+            "source": "frontend/public/img/icons/chat-rooms.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "💬",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "check",
+            "tier": "pixel",
+            "source": "✔️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "city",
+            "tier": "pixel",
+            "source": "🏙️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "claude",
+            "tier": "pixel",
+            "source": "✳️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "clipboard",
+            "tier": "pixel",
+            "source": "📋",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "clock",
+            "tier": "pixel",
+            "source": "🕒",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "close",
+            "tier": "pixel",
+            "source": "✖️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "cocktail",
+            "tier": "pixel",
+            "source": "🍸",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "coffee",
+            "tier": "pixel",
+            "source": "☕",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "coin",
+            "tier": "pixel",
+            "source": "🪙",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "company",
+            "tier": "pixel",
+            "source": "🏦",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "compass",
+            "tier": "pixel",
+            "source": "🧭",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "computer",
+            "tier": "pixel",
+            "source": "🖥️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "control-panel",
+            "tier": "real",
+            "source": "frontend/public/img/icons/control-panel.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "⚙️",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "cookie",
+            "tier": "pixel",
+            "source": "🍪",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "dance",
+            "tier": "pixel",
+            "source": "💃",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "delete",
+            "tier": "pixel",
+            "source": "🗑️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "diary",
+            "tier": "real",
+            "source": "frontend/public/img/icons/diary.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "📓",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "dining",
+            "tier": "pixel",
+            "source": "🍽️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "disc",
+            "tier": "pixel",
+            "source": "💿",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "document",
+            "tier": "pixel",
+            "source": "📄",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "door",
+            "tier": "pixel",
+            "source": "🚪",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "down",
+            "tier": "pixel",
+            "source": "⬇️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "edit",
+            "tier": "pixel",
+            "source": "✏️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "education",
+            "tier": "pixel",
+            "source": "🎓",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "emoticon",
+            "tier": "pixel",
+            "source": "🙂",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "error",
+            "tier": "pixel",
+            "source": "❌",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "fast-forward",
+            "tier": "pixel",
+            "source": "⏩",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "film",
+            "tier": "pixel",
+            "source": "🎬",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "fire",
+            "tier": "pixel",
+            "source": "🔥",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "folder",
+            "tier": "pixel",
+            "source": "📁",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "folder-open",
+            "tier": "pixel",
+            "source": "📂",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "forward",
+            "tier": "pixel",
+            "source": "➡️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "galaxy",
+            "tier": "pixel",
+            "source": "🌌",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "games",
+            "tier": "pixel",
+            "source": "🎮",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "gift",
+            "tier": "pixel",
+            "source": "🎁",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "hand",
+            "tier": "pixel",
+            "source": "✋",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "handshake",
+            "tier": "pixel",
+            "source": "🤝",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "hat",
+            "tier": "pixel",
+            "source": "🎩",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "headphones",
+            "tier": "pixel",
+            "source": "🎧",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "heart",
+            "tier": "pixel",
+            "source": "❤️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "hearts",
+            "tier": "pixel",
+            "source": "💞",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "help",
+            "tier": "pixel",
+            "source": "❓",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "home",
+            "tier": "pixel",
+            "source": "🏠",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "hourglass",
+            "tier": "pixel",
+            "source": "⏳",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "house",
+            "tier": "pixel",
+            "source": "🏡",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "hug",
+            "tier": "pixel",
+            "source": "🤗",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "info",
+            "tier": "pixel",
+            "source": "ℹ️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "internet",
+            "tier": "pixel",
+            "source": "🌐",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "jobs",
+            "tier": "real",
+            "source": "frontend/public/img/icons/jobs.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "💼",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "joystick",
+            "tier": "pixel",
+            "source": "🕹️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "key",
+            "tier": "pixel",
+            "source": "🔑",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "laptop",
+            "tier": "pixel",
+            "source": "💻",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "lean",
+            "tier": "pixel",
+            "source": "🫱",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "lie-down",
+            "tier": "pixel",
+            "source": "🛌",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "life",
+            "tier": "pixel",
+            "source": "🌱",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "link",
+            "tier": "pixel",
+            "source": "🔗",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "local-server",
+            "tier": "pixel",
+            "source": "🦙",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "locate",
+            "tier": "pixel",
+            "source": "🎯",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "location",
+            "tier": "pixel",
+            "source": "📍",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "locked",
+            "tier": "pixel",
+            "source": "🔒",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "mail",
+            "tier": "pixel",
+            "source": "✉️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "meditate",
+            "tier": "pixel",
+            "source": "🧘",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "megaphone",
+            "tier": "pixel",
+            "source": "📣",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "memory-graph",
+            "tier": "real",
+            "source": "frontend/public/img/icons/memory-graph.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "🧠",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "messenger",
+            "tier": "real",
+            "source": "frontend/public/img/icons/messenger.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "🦋",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "microphone",
+            "tier": "pixel",
+            "source": "🎤",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "models",
+            "tier": "pixel",
+            "source": "🤖",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "money",
+            "tier": "pixel",
+            "source": "💲",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "moon",
+            "tier": "pixel",
+            "source": "🌙",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "mountain",
+            "tier": "pixel",
+            "source": "🏔️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "music",
+            "tier": "pixel",
+            "source": "🎵",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "muted",
+            "tier": "pixel",
+            "source": "🔇",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "new",
+            "tier": "pixel",
+            "source": "🆕",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "notepad",
+            "tier": "pixel",
+            "source": "📝",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "office",
+            "tier": "pixel",
+            "source": "🏢",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "palette",
+            "tier": "pixel",
+            "source": "🎨",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "pause",
+            "tier": "pixel",
+            "source": "⏸️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "personas",
+            "tier": "real",
+            "source": "frontend/public/img/icons/personas.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "👤",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "phone",
+            "tier": "pixel",
+            "source": "📱",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "picture",
+            "tier": "pixel",
+            "source": "🖼️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "pin",
+            "tier": "pixel",
+            "source": "📌",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "places",
+            "tier": "real",
+            "source": "frontend/public/img/icons/places.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "🏘️",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "planet",
+            "tier": "pixel",
+            "source": "🪐",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "play",
+            "tier": "pixel",
+            "source": "▶️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "power",
+            "tier": "pixel",
+            "source": "⏻",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "print",
+            "tier": "pixel",
+            "source": "🖨️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "receipt",
+            "tier": "pixel",
+            "source": "🧾",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "reception",
+            "tier": "pixel",
+            "source": "🛎️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "redo",
+            "tier": "pixel",
+            "source": "↪️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "refresh",
+            "tier": "pixel",
+            "source": "🔄",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "relations",
+            "tier": "pixel",
+            "source": "💞",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "ruin",
+            "tier": "pixel",
+            "source": "🏚️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "run",
+            "tier": "pixel",
+            "source": "🏃",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "save",
+            "tier": "pixel",
+            "source": "💾",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "scales",
+            "tier": "pixel",
+            "source": "⚖️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "science",
+            "tier": "pixel",
+            "source": "⚛️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "scissors",
+            "tier": "pixel",
+            "source": "✂️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "search",
+            "tier": "pixel",
+            "source": "🔍",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "settings",
+            "tier": "pixel",
+            "source": "⚙️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "shield",
+            "tier": "pixel",
+            "source": "🛡️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "shirt",
+            "tier": "pixel",
+            "source": "👕",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "shoes",
+            "tier": "pixel",
+            "source": "👟",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "shopping",
+            "tier": "pixel",
+            "source": "🛍️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "skyline",
+            "tier": "pixel",
+            "source": "🌆",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "sleep",
+            "tier": "pixel",
+            "source": "💤",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "sofa",
+            "tier": "pixel",
+            "source": "🛋️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "solitaire",
+            "tier": "pixel",
+            "source": "🃏",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "sparkle",
+            "tier": "pixel",
+            "source": "✨",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "stance-floor",
+            "tier": "real",
+            "source": "frontend/public/img/icons/stance-floor.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "🧭",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "standing",
+            "tier": "pixel",
+            "source": "🧍",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "star",
+            "tier": "pixel",
+            "source": "⭐",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "start",
+            "tier": "pixel",
+            "source": "🪟",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "stop",
+            "tier": "pixel",
+            "source": "⏹️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "sun",
+            "tier": "pixel",
+            "source": "☀️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "swim",
+            "tier": "pixel",
+            "source": "🏊",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "theatre",
+            "tier": "pixel",
+            "source": "🎭",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "think",
+            "tier": "pixel",
+            "source": "🤔",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "tie",
+            "tier": "pixel",
+            "source": "👔",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "tools",
+            "tier": "pixel",
+            "source": "🛠️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "tree",
+            "tier": "pixel",
+            "source": "🌳",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "trousers",
+            "tier": "pixel",
+            "source": "👖",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "undo",
+            "tier": "pixel",
+            "source": "↩️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "unknown",
+            "tier": "pixel",
+            "source": "❔",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "unlocked",
+            "tier": "pixel",
+            "source": "🔓",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "up",
+            "tier": "pixel",
+            "source": "⬆️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "user",
+            "tier": "pixel",
+            "source": "👤",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "users",
+            "tier": "pixel",
+            "source": "👥",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "vr-headset",
+            "tier": "pixel",
+            "source": "🥽",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "walk",
+            "tier": "pixel",
+            "source": "🚶",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "wardrobe",
+            "tier": "real",
+            "source": "frontend/public/img/icons/wardrobe.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "👗",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "warning",
+            "tier": "pixel",
+            "source": "⚠️",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "watching",
+            "tier": "pixel",
+            "source": "👀",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "wave",
+            "tier": "pixel",
+            "source": "👋",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "whisper",
+            "tier": "pixel",
+            "source": "🤫",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "world",
+            "tier": "real",
+            "source": "frontend/public/img/icons/world.ico",
+            "sizes": {
+                "16": "real",
+                "32": "real",
+                "48": "real"
+            },
+            "emoji": "🌍",
+            "scaled": [16, 32]
+        },
+        {
+            "name": "zoom-in",
+            "tier": "pixel",
+            "source": "🔍",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        },
+        {
+            "name": "zoom-out",
+            "tier": "pixel",
+            "source": "🔍",
+            "sizes": {
+                "16": "pixel",
+                "32": "pixel",
+                "48": "pixel"
+            }
+        }
+    ]
+}
