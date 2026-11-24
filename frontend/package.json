@@ -63,7 +63,6 @@
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
         "react-force-graph-2d": "^1.29.1",
-        "react-rnd": "^10.5.3",
         "srvx": "^1.0.6",
         "streaming-markdown": "^0.2.15",
         "tailwindcss": "^4.1.18",

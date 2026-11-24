@@ -3,6 +3,7 @@ import {
     Dialog,
     FieldRow,
     Icon,
+    Stack,
     Text,
     TextArea,
     TextBox,
@@ -78,11 +79,7 @@ export default function CreateRoomDialog({
                 </>
             }
         >
-            <form
-                id={formId}
-                onSubmit={handleSubmit}
-                className="flex flex-col gap-3"
-            >
+            <Stack as="form" id={formId} onSubmit={handleSubmit} gap="lg">
                 <FieldRow label="Title" layout="stacked">
                     <TextBox
                         ref={nameRef}
@@ -128,7 +125,7 @@ export default function CreateRoomDialog({
                         {errorMessage}
                     </Text>
                 )}
-            </form>
+            </Stack>
         </Dialog>
     );
 }

@@ -4,9 +4,12 @@ import {
     Hyperlink,
     Icon,
     PageHeader,
+    Pane,
+    Stack,
     Tabs,
+    WindowLayout,
 } from '@partytown/ui';
-import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGetWorldsPartyIdBoardSuspense } from '#api/party-zone';
 import { useDesktopStore } from '#lib/desktop-context';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
@@ -41,10 +44,8 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
     const { data } = useGetWorldsPartyIdBoardSuspense(WORLD_ID);
     const { post, reply, respect } = useBoardActions(playerId, playerName);
     const now = useNow();
-    const rootRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const composerRef = useRef<HTMLTextAreaElement>(null);
-    const width = useWidth(rootRef);
     const [tab, setTab] = useState<Tab>('timeline');
     const [limit, setLimit] = useState(PAGE);
 
@@ -127,15 +128,18 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
         feed.findIndex((t) => t.id === focusId) + 1,
     );
 
-    const narrow = width <= 520;
     const feedView = (
-        <div
+        <Pane
             ref={scrollRef}
-            className="relative h-full overflow-auto"
+            className="h-full"
             onScroll={(e) => setAtTop(e.currentTarget.scrollTop < 40)}
         >
             {fresh > 0 && !atTop && (
-                <div className="sticky top-2 z-10 flex h-0 justify-center">
+                <Stack
+                    direction="row"
+                    justify="center"
+                    className="sticky top-2 z-10 h-0"
+                >
                     <CommandButton
                         size="small"
                         icon={<Icon name="up" />}
@@ -143,9 +147,9 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
                     >
                         {fresh} new {fresh === 1 ? 'post' : 'posts'}
                     </CommandButton>
-                </div>
+                </Stack>
             )}
-            <div className="mx-auto flex max-w-[620px] flex-col gap-3 p-2">
+            <Stack gap="lg" pad="md" className="mx-auto max-w-[620px]">
                 <GroupBox title="Wie Wat Waar?">
                     <Composer
                         playerId={playerId}
@@ -193,16 +197,16 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
                         Show older posts
                     </Hyperlink>
                 )}
-            </div>
-        </div>
+            </Stack>
+        </Pane>
     );
 
     return (
-        <div ref={rootRef} className="flex h-full min-h-0 flex-col">
+        <WindowLayout scroll="none">
             <PageHeader
                 icon={<Icon name="board" size={32} />}
                 title="Partyboard"
-                description={narrow ? undefined : 'what the World is up to'}
+                description="what the World is up to"
                 aside={
                     playerId ? (
                         <>
@@ -243,20 +247,6 @@ export default function BoardApp({ threadId, compose }: BoardAppProps) {
                     },
                 ]}
             />
-        </div>
+        </WindowLayout>
     );
-}
-
-function useWidth(ref: RefObject<HTMLElement | null>) {
-    const [width, setWidth] = useState(Number.POSITIVE_INFINITY);
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-        const ro = new ResizeObserver(([entry]) =>
-            setWidth(entry.contentRect.width),
-        );
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, [ref]);
-    return width;
 }

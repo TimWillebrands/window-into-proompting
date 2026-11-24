@@ -6,7 +6,7 @@ import {
 } from '@partytown/ui';
 import { analyticsAvailable, askConsent } from '../../lib/analytics';
 import { redirectToSignIn, signOut } from '../../lib/clerk-session';
-import { DESKTOP_ICONS, WINDOW_PRESETS } from '../../lib/window-presets';
+import { PROGRAMS } from '../../lib/window-presets';
 import {
     useCanOpen,
     usePlayerName,
@@ -33,17 +33,13 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
         onClose();
     };
 
-    const items = DESKTOP_ICONS.filter((i) => canOpen(i.access)).map((icon) => {
-        const preset = WINDOW_PRESETS.find((p) => p.id === icon.windowId);
-        return {
-            ...icon,
-            title: preset?.title ?? icon.label,
-        };
-    });
+    const items = PROGRAMS.filter(
+        (program) =>
+            (program.shortcut || program.startMenu) && canOpen(program.access),
+    );
 
     return (
         <StartMenuPart
-            className="absolute bottom-[30px] left-0 z-[100000]"
             user={playerName ?? 'Visitor'}
             picture={<Icon name="user" size={32} />}
             onClose={() => closeThen()}
@@ -53,7 +49,7 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
                     icon={<AppIcon icon={item.icon} size={32} />}
                     label={item.title}
                     description="Open"
-                    onClick={() => closeThen(() => onLaunch(item.windowId))}
+                    onClick={() => closeThen(() => onLaunch(item.id))}
                 />
             ))}
             places={

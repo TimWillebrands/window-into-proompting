@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { fn } from 'storybook/test';
 import {
     getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey,
     getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey,
@@ -12,7 +11,7 @@ import {
 } from '#lib/realtime-store';
 import { DriverKind } from '../../api/model';
 import { seeded } from '../../components/chat/story-seed';
-import WindowFrame from '../../components/desktop/WindowFrame';
+import StoryWindow from '../../components/desktop/StoryWindow';
 import type { RealtimeChatMessage } from '../../lib/realtime-store';
 import { WORLD_ID } from '../../lib/world';
 import { ChatView } from './GroupChatWindow';
@@ -92,24 +91,22 @@ const meta = {
         ]);
     },
     decorators: [
-        (Story) => (
-            <div className="h-[600px] w-[920px] p-6">
+        (Story, { parameters }) => (
+            <div
+                className={
+                    parameters.narrow
+                        ? 'h-[600px] w-[500px] p-6'
+                        : 'h-[600px] w-[920px] p-6'
+                }
+            >
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
-                <WindowFrame
+                <StoryWindow
                     id="room"
                     title="D'Accord — Standup"
                     icon="/img/icons/chat-rooms.ico"
-                    width={880}
-                    height={560}
-                    zIndex={1}
-                    onMinimize={fn()}
-                    onMaximize={fn()}
-                    onClose={fn()}
                 >
-                    <div className="h-full p-2">
-                        <Story />
-                    </div>
-                </WindowFrame>
+                    <Story />
+                </StoryWindow>
             </div>
         ),
         seeded([
@@ -135,3 +132,5 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const Narrow: Story = { parameters: { narrow: true } };

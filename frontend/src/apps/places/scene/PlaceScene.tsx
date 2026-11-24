@@ -1,4 +1,10 @@
-import { HudPanel, Icon, Toolbar, ToolbarButton } from '@partytown/ui';
+import {
+    HudPanel,
+    Icon,
+    Toolbar,
+    ToolbarButton,
+    useWindowMinimised,
+} from '@partytown/ui';
 import { MapControls, OrthographicCamera } from '@react-three/drei';
 import {
     Canvas,
@@ -101,6 +107,7 @@ export default function PlaceScene(props: Props) {
     const [recentre, setRecentre] = useState(0);
     const hour = useHour(props.hour);
     const dpr = usePixelDpr();
+    const minimised = useWindowMinimised();
     const sky = skyAt(hour, !!scene.def.outdoor, scene.def.light);
     useEffect(() => {
         const el = wrap.current;
@@ -137,6 +144,7 @@ export default function PlaceScene(props: Props) {
                 <Canvas
                     shadows="basic"
                     flat
+                    frameloop={minimised ? 'never' : 'always'}
                     dpr={dpr}
                     gl={PLACE_GL}
                     style={{

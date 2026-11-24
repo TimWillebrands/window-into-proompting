@@ -4,6 +4,7 @@ import {
     ListView,
     RadioButton,
     RadioGroup,
+    Stack,
     TextBox,
 } from '@partytown/ui';
 import { Suspense, useState } from 'react';
@@ -44,7 +45,6 @@ export function PeoplePage() {
             <Page>
                 <ListView
                     label="Everyone"
-                    className="flex-none"
                     activateOn="single"
                     onActivate={(id) => go({ page: 'person', id })}
                     columns={[
@@ -234,8 +234,9 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
 
     return (
         <Card title="Work">
-            <form
-                className="grid gap-2"
+            <Stack
+                as="form"
+                gap="md"
                 onSubmit={(e) => {
                     e.preventDefault();
                     save();
@@ -369,7 +370,7 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
                         setUp.error
                     }
                 />
-            </form>
+            </Stack>
         </Card>
     );
 }

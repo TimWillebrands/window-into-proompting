@@ -3,6 +3,7 @@ import {
     GroupBox,
     ShareBar,
     Slider,
+    Stack,
     StatusText,
     Swatch,
     Text,
@@ -103,33 +104,29 @@ export default function ModelSplit({
                 personas a model gets; for Decisions, how many of the calls.
             </Text>
 
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(90px,180px)_34px] items-center gap-x-3 gap-y-1.5">
+            <Stack gap="sm">
                 {pool.map((p) => {
                     const id = p.id ?? '';
                     const state = stateOf(p.id);
                     const share = draft[id] ?? shareOf(p);
                     const name = `${shortModel(p)} share`;
                     return (
-                        <div key={id} className="contents">
-                            <span className="flex min-w-0 items-center gap-1.5">
+                        <Stack key={id} direction="row" align="center" gap="lg">
+                            <Stack direction="row" align="center" gap="sm" grow>
                                 <Swatch colour={seriesColor(providers, p.id)} />
-                                <strong
-                                    className="truncate"
+                                <Stack.Item
+                                    as="strong"
+                                    truncate
                                     title={p.modelName ?? undefined}
                                 >
                                     {shortModel(p)}
-                                </strong>
-                                <Text
-                                    as="span"
-                                    tone="muted"
-                                    className="flex-none"
-                                >
+                                </Stack.Item>
+                                <Text as="span" tone="muted">
                                     {providerType(p.type).short}
                                 </Text>
                                 {state !== 0 && (
                                     <StatusText
                                         as="span"
-                                        className="flex-none"
                                         tone={
                                             PROVIDER_STATES[state]?.tone ??
                                             'caution'
@@ -138,7 +135,7 @@ export default function ModelSplit({
                                         {PROVIDER_STATES[state]?.label}
                                     </StatusText>
                                 )}
-                            </span>
+                            </Stack>
                             {shares(p) ? (
                                 <>
                                     <Slider
@@ -153,15 +150,17 @@ export default function ModelSplit({
                                                 [id]: Number(e.target.value),
                                             }))
                                         }
-                                        className="w-full"
+                                        className="w-[180px] min-w-[90px]"
                                     />
-                                    <span className="text-end">{share}</span>
+                                    <span className="w-[34px] flex-none text-end">
+                                        {share}
+                                    </span>
                                 </>
                             ) : (
                                 <Text
                                     as="span"
                                     tone="muted"
-                                    className="col-span-2 text-end"
+                                    className="flex-none text-end"
                                 >
                                     {JOB_COMPLEXITIES.some(
                                         (tier) =>
@@ -172,13 +171,13 @@ export default function ModelSplit({
                                         : 'only when the others fail'}
                                 </Text>
                             )}
-                        </div>
+                        </Stack>
                     );
                 })}
-            </div>
+            </Stack>
 
             {(dirty || save.isError) && (
-                <div className="flex flex-wrap items-center gap-2">
+                <Stack direction="row" wrap align="center" gap="md">
                     <CommandButton
                         isDefault
                         type="button"
@@ -202,10 +201,10 @@ export default function ModelSplit({
                             Only personas whose share moved change model.
                         </Text>
                     )}
-                </div>
+                </Stack>
             )}
 
-            <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-x-3 gap-y-3">
+            <Stack gap="lg">
                 {JOB_COMPLEXITIES.map((tier) => {
                     const [first, ...later] = splitOf(drafted, tier.value);
                     const last =
@@ -218,14 +217,14 @@ export default function ModelSplit({
                     const captions =
                         !perCall && !dirty && assignments.length > 0;
                     return (
-                        <div key={tier.value} className="contents">
-                            <div className="flex flex-col">
+                        <Stack key={tier.value} direction="row" gap="lg">
+                            <Stack className="w-32 flex-none">
                                 <strong>{tier.label}</strong>
                                 <Text as="p" tone="muted">
                                     {tier.hint}
                                 </Text>
-                            </div>
-                            <div className="flex min-w-0 flex-col gap-1">
+                            </Stack>
+                            <Stack grow gap="xs">
                                 {first ? (
                                     <>
                                         <ShareBar
@@ -295,70 +294,82 @@ export default function ModelSplit({
                                     </Text>
                                 )}
                                 {first && (later.length > 0 || last) && (
-                                    <Text
-                                        as="div"
-                                        tone="muted"
-                                        className="flex flex-wrap items-center gap-x-1 gap-y-0.5"
-                                    >
-                                        If those fail:
-                                        {[
-                                            ...later.flatMap((step) =>
-                                                step.parts.map((part) => (
-                                                    <span
-                                                        key={part.provider.id}
-                                                        className="inline-flex items-center gap-1"
-                                                    >
-                                                        <Swatch
-                                                            size="small"
-                                                            colour={seriesColor(
-                                                                providers,
+                                    <Text as="div" tone="muted">
+                                        <Stack
+                                            direction="row"
+                                            wrap
+                                            align="center"
+                                            gap="xs"
+                                            rowGap="xxs"
+                                        >
+                                            If those fail:
+                                            {[
+                                                ...later.flatMap((step) =>
+                                                    step.parts.map((part) => (
+                                                        <Stack
+                                                            as="span"
+                                                            inline
+                                                            direction="row"
+                                                            align="center"
+                                                            gap="xs"
+                                                            key={
+                                                                part.provider.id
+                                                            }
+                                                        >
+                                                            <Swatch
+                                                                size="small"
+                                                                colour={seriesColor(
+                                                                    providers,
+                                                                    part
+                                                                        .provider
+                                                                        .id,
+                                                                )}
+                                                            />
+                                                            {stateOf(
                                                                 part.provider
                                                                     .id,
-                                                            )}
-                                                        />
-                                                        {stateOf(
-                                                            part.provider.id,
-                                                        ) === OFFLINE ? (
-                                                            <s>
-                                                                {shortModel(
+                                                            ) === OFFLINE ? (
+                                                                <s>
+                                                                    {shortModel(
+                                                                        part.provider,
+                                                                    )}
+                                                                </s>
+                                                            ) : (
+                                                                shortModel(
                                                                     part.provider,
-                                                                )}
-                                                            </s>
-                                                        ) : (
-                                                            shortModel(
-                                                                part.provider,
-                                                            )
-                                                        )}
-                                                    </span>
-                                                )),
-                                            ),
-                                            ...(last
-                                                ? [
-                                                      <span key="last">
-                                                          {last}
-                                                      </span>,
-                                                  ]
-                                                : []),
-                                        ].flatMap((step, i) =>
-                                            i === 0
-                                                ? [step]
-                                                : [
-                                                      <span
-                                                          key={`then-${step.key}`}
-                                                          aria-hidden
-                                                      >
-                                                          →
-                                                      </span>,
-                                                      step,
-                                                  ],
-                                        )}
+                                                                )
+                                                            )}
+                                                        </Stack>
+                                                    )),
+                                                ),
+                                                ...(last
+                                                    ? [
+                                                          <span key="last">
+                                                              {last}
+                                                          </span>,
+                                                      ]
+                                                    : []),
+                                            ].flatMap((step, i) =>
+                                                i === 0
+                                                    ? [step]
+                                                    : [
+                                                          <span
+                                                              key={`then-${step.key}`}
+                                                              aria-hidden
+                                                          >
+                                                              →
+                                                          </span>,
+                                                          step,
+                                                      ],
+                                            )}
+                                        </Stack>
                                     </Text>
                                 )}
-                            </div>
-                        </div>
+                            </Stack>
+                        </Stack>
                     );
                 })}
-            </div>
+            </Stack>
 
             {nobodys && (
                 <Text as="p" tone="muted">

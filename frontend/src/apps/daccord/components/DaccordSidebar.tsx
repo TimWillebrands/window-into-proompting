@@ -1,5 +1,6 @@
 import {
     Icon,
+    Stack,
     TaskPane,
     TaskPaneLink,
     TaskPaneSection,
@@ -43,8 +44,8 @@ export default function DaccordSidebar({
     const presence = PROFILE_STUB.online ? 'online' : 'offline';
 
     return (
-        <aside className="flex h-full shrink-0">
-            <div className="flex w-[56px] shrink-0 flex-col items-center justify-between gap-2 py-2">
+        <Stack direction="row">
+            <Stack align="center" pad="md" className="w-[56px] flex-none">
                 <Toolbar
                     variant="bare"
                     labels="none"
@@ -60,17 +61,9 @@ export default function DaccordSidebar({
                         />
                     ))}
                 </Toolbar>
-                <span className="@[640px]:hidden">
-                    <Portrait
-                        alt={PROFILE_STUB.name}
-                        who={PROFILE_STUB.avatarSeed}
-                        size={32}
-                        presence={presence}
-                    />
-                </span>
-            </div>
+            </Stack>
 
-            <TaskPane className="hidden w-[240px] overflow-y-auto @[640px]:block">
+            <TaskPane className="flex-1">
                 <TaskPaneSection
                     title="Explore"
                     icon={<Icon name="internet" size={32} />}
@@ -138,22 +131,22 @@ export default function DaccordSidebar({
                 </TaskPaneSection>
 
                 <TaskPaneSection title="Signed in" collapsible={false}>
-                    <div className="flex items-center gap-2">
+                    <Stack direction="row" align="center" gap="md">
                         <Portrait
                             alt={PROFILE_STUB.name}
                             who={PROFILE_STUB.avatarSeed}
                             size={32}
                             presence={presence}
                         />
-                        <div className="min-w-0 flex-1">
+                        <Stack grow>
                             <Text as="div" strong className="truncate">
                                 {PROFILE_STUB.name}
                             </Text>
                             <Text as="div">
                                 {PROFILE_STUB.online ? 'Online' : 'Offline'}
                             </Text>
-                        </div>
-                    </div>
+                        </Stack>
+                    </Stack>
                     <Toolbar
                         variant="bare"
                         labels="none"
@@ -177,6 +170,6 @@ export default function DaccordSidebar({
                     </Toolbar>
                 </TaskPaneSection>
             </TaskPane>
-        </aside>
+        </Stack>
     );
 }

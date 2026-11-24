@@ -5,6 +5,7 @@ import {
     type ControlGridColumn,
     GroupBox,
     Icon,
+    Stack,
     StatusText,
     Swatch,
     Text,
@@ -79,7 +80,7 @@ function PinCell({
     const split = options.filter((p) => !p.reserved);
 
     return (
-        <span className="flex min-w-0 items-center gap-1">
+        <Stack as="span" direction="row" align="center" gap="xs">
             <Swatch size="small" colour={seriesColor(providers, lands?.id)} />
             <ComboBox
                 aria-label={label}
@@ -112,7 +113,7 @@ function PinCell({
                 )}
             </ComboBox>
             {away && <Icon name="warning" />}
-        </span>
+        </Stack>
     );
 }
 
@@ -170,7 +171,7 @@ export default function PersonaMatrix({
 
     return (
         <GroupBox title="Personas">
-            <div className="flex flex-wrap items-baseline gap-2">
+            <Stack direction="row" wrap align="baseline" gap="md">
                 <Text as="span" tone="muted">
                     {pinnedCount === 0
                         ? 'Everyone follows the split.'
@@ -181,13 +182,13 @@ export default function PersonaMatrix({
                         Couldn't save that change. Try again.
                     </StatusText>
                 )}
-            </div>
+            </Stack>
             <Text as="p" tone="muted">
                 Pick a model in a cell to pin that kind of work for one persona;
                 📌 marks a pin.
             </Text>
 
-            <div className="flex items-center gap-3">
+            <Stack direction="row" align="center" gap="lg">
                 <TextBox
                     type="search"
                     aria-label="Find a persona"
@@ -202,7 +203,7 @@ export default function PersonaMatrix({
                 >
                     Only pinned
                 </CheckBox>
-            </div>
+            </Stack>
 
             {shown.length === 0 && (
                 <Text as="p" tone="muted">
@@ -304,9 +305,12 @@ export default function PersonaMatrix({
                                               );
                                               return [
                                                   String(tier.value),
-                                                  <span
+                                                  <Stack
+                                                      as="span"
+                                                      direction="row"
+                                                      align="center"
+                                                      gap="xs"
                                                       key={tier.value}
-                                                      className="flex min-w-0 items-center gap-1"
                                                   >
                                                       <Swatch
                                                           size="small"
@@ -315,7 +319,7 @@ export default function PersonaMatrix({
                                                               lands?.id,
                                                           )}
                                                       />
-                                                      <span className="truncate">
+                                                      <Stack.Item truncate>
                                                           {lands
                                                               ? shortModel(
                                                                     lands,
@@ -328,8 +332,8 @@ export default function PersonaMatrix({
                                                                 : fallbackOf(
                                                                       tier.value,
                                                                   )}
-                                                      </span>
-                                                  </span>,
+                                                      </Stack.Item>
+                                                  </Stack>,
                                               ];
                                           }),
                                       ),

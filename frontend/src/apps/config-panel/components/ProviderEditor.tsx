@@ -5,6 +5,7 @@ import {
     FieldRow,
     RadioButton,
     RadioGroup,
+    Stack,
     TextBox,
 } from '@partytown/ui';
 import { useId, useState } from 'react';
@@ -124,7 +125,7 @@ export default function ProviderEditor({
                 </>
             }
         >
-            <div className="flex flex-col gap-2">
+            <Stack gap="md">
                 <FieldRow label="Type">
                     <ComboBox
                         value={form.type}
@@ -238,10 +239,15 @@ export default function ProviderEditor({
 
                 {!form.reserved && (
                     <FieldRow label="Handles" controlId={handlesId}>
-                        <fieldset
+                        <Stack
+                            as="fieldset"
+                            direction="row"
+                            wrap
+                            align="center"
+                            gap="lg"
+                            rowGap="xs"
                             id={handlesId}
                             aria-label="Handles"
-                            className="flex flex-wrap items-center gap-x-3 gap-y-1"
                             title="Which kinds of generation jobs this provider is trusted with — heavier jobs need a stronger model"
                         >
                             {JOB_COMPLEXITIES.filter(
@@ -260,7 +266,7 @@ export default function ProviderEditor({
                                     {c.label}
                                 </CheckBox>
                             ))}
-                        </fieldset>
+                        </Stack>
                     </FieldRow>
                 )}
 
@@ -291,7 +297,7 @@ export default function ProviderEditor({
                         />
                     </FieldRow>
                 )}
-            </div>
+            </Stack>
         </ProviderModal>
     );
 }

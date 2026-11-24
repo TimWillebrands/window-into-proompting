@@ -9,6 +9,7 @@ import {
     Icon,
     Presence,
     RichText,
+    Stack,
     StatusText,
     TaskPane,
     TaskPaneLink,
@@ -18,6 +19,7 @@ import {
     type Tone,
     Toolbar,
     ToolbarButton,
+    WindowLayout,
 } from '@partytown/ui';
 import { useHotkey } from '@tanstack/react-hotkeys';
 import { useQueryClient } from '@tanstack/react-query';
@@ -76,11 +78,11 @@ interface GroupChatWindowProps {
 export default function GroupChatWindow({ chatGroupId }: GroupChatWindowProps) {
     if (!chatGroupId) {
         return (
-            <div className="flex h-full items-center justify-center">
+            <Stack align="center" justify="center" className="h-full">
                 <Text tone="muted">
                     Open a chat group from the Chat Launcher to start messaging.
                 </Text>
-            </div>
+            </Stack>
         );
     }
 
@@ -377,8 +379,44 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
     );
 
     return (
-        <div className="flex h-full min-h-0 gap-2">
-            <div className="flex h-full min-w-0 flex-1 flex-col gap-1.5">
+        <WindowLayout
+            scroll="none"
+            detailsLabel="Participants"
+            detailsPane={
+                <ParticipantsSidebar
+                    personas={partyPersonas}
+                    participantPersonaIds={participantPersonaIds}
+                    selectedPersonaId={selectedPersonaId}
+                    activePersonaIds={activePersonaIds}
+                    personaPhases={personaPhases}
+                    livePhases={generationPhases}
+                    allMessages={uniqueMessages}
+                    declinedDecisions={declinedDecisions}
+                    raceEvaluations={raceEvaluations}
+                    hasChanges={hasParticipantChanges}
+                    isSaving={saveParticipantsMutation.isPending}
+                    saveError={
+                        saveParticipantsMutation.isError
+                            ? saveParticipantsMutation.error instanceof Error
+                                ? saveParticipantsMutation.error.message
+                                : 'Failed to save'
+                            : null
+                    }
+                    onToggleParticipant={(id) => {
+                        setParticipantPersonaIds((prev) =>
+                            prev.includes(id)
+                                ? prev.filter((pid) => pid !== id)
+                                : [...prev, id],
+                        );
+                    }}
+                    onSave={handleSaveParticipants}
+                    onReset={() =>
+                        setParticipantPersonaIds(savedParticipantPersonaIds)
+                    }
+                />
+            }
+        >
+            <Stack gap="sm" pad="md">
                 <ChatLog
                     ref={scrollRef}
                     aria-label="Room conversation"
@@ -394,7 +432,14 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                 >
                     {uniqueMessages.length === 0 &&
                     generationPhases.length === 0 ? (
-                        <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center">
+                        <Stack
+                            grow
+                            align="center"
+                            justify="center"
+                            gap="xs"
+                            pad="xl"
+                            className="text-center"
+                        >
                             <Icon name="chat" size={32} />
                             <Text as="p" strong>
                                 The room is quiet
@@ -403,7 +448,7 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                                 Type a message below to kick things off, or
                                 press Proceed to let a persona speak first.
                             </Text>
-                        </div>
+                        </Stack>
                     ) : null}
                     {uniqueMessages.map((message) => {
                         if (
@@ -497,8 +542,9 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                     </StatusText>
                 ) : null}
 
-                <form
-                    className="flex flex-col gap-1"
+                <Stack
+                    as="form"
+                    gap="xs"
                     onSubmit={async (event) => {
                         event.preventDefault();
                         await handleSubmit();
@@ -532,7 +578,7 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                                 : 'Failed to send'}
                         </Text>
                     ) : null}
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    <Stack direction="row" wrap align="center" gap="sm">
                         <FieldRow
                             label="Speak as"
                             labelWidth="auto"
@@ -585,42 +631,10 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                                 Stop
                             </CommandButton>
                         )}
-                    </div>
-                </form>
-            </div>
-
-            <ParticipantsSidebar
-                personas={partyPersonas}
-                participantPersonaIds={participantPersonaIds}
-                selectedPersonaId={selectedPersonaId}
-                activePersonaIds={activePersonaIds}
-                personaPhases={personaPhases}
-                livePhases={generationPhases}
-                allMessages={uniqueMessages}
-                declinedDecisions={declinedDecisions}
-                raceEvaluations={raceEvaluations}
-                hasChanges={hasParticipantChanges}
-                isSaving={saveParticipantsMutation.isPending}
-                saveError={
-                    saveParticipantsMutation.isError
-                        ? saveParticipantsMutation.error instanceof Error
-                            ? saveParticipantsMutation.error.message
-                            : 'Failed to save'
-                        : null
-                }
-                onToggleParticipant={(id) => {
-                    setParticipantPersonaIds((prev) =>
-                        prev.includes(id)
-                            ? prev.filter((pid) => pid !== id)
-                            : [...prev, id],
-                    );
-                }}
-                onSave={handleSaveParticipants}
-                onReset={() =>
-                    setParticipantPersonaIds(savedParticipantPersonaIds)
-                }
-            />
-        </div>
+                    </Stack>
+                </Stack>
+            </Stack>
+        </WindowLayout>
     );
 }
 
@@ -798,7 +812,7 @@ function ParticipantsSidebar({
     const thoughtCount = decidingPhases.length + thoughtLog.length;
 
     return (
-        <TaskPane className="w-[224px] shrink-0 overflow-y-auto">
+        <TaskPane className="flex-1">
             <TaskPaneSection
                 title="Participants"
                 aside={totalActive}
@@ -806,7 +820,7 @@ function ParticipantsSidebar({
                 special
                 collapsible={false}
             >
-                <div className="flex flex-col gap-0.5">
+                <Stack gap="xxs">
                     {visibleAiPersonas.map((persona) => {
                         const id = persona.id ?? '';
                         const isActive = participantSet.has(id);
@@ -855,7 +869,7 @@ function ParticipantsSidebar({
                             />
                         );
                     })}
-                </div>
+                </Stack>
 
                 {(hiddenCount > 0 || libraryOpen) &&
                     participantPersonaIds.length > 0 && (
@@ -896,7 +910,7 @@ function ParticipantsSidebar({
                     </Text>
                 )}
                 {hasChanges && (
-                    <div className="flex gap-1">
+                    <Stack direction="row" gap="xs">
                         <CommandButton
                             size="small"
                             disabled={isSaving}
@@ -915,14 +929,17 @@ function ParticipantsSidebar({
                         >
                             {isSaving ? 'Saving...' : 'Save'}
                         </CommandButton>
-                    </div>
+                    </Stack>
                 )}
             </TaskPaneSection>
 
             <TaskPaneSection
                 title={
-                    <span
-                        className="flex items-center gap-1"
+                    <Stack
+                        as="span"
+                        direction="row"
+                        align="center"
+                        gap="xs"
                         title="Why each persona chose to speak, stay silent, or got cut off"
                     >
                         Thought Log
@@ -934,13 +951,13 @@ function ParticipantsSidebar({
                                 label="A persona is deciding right now"
                             />
                         ) : null}
-                    </span>
+                    </Stack>
                 }
                 aside={thoughtCount > 0 ? thoughtCount : undefined}
                 open={thoughtsOpen}
                 onOpenChange={setThoughtsOpen}
             >
-                <div className="flex flex-col gap-1">
+                <Stack gap="xs">
                     {decidingPhases.map((phase) => {
                         const personaId = phase.personaName;
                         const persona = personas.find(
@@ -1037,7 +1054,7 @@ function ParticipantsSidebar({
                             );
                         })
                     )}
-                </div>
+                </Stack>
             </TaskPaneSection>
         </TaskPane>
     );
@@ -1237,9 +1254,11 @@ function ChatBubble({
                                             ].includes(e.event),
                                     )
                                     .map((e, i) => (
-                                        <div
+                                        <Stack
                                             key={`${e.event}-${e.at}-${i}`}
-                                            className="mt-1 flex gap-2"
+                                            direction="row"
+                                            gap="md"
+                                            className="mt-1"
                                         >
                                             <Text
                                                 tone="muted"
@@ -1264,7 +1283,7 @@ function ChatBubble({
                                                     ? '...'
                                                     : ''}
                                             </Text>
-                                        </div>
+                                        </Stack>
                                     ))}
                             </div>
                         )}
@@ -1349,10 +1368,15 @@ function StreamingIndicator({
 }) {
     if (info.phase === 'waiting') {
         return (
-            <div className="flex items-center gap-2 px-2 py-1">
+            <Stack
+                direction="row"
+                align="center"
+                gap="md"
+                className="px-2 py-1"
+            >
                 <Icon name="hourglass" />
                 <Text tone="muted">Waiting for responses...</Text>
-            </div>
+            </Stack>
         );
     }
     if (info.phase === 'deciding') {
@@ -1381,10 +1405,10 @@ function StreamingIndicator({
         );
     }
     return (
-        <div className="flex items-center gap-2 p-1">
+        <Stack direction="row" align="center" gap="md" pad="xs">
             <Icon name="hourglass" />
             <Text tone="muted">Working...</Text>
-        </div>
+        </Stack>
     );
 }
 

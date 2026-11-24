@@ -3,6 +3,7 @@ import {
     GroupBox,
     Icon,
     PropertyList,
+    Stack,
     StatusText,
     Swatch,
     Text,
@@ -101,12 +102,12 @@ export default function ProviderCard({
         <GroupBox
             icon={<Icon name={type.icon} />}
             title={
-                <span className="inline-flex items-center gap-1.5">
+                <Stack as="span" inline direction="row" align="center" gap="sm">
                     {type.label}
                     {providers && (
                         <Swatch colour={seriesColor(providers, provider.id)} />
                     )}
-                </span>
+                </Stack>
             }
         >
             <PropertyList
@@ -164,7 +165,7 @@ export default function ProviderCard({
                     {availability.reason}
                 </Text>
             )}
-            <div className="flex justify-end gap-2">
+            <Stack direction="row" justify="end" gap="md">
                 <CommandButton
                     size="small"
                     pressed={isEnabled}
@@ -202,7 +203,7 @@ export default function ProviderCard({
                 >
                     {deleteMutation.isPending ? '...' : 'Remove'}
                 </CommandButton>
-            </div>
+            </Stack>
         </GroupBox>
     );
 }

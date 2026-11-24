@@ -5,6 +5,8 @@ import {
     Icon,
     type IconName,
     PageHeader,
+    Pane,
+    Stack,
     Text,
     type Tone,
 } from '@partytown/ui';
@@ -35,9 +37,9 @@ export function PageHead({
 
 export function Page({ children }: { children: ReactNode }) {
     return (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
-            {children}
-        </div>
+        <Pane pad="lg">
+            <Stack gap="lg">{children}</Stack>
+        </Pane>
     );
 }
 
@@ -48,31 +50,27 @@ export function Card({
     title: string;
     children: ReactNode;
 }) {
-    return (
-        <GroupBox title={title} className="flex-none">
-            {children}
-        </GroupBox>
-    );
+    return <GroupBox title={title}>{children}</GroupBox>;
 }
 
 export function Stats({ children }: { children: ReactNode }) {
     return (
-        <GroupBox title="Summary" className="flex-none">
-            <dl className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
+        <GroupBox title="Summary">
+            <Stack as="dl" direction="row" wrap gap="lg">
                 {children}
-            </dl>
+            </Stack>
         </GroupBox>
     );
 }
 
 export function Stat({ label, value }: { label: string; value: ReactNode }) {
     return (
-        <div className="flex flex-col gap-0.5">
+        <Stack gap="xxs" className="min-w-[120px] flex-1">
             <dt>{label}</dt>
             <dd>
                 <Text strong>{value}</Text>
             </dd>
-        </div>
+        </Stack>
     );
 }
 
@@ -94,12 +92,16 @@ export function Fields({
     children: ReactNode;
 }) {
     return (
-        <div
-            className="flex flex-wrap items-end gap-x-2 gap-y-1.5"
+        <Stack
+            direction="row"
+            wrap
+            align="end"
+            gap="md"
+            rowGap="sm"
             hidden={hidden}
         >
             {children}
-        </div>
+        </Stack>
     );
 }
 
@@ -124,15 +126,27 @@ export function Field({
 }
 
 export function Actions({ children }: { children: ReactNode }) {
-    return <div className="flex items-center gap-1.5">{children}</div>;
+    return (
+        <Stack direction="row" align="center" gap="sm">
+            {children}
+        </Stack>
+    );
 }
 
 export function Rows({ children }: { children: ReactNode }) {
-    return <ul className="grid gap-1">{children}</ul>;
+    return (
+        <Stack as="ul" gap="xs">
+            {children}
+        </Stack>
+    );
 }
 
 export function Row({ children }: { children: ReactNode }) {
-    return <li className="flex items-center gap-2">{children}</li>;
+    return (
+        <Stack as="li" direction="row" align="center" gap="md">
+            {children}
+        </Stack>
+    );
 }
 
 export function Jump({
@@ -156,10 +170,10 @@ export function Jump({
 
 export function Refusal({ error }: { error: ProblemDetails | null }) {
     return error ? (
-        <p className="flex items-center gap-1">
+        <Stack as="p" direction="row" align="center" gap="xs">
             <Icon name="error" />
             {refusal(error)}
-        </p>
+        </Stack>
     ) : null;
 }
 

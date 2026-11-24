@@ -1,4 +1,4 @@
-import { CommandButton, GroupBox, Icon, Text } from '@partytown/ui';
+import { CommandButton, GroupBox, Icon, Stack, Text } from '@partytown/ui';
 import type { ReactNode } from 'react';
 import RoomCard from './RoomCard';
 import {
@@ -41,8 +41,8 @@ export default function DiscoverFeed({
             r.name.toLowerCase().includes(q),
         );
         return (
-            <div className="flex-1 overflow-y-auto p-4">
-                <Text as="h2" size="title" className="mb-3 block">
+            <Stack gap="lg" pad="xl">
+                <Text as="h2" size="title">
                     Search results for &ldquo;{searchQuery}&rdquo;
                 </Text>
                 {matchedReal.length === 0 && matchedStubs.length === 0 ? (
@@ -79,15 +79,15 @@ export default function DiscoverFeed({
                         ))}
                     </div>
                 )}
-            </div>
+            </Stack>
         );
     }
 
     return (
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
-            <section className="flex items-center gap-4">
+        <Stack gap="xl" pad="xl">
+            <Stack as="section" direction="row" align="center" gap="xl">
                 <Icon name="chat-rooms" size={48} />
-                <div className="min-w-0">
+                <Stack.Item as="div">
                     <Text as="h1" size="display" className="block">
                         Find Your Community on D'Accord
                     </Text>
@@ -95,8 +95,8 @@ export default function DiscoverFeed({
                         Discover, connect, and create with people who share your
                         passions.
                     </Text>
-                </div>
-            </section>
+                </Stack.Item>
+            </Stack>
 
             <Section title="Featured Community">
                 <div className={GRID}>
@@ -188,17 +188,17 @@ export default function DiscoverFeed({
                     Create Room
                 </CommandButton>
             </GroupBox>
-        </div>
+        </Stack>
     );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
     return (
-        <section className="flex flex-col gap-3">
+        <Stack as="section" gap="lg">
             <Text as="h2" size="title">
                 {title}
             </Text>
             {children}
-        </section>
+        </Stack>
     );
 }

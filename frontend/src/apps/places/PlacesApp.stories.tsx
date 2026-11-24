@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { type QueryClient, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
-import { fn } from 'storybook/test';
 import {
     getGetWorldsPartyIdGrowthQueryKey,
     getGetWorldsPartyIdLivesQueryKey,
@@ -13,7 +12,7 @@ import {
 import type { Body } from '../../api/model/body';
 import type { FurniView } from '../../api/model/furniView';
 import type { Place } from '../../api/model/place';
-import WindowFrame from '../../components/desktop/WindowFrame';
+import StoryWindow from '../../components/desktop/StoryWindow';
 import { usePlayerSession, WORLD_ID } from '../../lib/world';
 import PlacesApp from './PlacesApp';
 
@@ -216,25 +215,51 @@ function Seeded({
     scenario: Scenario;
     children: ReactNode;
 }) {
-    const client = useQueryClient();
-    useState(() => {
-        seed(client, scenario);
-        window.localStorage.setItem(
-            'proompting.places.allEars',
-            scenario.allEars ? '1' : '0',
-        );
-        usePlayerSession.setState({ userId: 'user-1', hydrated: true });
-        return true;
+    const [client] = useState(() => {
+        const fresh = storyClient();
+        seed(fresh, scenario);
+        return fresh;
     });
-    usePlayerSession();
-    return children;
+    return (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
 }
+
+const signIn = () => {
+    const before = usePlayerSession.getState();
+    usePlayerSession.setState({ userId: 'user-1', hydrated: true });
+    return () =>
+        usePlayerSession.setState({
+            userId: before.userId,
+            hydrated: before.hydrated,
+        });
+};
+
+const storyClient = () =>
+    new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false,
+                staleTime: Number.POSITIVE_INFINITY,
+                gcTime: Number.POSITIVE_INFINITY,
+            },
+            mutations: { retry: false },
+        },
+    });
 
 const meta = {
     title: 'Apps/PlacesApp',
     component: PlacesApp,
     parameters: { layout: 'fullscreen' },
     args: {},
+    beforeEach: ({ parameters }) => {
+        const scenario = (parameters.scenario ?? {}) as Scenario;
+        window.localStorage.setItem(
+            'proompting.places.allEars',
+            scenario.allEars ? '1' : '0',
+        );
+        return signIn();
+    },
     decorators: [
         (Story, context) => {
             const scenario = (context.parameters.scenario ?? {}) as Scenario;
@@ -245,19 +270,13 @@ const meta = {
                         style={{ width: (scenario.width ?? 1040) + 40 }}
                     >
                         {/* biome-ignore lint/correctness/useUniqueElementIds: stories render a single instance */}
-                        <WindowFrame
+                        <StoryWindow
                             id="places"
                             title="Places"
                             icon="/img/icons/places.ico"
-                            width={scenario.width ?? 1040}
-                            height={680}
-                            zIndex={1}
-                            onMinimize={fn()}
-                            onMaximize={fn()}
-                            onClose={fn()}
                         >
                             <Story />
-                        </WindowFrame>
+                        </StoryWindow>
                     </div>
                 </Seeded>
             );
@@ -282,6 +301,10 @@ export const AllEars: Story = { parameters: { scenario: { allEars: true } } };
 
 export const Narrow: Story = {
     parameters: { scenario: { width: 760 } },
+};
+
+export const Compact: Story = {
+    parameters: { scenario: { width: 480 } },
 };
 
 export const Travelling: Story = {

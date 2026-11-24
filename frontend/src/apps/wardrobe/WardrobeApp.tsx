@@ -1,4 +1,5 @@
 import {
+    Columns,
     CommandButton,
     FieldRow,
     GroupBox,
@@ -6,13 +7,16 @@ import {
     Icon,
     ItemPicker,
     ListView,
+    Pane,
     ProgressBar,
+    Stack,
     StatusBar,
     StatusBarField,
     Tabs,
     TextBox,
     Toolbar,
     ToolbarButton,
+    WindowLayout,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -103,22 +107,33 @@ export default function WardrobeApp({
     };
 
     return (
-        <div className="flex h-full min-h-0 flex-col">
-            <Toolbar
-                labels="below"
-                aria-label="Whose wardrobe"
-                className="shrink-0"
-            >
-                {ordered.map((w) => (
-                    <Portrait
-                        key={w.participantId}
-                        wallet={w}
-                        me={w.participantId === playerId}
-                        on={w.participantId === viewingId}
-                        onClick={() => select(w.participantId)}
-                    />
-                ))}
-            </Toolbar>
+        <WindowLayout
+            scroll="none"
+            contentLabel="Boutique"
+            toolbar={
+                <Toolbar labels="below" aria-label="Whose wardrobe">
+                    {ordered.map((w) => (
+                        <Portrait
+                            key={w.participantId}
+                            wallet={w}
+                            me={w.participantId === playerId}
+                            on={w.participantId === viewingId}
+                            onClick={() => select(w.participantId)}
+                        />
+                    ))}
+                </Toolbar>
+            }
+            statusBar={
+                <StatusBar>
+                    <StatusBarField grow icon={<Icon name="wardrobe" />}>
+                        Partytown Boutique · try before you buy · gifts wrapped
+                        free
+                    </StatusBarField>
+                    <OpenSign />
+                    {me ? <Purse wallet={me} /> : null}
+                </StatusBar>
+            }
+        >
             {viewing ? (
                 <Boutique
                     key={viewing.participantId}
@@ -127,16 +142,9 @@ export default function WardrobeApp({
                     playerId={playerId}
                 />
             ) : (
-                <p className="flex-1 p-4">Nobody to dress yet.</p>
+                <p className="p-4">Nobody to dress yet.</p>
             )}
-            <StatusBar className="shrink-0">
-                <StatusBarField grow icon={<Icon name="wardrobe" />}>
-                    Partytown Boutique · try before you buy · gifts wrapped free
-                </StatusBarField>
-                <OpenSign />
-                {me ? <Purse wallet={me} /> : null}
-            </StatusBar>
-        </div>
+        </WindowLayout>
     );
 }
 
@@ -258,7 +266,7 @@ function WorkClothesField({ participantId }: { participantId: string }) {
                     }}
                 />
             </FieldRow>
-            <div className="flex flex-wrap gap-1.5">
+            <Stack direction="row" wrap gap="sm">
                 <CommandButton
                     disabled={busy || !wish.trim()}
                     onClick={() => void design()}
@@ -270,7 +278,7 @@ function WorkClothesField({ participantId }: { participantId: string }) {
                         Come in my own clothes
                     </CommandButton>
                 ) : null}
-            </div>
+            </Stack>
         </GroupBox>
     );
 }
@@ -478,8 +486,8 @@ function Boutique({
     };
 
     const catalogue = (
-        <div className="flex h-full min-h-0 flex-col gap-1.5">
-            <Toolbar aria-label="Departments" className="shrink-0">
+        <Stack gap="sm" className="h-full">
+            <Toolbar aria-label="Departments">
                 {TABS.map((t) => (
                     <ToolbarButton
                         key={t.id}
@@ -525,124 +533,172 @@ function Boutique({
                     };
                 })}
             />
-        </div>
+        </Stack>
     );
 
     return (
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(220px,0.85fr)_minmax(0,1.15fr)] gap-3 p-2">
-            <section
+        <Columns gap="lg" pad="md" narrowBelow={520}>
+            <Columns.Column
+                as="section"
                 aria-label="Fitting room"
-                className="flex min-h-0 flex-col gap-1.5 overflow-y-auto"
+                weight={0.85}
+                minWidth="220px"
             >
-                <div className="relative flex min-h-[260px] flex-1">
-                    <Suspense
-                        fallback={
-                            <div className="flex flex-1 items-center justify-center">
-                                <ProgressBar
-                                    marquee
-                                    label="Setting up the mirror"
-                                />
-                            </div>
-                        }
-                    >
-                        <DressingRoom
-                            appearance={preview}
-                            fallbackColour={avatarColour(viewing.participantId)}
-                            mood={mood}
-                        />
-                    </Suspense>
-                    <div className="pointer-events-none absolute inset-0 flex flex-col items-start justify-between p-2">
-                        <HudPanel title={mine ? 'You' : viewing.name}>
-                            {viewing.means}
-                        </HudPanel>
-                        <HudPanel className="pointer-events-none self-center">
-                            <span className="flex items-center gap-1">
-                                <Icon name="refresh" />
-                                drag to turn
-                            </span>
-                        </HudPanel>
-                    </div>
-                    {toast ? (
-                        <HudPanel
-                            anchor="top"
-                            role="status"
-                            icon={<Icon name={mine ? 'sparkle' : 'gift'} />}
-                            title={toast}
-                        />
-                    ) : null}
-                </div>
-                <GroupBox title="Trying on" icon={<Icon name="shirt" />}>
-                    {tried.length === 0 ? (
-                        <span>
-                            Click anything to try it on{' '}
-                            {mine
-                                ? 'yourself'
-                                : `${viewing.name.split(' ')[0]}`}
-                        </span>
-                    ) : (
-                        <ItemPicker
-                            size="small"
-                            label="Trying on"
-                            selected={tried.map((t) => t.key)}
-                            onToggle={(key) => {
-                                const item = tried.find((t) => t.key === key);
-                                if (item) setTried((x) => toggleTry(x, item));
-                            }}
-                            items={tried.map((t) => ({
-                                id: t.key,
-                                label: `Take off ${t.name}`,
-                                picture: itemIcon(t),
-                                swatch: itemColour(t),
-                                hint: `Take off ${t.name}`,
-                            }))}
-                        />
-                    )}
-                </GroupBox>
-                <div className="flex gap-1.5">
-                    <CommandButton
-                        className="flex-1"
-                        icon={<Icon name="undo" />}
-                        disabled={tried.length === 0}
-                        onClick={() => setTried([])}
-                    >
-                        Undo
-                    </CommandButton>
-                    {me && (toBuy.length > 0 || toWear.length > 0) ? (
-                        <CommandButton
-                            className="flex-1"
-                            tone="go"
-                            icon={mine ? undefined : <Icon name="gift" />}
-                            disabled={busy || total > purse}
-                            onClick={() => void checkout()}
+                <Pane>
+                    <Stack gap="sm" className="h-full">
+                        <Stack
+                            direction="row"
+                            grow
+                            className="relative min-h-[260px]"
                         >
-                            {mine
-                                ? toBuy.length
-                                    ? `Buy the look · ${total}¢`
-                                    : 'Wear it'
-                                : `Give it · ${total}¢`}
-                        </CommandButton>
-                    ) : null}
-                </div>
-                {total > purse ? (
-                    <p className="flex items-center gap-1">
-                        <Icon name="warning" />
-                        That's {total - purse}¢ more than you have.
-                    </p>
-                ) : null}
-                {failure ? (
-                    <p className="flex items-center gap-1">
-                        <Icon name="error" />
-                        {failure.message}
-                    </p>
-                ) : null}
-                {mine ? <AuraField /> : null}
-                {mine ? (
-                    <WorkClothesField participantId={viewing.participantId} />
-                ) : null}
-            </section>
-            <section
+                            <Suspense
+                                fallback={
+                                    <Stack grow align="center" justify="center">
+                                        <ProgressBar
+                                            marquee
+                                            label="Setting up the mirror"
+                                        />
+                                    </Stack>
+                                }
+                            >
+                                <DressingRoom
+                                    appearance={preview}
+                                    fallbackColour={avatarColour(
+                                        viewing.participantId,
+                                    )}
+                                    mood={mood}
+                                />
+                            </Suspense>
+                            <Stack
+                                align="start"
+                                justify="between"
+                                pad="md"
+                                className="pointer-events-none absolute inset-0"
+                            >
+                                <HudPanel title={mine ? 'You' : viewing.name}>
+                                    {viewing.means}
+                                </HudPanel>
+                                <HudPanel className="pointer-events-none self-center">
+                                    <Stack
+                                        as="span"
+                                        direction="row"
+                                        align="center"
+                                        gap="xs"
+                                    >
+                                        <Icon name="refresh" />
+                                        drag to turn
+                                    </Stack>
+                                </HudPanel>
+                            </Stack>
+                            {toast ? (
+                                <HudPanel
+                                    anchor="top"
+                                    role="status"
+                                    icon={
+                                        <Icon
+                                            name={mine ? 'sparkle' : 'gift'}
+                                        />
+                                    }
+                                    title={toast}
+                                />
+                            ) : null}
+                        </Stack>
+                        <GroupBox
+                            title="Trying on"
+                            icon={<Icon name="shirt" />}
+                        >
+                            {tried.length === 0 ? (
+                                <span>
+                                    Click anything to try it on{' '}
+                                    {mine
+                                        ? 'yourself'
+                                        : `${viewing.name.split(' ')[0]}`}
+                                </span>
+                            ) : (
+                                <ItemPicker
+                                    size="small"
+                                    label="Trying on"
+                                    selected={tried.map((t) => t.key)}
+                                    onToggle={(key) => {
+                                        const item = tried.find(
+                                            (t) => t.key === key,
+                                        );
+                                        if (item)
+                                            setTried((x) => toggleTry(x, item));
+                                    }}
+                                    items={tried.map((t) => ({
+                                        id: t.key,
+                                        label: `Take off ${t.name}`,
+                                        picture: itemIcon(t),
+                                        swatch: itemColour(t),
+                                        hint: `Take off ${t.name}`,
+                                    }))}
+                                />
+                            )}
+                        </GroupBox>
+                        <Stack direction="row" gap="sm">
+                            <CommandButton
+                                className="flex-1"
+                                icon={<Icon name="undo" />}
+                                disabled={tried.length === 0}
+                                onClick={() => setTried([])}
+                            >
+                                Undo
+                            </CommandButton>
+                            {me && (toBuy.length > 0 || toWear.length > 0) ? (
+                                <CommandButton
+                                    className="flex-1"
+                                    tone="go"
+                                    icon={
+                                        mine ? undefined : <Icon name="gift" />
+                                    }
+                                    disabled={busy || total > purse}
+                                    onClick={() => void checkout()}
+                                >
+                                    {mine
+                                        ? toBuy.length
+                                            ? `Buy the look · ${total}¢`
+                                            : 'Wear it'
+                                        : `Give it · ${total}¢`}
+                                </CommandButton>
+                            ) : null}
+                        </Stack>
+                        {total > purse ? (
+                            <Stack
+                                as="p"
+                                direction="row"
+                                align="center"
+                                gap="xs"
+                            >
+                                <Icon name="warning" />
+                                That's {total - purse}¢ more than you have.
+                            </Stack>
+                        ) : null}
+                        {failure ? (
+                            <Stack
+                                as="p"
+                                direction="row"
+                                align="center"
+                                gap="xs"
+                            >
+                                <Icon name="error" />
+                                {failure.message}
+                            </Stack>
+                        ) : null}
+                        {mine ? <AuraField /> : null}
+                        {mine ? (
+                            <WorkClothesField
+                                participantId={viewing.participantId}
+                            />
+                        ) : null}
+                    </Stack>
+                </Pane>
+            </Columns.Column>
+            <Columns.Column
+                as="section"
                 aria-label="Catalogue"
-                className="flex min-h-0 flex-col gap-1.5"
+                weight={1.15}
+                gap="sm"
             >
                 {viewing.newGifts.length > 0 ? (
                     <Presents wallet={viewing} />
@@ -673,8 +729,8 @@ function Boutique({
                         },
                     ]}
                 />
-            </section>
-        </div>
+            </Columns.Column>
+        </Columns>
     );
 }
 
@@ -711,7 +767,7 @@ function Presents({ wallet }: { wallet: WalletSummary }) {
 
 function Receipt({ wallet }: { wallet: WalletSummary }) {
     return (
-        <div className="flex h-full min-h-0 flex-col gap-2">
+        <Stack gap="md" className="h-full">
             <p>
                 <b>Partytown Boutique</b> · {wallet.name}
             </p>
@@ -744,11 +800,11 @@ function Receipt({ wallet }: { wallet: WalletSummary }) {
                     },
                 }))}
             />
-            <p className="flex justify-between gap-2">
+            <Stack as="p" direction="row" justify="between" gap="md">
                 <span>Balance</span>
                 <b>{wallet.balance}¢</b>
-            </p>
+            </Stack>
             <p>Thank you for shopping · {wallet.means}</p>
-        </div>
+        </Stack>
     );
 }

@@ -1,11 +1,13 @@
 import {
     Expander,
+    Pane,
     ContactRow as Row,
+    Stack,
     StatusBar,
     StatusBarField,
-    SunkenField,
     Text,
     TextBox,
+    WindowLayout,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -131,127 +133,147 @@ export default function MessengerApp() {
         ));
 
     return (
-        <div className="flex h-full flex-col">
-            <div className="flex items-center gap-2 p-2">
-                <DisplayPicture who={playerName} size={48} />
-                <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1">
-                        <BuddyIcon status="online" />
-                        <Text strong className="truncate">
-                            {playerName}
-                        </Text>
-                        <Text tone="muted">(Online)</Text>
-                    </div>
-                    <Text
-                        as="div"
-                        tone="muted"
-                        italic
-                        className="mt-0.5 truncate"
-                    >
-                        {chats.length > 0
-                            ? `${chats.length} conversation${chats.length === 1 ? '' : 's'}`
-                            : '<Type a personal message>'}
-                    </Text>
-                </div>
-            </div>
-
-            <div className="px-2 pb-2">
-                <TextBox
-                    type="search"
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    placeholder="Find a contact..."
-                    aria-label="Find a contact"
-                    className="w-full"
-                />
-            </div>
-
-            <SunkenField
-                role="group"
-                aria-label="Contacts"
-                className="mx-2 mb-2 flex flex-1 flex-col gap-2"
-            >
-                {recent.length > 0 && (
-                    <Expander
-                        title="Conversations"
-                        count={recent.length}
-                        open={openGroups.chats}
-                        onOpenChange={() => toggle('chats')}
-                    >
-                        {recent.map((c) => (
-                            <ConversationRow
-                                key={c.chatGroupId}
-                                chat={c}
-                                status={statusOf(
-                                    lifeById.get(c.withId),
-                                    selfById.get(c.withId),
-                                )}
-                                unread={
-                                    !!c.lastSenderId &&
-                                    c.lastSenderId !== playerId &&
-                                    toMillis(c.lastAt) >
-                                        (seen[c.chatGroupId] ?? 0)
-                                }
-                                fromMe={
-                                    !!playerId && c.lastSenderId === playerId
-                                }
-                                onOpen={() =>
-                                    openDirectChat(c.chatGroupId, c.withName)
-                                }
-                            />
-                        ))}
-                    </Expander>
-                )}
-
-                <Expander
-                    title="Online"
-                    count={online.length}
-                    open={openGroups.online}
-                    onOpenChange={() => toggle('online')}
+        <WindowLayout
+            scroll="none"
+            contentLabel="Contacts"
+            toolbar={[
+                <Stack
+                    key="me"
+                    direction="row"
+                    gap="md"
+                    pad="md"
+                    align="center"
                 >
-                    {contactRows(online)}
-                </Expander>
-
-                <Expander
-                    title="Busy"
-                    count={busy.length}
-                    open={openGroups.busy}
-                    onOpenChange={() => toggle('busy')}
+                    <DisplayPicture who={playerName} size={48} />
+                    <Stack.Item grow>
+                        <Stack gap="xxs">
+                            <Stack direction="row" gap="xs" align="center">
+                                <BuddyIcon status="online" />
+                                <Stack.Item truncate>
+                                    <Text strong>{playerName}</Text>
+                                </Stack.Item>
+                                <Text tone="muted">(Online)</Text>
+                            </Stack>
+                            <Stack.Item truncate>
+                                <Text tone="muted" italic>
+                                    {chats.length > 0
+                                        ? `${chats.length} conversation${chats.length === 1 ? '' : 's'}`
+                                        : '<Type a personal message>'}
+                                </Text>
+                            </Stack.Item>
+                        </Stack>
+                    </Stack.Item>
+                </Stack>,
+                <Stack key="find" pad="sm">
+                    <TextBox
+                        type="search"
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                        placeholder="Find a contact..."
+                        aria-label="Find a contact"
+                    />
+                </Stack>,
+            ]}
+            statusBar={
+                <StatusBar>
+                    <StatusBarField>
+                        {contacts.length} contact
+                        {contacts.length === 1 ? '' : 's'}
+                    </StatusBarField>
+                    <StatusBarField grow>
+                        Click a contact to chat
+                    </StatusBarField>
+                </StatusBar>
+            }
+        >
+            <Stack pad="sm">
+                <Pane
+                    surface="sunken"
+                    pad="xs"
+                    role="group"
+                    aria-label="Contacts"
                 >
-                    {contactRows(busy)}
-                </Expander>
+                    <Stack gap="sm">
+                        {recent.length > 0 && (
+                            <Expander
+                                title="Conversations"
+                                count={recent.length}
+                                open={openGroups.chats}
+                                onOpenChange={() => toggle('chats')}
+                            >
+                                {recent.map((c) => (
+                                    <ConversationRow
+                                        key={c.chatGroupId}
+                                        chat={c}
+                                        status={statusOf(
+                                            lifeById.get(c.withId),
+                                            selfById.get(c.withId),
+                                        )}
+                                        unread={
+                                            !!c.lastSenderId &&
+                                            c.lastSenderId !== playerId &&
+                                            toMillis(c.lastAt) >
+                                                (seen[c.chatGroupId] ?? 0)
+                                        }
+                                        fromMe={
+                                            !!playerId &&
+                                            c.lastSenderId === playerId
+                                        }
+                                        onOpen={() =>
+                                            openDirectChat(
+                                                c.chatGroupId,
+                                                c.withName,
+                                            )
+                                        }
+                                    />
+                                ))}
+                            </Expander>
+                        )}
 
-                {afk.length > 0 && (
-                    <Expander
-                        title="AFK"
-                        count={afk.length}
-                        open={openGroups.afk}
-                        onOpenChange={() => toggle('afk')}
-                    >
-                        {contactRows(afk)}
-                    </Expander>
-                )}
+                        <Expander
+                            title="Online"
+                            count={online.length}
+                            open={openGroups.online}
+                            onOpenChange={() => toggle('online')}
+                        >
+                            {contactRows(online)}
+                        </Expander>
 
-                {contacts.length === 0 && (
-                    <Text as="p" tone="muted" className="px-3 py-2">
-                        Nobody lives in this World yet. Add Personas to the
-                        Party and they'll show up here.
-                    </Text>
-                )}
-                {openDm.isError && (
-                    <Text as="p" tone="danger" className="px-3 py-1.5">
-                        Couldn't start the conversation. Try again.
-                    </Text>
-                )}
-            </SunkenField>
+                        <Expander
+                            title="Busy"
+                            count={busy.length}
+                            open={openGroups.busy}
+                            onOpenChange={() => toggle('busy')}
+                        >
+                            {contactRows(busy)}
+                        </Expander>
 
-            <StatusBar>
-                <StatusBarField>
-                    {contacts.length} contact{contacts.length === 1 ? '' : 's'}
-                </StatusBarField>
-                <StatusBarField grow>Click a contact to chat</StatusBarField>
-            </StatusBar>
-        </div>
+                        {afk.length > 0 && (
+                            <Expander
+                                title="AFK"
+                                count={afk.length}
+                                open={openGroups.afk}
+                                onOpenChange={() => toggle('afk')}
+                            >
+                                {contactRows(afk)}
+                            </Expander>
+                        )}
+
+                        {contacts.length === 0 && (
+                            <Text as="p" tone="muted" className="px-3 py-2">
+                                Nobody lives in this World yet. Add Personas to
+                                the Party and they'll show up here.
+                            </Text>
+                        )}
+                        {openDm.isError && (
+                            <Text as="p" tone="danger" className="px-3 py-1.5">
+                                Couldn't start the conversation. Try again.
+                            </Text>
+                        )}
+                    </Stack>
+                </Pane>
+            </Stack>
+        </WindowLayout>
     );
 }
 
@@ -316,15 +338,15 @@ function ConversationRow({
             unread={unread}
             picture={<Portrait who={chat.withId} size={32} />}
             name={
-                <span className="flex min-w-0 items-center gap-1">
+                <Stack as="span" direction="row" gap="xs" align="center">
                     <BuddyIcon status={status} size="small" />
-                    <span className="truncate">{chat.withName}</span>
+                    <Stack.Item truncate>{chat.withName}</Stack.Item>
                     {unread && (
                         <Text tone="caution" strong>
                             new
                         </Text>
                     )}
-                </span>
+                </Stack>
             }
             meta={shortTime(toMillis(chat.lastAt))}
             details={

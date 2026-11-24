@@ -1,4 +1,4 @@
-import { ComboBox, CommandButton, TextBox } from '@partytown/ui';
+import { ComboBox, CommandButton, Stack, TextBox } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -43,7 +43,7 @@ export function WantsPanel({
 
     const row = (d: Desire, acquired: boolean) => (
         <Row key={d.id}>
-            <span className="min-w-0 flex-1">{desireLabel(d, nameOf)}</span>
+            <Stack.Item grow>{desireLabel(d, nameOf)}</Stack.Item>
             {d.status === 'Active' ? (
                 <>
                     <CommandButton
@@ -109,8 +109,11 @@ export function WantsPanel({
                     {acquired.map((d) => row(d, true))}
                 </Rows>
             )}
-            <form
-                className="flex items-center gap-1.5"
+            <Stack
+                as="form"
+                direction="row"
+                align="center"
+                gap="sm"
                 onSubmit={(e) => {
                     e.preventDefault();
                     if (!text.trim()) return;
@@ -148,7 +151,7 @@ export function WantsPanel({
                 >
                     Add
                 </CommandButton>
-            </form>
+            </Stack>
         </Card>
     );
 }

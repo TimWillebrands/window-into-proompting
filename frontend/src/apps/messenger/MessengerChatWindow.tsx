@@ -4,6 +4,7 @@ import {
     CommandButton,
     ContextMenu,
     Icon,
+    Stack,
     StatusBar,
     StatusBarField,
     StatusText,
@@ -12,6 +13,8 @@ import {
     Toolbar,
     ToolbarButton,
     useContextMenu,
+    useWindowMinimised,
+    WindowLayout,
 } from '@partytown/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -71,11 +74,11 @@ export default function MessengerChatWindow({
 }: MessengerChatWindowProps) {
     if (!chatGroupId) {
         return (
-            <div className="flex h-full items-center justify-center p-4 text-center">
+            <Stack align="center" justify="center" pad="xl" className="h-full">
                 <Text tone="muted">
                     Open a conversation from the Messenger buddy list.
                 </Text>
-            </div>
+            </Stack>
         );
     }
     return (
@@ -154,11 +157,20 @@ function Conversation({
         .find((m) => !isMine(m) && m.sendAt)?.sendAt;
 
     const markSeen = useMessengerSeen((s) => s.markSeen);
+    const minimised = useWindowMinimised();
     const lastSendAt = messages[messages.length - 1]?.sendAt ?? 0;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: re-mark when a message lands or a stream ends
+    // biome-ignore lint/correctness/useExhaustiveDependencies: re-mark when a message lands, a stream ends or the window comes back
     useEffect(() => {
+        if (minimised) return;
         markSeen(chatGroupId, Math.max(Date.now(), lastSendAt));
-    }, [chatGroupId, markSeen, lastSendAt, messages.length, activeIds.length]);
+    }, [
+        chatGroupId,
+        markSeen,
+        lastSendAt,
+        messages.length,
+        activeIds.length,
+        minimised,
+    ]);
 
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const nearBottom = useRef(true);
@@ -220,29 +232,112 @@ function Conversation({
         return 'Never give out your password or credit card number in an instant message conversation.';
     })();
 
-    return (
-        <div className="flex h-full flex-col">
-            <div className="flex min-w-0 items-center gap-1 px-2 py-1.5">
-                <Text tone="muted">To:</Text>
-                <BuddyIcon status={theirStatus} />
-                <Text strong className="truncate">
-                    {withName}
-                </Text>
-                <Text tone="muted">({STATUS_LABEL[theirStatus]})</Text>
-                {theirNote && (
-                    <Text
-                        tone="muted"
-                        italic
-                        className="min-w-0 flex-1 truncate"
-                        title={theirNote}
-                    >
-                        - {theirNote}
-                    </Text>
-                )}
-            </div>
+    const composer = spectate ? (
+        <StatusText
+            variant="bar"
+            icon={<Icon name="watching" />}
+            className="justify-center text-center"
+        >
+            You're reading a private conversation. They can't see you.
+        </StatusText>
+    ) : (
+        <Stack gap="xs">
+            <Toolbar variant="bare" labels="none" aria-label="Formatting">
+                <ToolbarButton
+                    icon={<Icon name="emoticon" />}
+                    hasMenu
+                    title="Select an emoticon"
+                    aria-label="Select an emoticon"
+                    aria-expanded={emojiOpen}
+                    onClick={(e) => {
+                        if (emojiOpen) {
+                            setEmojiOpen(false);
+                            return;
+                        }
+                        const r = e.currentTarget.getBoundingClientRect();
+                        emoticonMenu.openAt(
+                            { x: r.left, y: r.bottom },
+                            e.currentTarget,
+                        );
+                    }}
+                />
+            </Toolbar>
+            <ContextMenu
+                {...emoticonMenu.menuProps}
+                label="Emoticons"
+                items={EMOTICONS.map(([e, name]) => ({
+                    id: name,
+                    label: `${e}  ${name}`,
+                    onSelect: () => insertEmoji(e),
+                }))}
+            />
+            <Stack direction="row" gap="sm">
+                <Stack.Item as="div" grow>
+                    <TextArea
+                        ref={inputRef}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                void send();
+                            } else if (e.key === 'Escape') {
+                                setEmojiOpen(false);
+                            }
+                        }}
+                        rows={3}
+                        maxLength={4000}
+                        aria-label={`Message to ${withName}`}
+                        className="w-full resize-none"
+                    />
+                </Stack.Item>
+                <CommandButton
+                    onClick={() => void send()}
+                    disabled={!canSend}
+                    isDefault
+                    size="large"
+                    type="button"
+                >
+                    Send
+                </CommandButton>
+            </Stack>
+        </Stack>
+    );
 
-            <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+    return (
+        <WindowLayout
+            scroll="none"
+            contentLabel={`Conversation with ${withName}`}
+            toolbar={
+                <Stack direction="row" gap="xs" pad="sm" align="center">
+                    <Text tone="muted">To:</Text>
+                    <BuddyIcon status={theirStatus} />
+                    <Stack.Item truncate>
+                        <Text strong>{withName}</Text>
+                    </Stack.Item>
+                    <Text tone="muted">({STATUS_LABEL[theirStatus]})</Text>
+                    {theirNote && (
+                        <Stack.Item grow truncate title={theirNote}>
+                            <Text tone="muted" italic>
+                                - {theirNote}
+                            </Text>
+                        </Stack.Item>
+                    )}
+                </Stack>
+            }
+            statusBar={
+                <StatusBar>
+                    <StatusBarField
+                        grow
+                        icon={isTyping ? <Icon name="edit" /> : undefined}
+                    >
+                        {statusLine}
+                    </StatusBarField>
+                </StatusBar>
+            }
+        >
+            <Stack direction="row" gap="md" pad="md">
+                <Stack gap="sm" grow>
                     <ChatLog
                         ref={scrollRef}
                         aria-label={`Conversation with ${withName}`}
@@ -280,85 +375,9 @@ function Conversation({
                             );
                         })}
                     </ChatLog>
-
-                    {spectate ? (
-                        <StatusText
-                            variant="bar"
-                            icon={<Icon name="watching" />}
-                            className="justify-center text-center"
-                        >
-                            You're reading a private conversation. They can't
-                            see you.
-                        </StatusText>
-                    ) : (
-                        <div className="flex flex-col gap-1">
-                            <Toolbar
-                                variant="bare"
-                                labels="none"
-                                aria-label="Formatting"
-                            >
-                                <ToolbarButton
-                                    icon={<Icon name="emoticon" />}
-                                    hasMenu
-                                    title="Select an emoticon"
-                                    aria-label="Select an emoticon"
-                                    aria-expanded={emojiOpen}
-                                    onClick={(e) => {
-                                        if (emojiOpen) {
-                                            setEmojiOpen(false);
-                                            return;
-                                        }
-                                        const r =
-                                            e.currentTarget.getBoundingClientRect();
-                                        emoticonMenu.openAt(
-                                            { x: r.left, y: r.bottom },
-                                            e.currentTarget,
-                                        );
-                                    }}
-                                />
-                            </Toolbar>
-                            <ContextMenu
-                                {...emoticonMenu.menuProps}
-                                label="Emoticons"
-                                items={EMOTICONS.map(([e, name]) => ({
-                                    id: name,
-                                    label: `${e}  ${name}`,
-                                    onSelect: () => insertEmoji(e),
-                                }))}
-                            />
-                            <div className="flex items-stretch gap-1.5">
-                                <TextArea
-                                    ref={inputRef}
-                                    value={draft}
-                                    onChange={(e) => setDraft(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            void send();
-                                        } else if (e.key === 'Escape') {
-                                            setEmojiOpen(false);
-                                        }
-                                    }}
-                                    rows={3}
-                                    maxLength={4000}
-                                    aria-label={`Message to ${withName}`}
-                                    className="min-w-0 flex-1 resize-none"
-                                />
-                                <CommandButton
-                                    onClick={() => void send()}
-                                    disabled={!canSend}
-                                    isDefault
-                                    type="button"
-                                    className="w-[64px]"
-                                >
-                                    Send
-                                </CommandButton>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex flex-col justify-between">
+                    {composer}
+                </Stack>
+                <Stack justify="between" className="@max-sm:hidden">
                     <DisplayPicture
                         who={withId ?? spectators[0] ?? withName}
                         size={96}
@@ -367,18 +386,9 @@ function Conversation({
                         who={spectate && spectators[1] ? spectators[1] : myName}
                         size={96}
                     />
-                </div>
-            </div>
-
-            <StatusBar>
-                <StatusBarField
-                    grow
-                    icon={isTyping ? <Icon name="edit" /> : undefined}
-                >
-                    {statusLine}
-                </StatusBarField>
-            </StatusBar>
-        </div>
+                </Stack>
+            </Stack>
+        </WindowLayout>
     );
 }
 

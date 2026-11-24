@@ -4,6 +4,7 @@ import {
     Icon,
     type IconName,
     Presence,
+    Stack,
     Text,
 } from '@partytown/ui';
 
@@ -38,7 +39,7 @@ export default function RoomCard({
             icon={<Icon name={icon} />}
             className={`content-between ${isLg ? 'min-h-[144px]' : 'min-h-[112px]'}`}
         >
-            <div className="flex items-start gap-3">
+            <Stack direction="row" align="start" gap="lg">
                 <Icon name={icon} size={isLg ? 48 : 32} />
                 <Text
                     as="p"
@@ -47,16 +48,16 @@ export default function RoomCard({
                 >
                     {description}
                 </Text>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-                <Text tone="muted" className="flex items-center gap-1">
+            </Stack>
+            <Stack direction="row" wrap align="center" gap="lg">
+                <Stack direction="row" align="center" gap="xs">
                     <Presence status="online" size="small" />
-                    {fmt(online)} Online
-                </Text>
-                <Text tone="muted" className="flex items-center gap-1">
+                    <Text tone="muted">{fmt(online)} Online</Text>
+                </Stack>
+                <Stack direction="row" align="center" gap="xs">
                     <Icon name="users" />
-                    {fmt(members)} Members
-                </Text>
+                    <Text tone="muted">{fmt(members)} Members</Text>
+                </Stack>
                 <CommandButton
                     size="small"
                     className="ml-auto"
@@ -71,7 +72,7 @@ export default function RoomCard({
                 >
                     Enter
                 </CommandButton>
-            </div>
+            </Stack>
         </GroupBox>
     );
 }

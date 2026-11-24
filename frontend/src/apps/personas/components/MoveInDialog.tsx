@@ -1,4 +1,4 @@
-import { CommandButton, Dialog, Icon, StatusText } from '@partytown/ui';
+import { CommandButton, Dialog, Icon, Stack, StatusText } from '@partytown/ui';
 import type { Persona } from '../../../api/model';
 import { useResidency } from '../residence';
 
@@ -36,14 +36,14 @@ export default function MoveInDialog({
                 </>
             }
         >
-            <div className="flex flex-col gap-2">
+            <Stack gap="md">
                 <p className="m-0">
                     Should <strong>{persona.name}</strong> live in the World?
                     They get a Home, show up in Places and can be hired. You can
                     change this later in their editor.
                 </p>
                 {error ? <StatusText tone="danger">{error}</StatusText> : null}
-            </div>
+            </Stack>
         </Dialog>
     );
 }

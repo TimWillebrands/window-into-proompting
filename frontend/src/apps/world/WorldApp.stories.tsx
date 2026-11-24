@@ -1,12 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { fn } from 'storybook/test';
 import {
     getGetLlmConfigUsageQueryKey,
     getGetWorldsPartyIdActivitiesQueryKey,
     getGetWorldsPartyIdQueryKey,
 } from '#api/party-zone';
 import { seeded, withStoryLives } from '../../components/chat/story-seed';
-import WindowFrame from '../../components/desktop/WindowFrame';
+import StoryWindow from '../../components/desktop/StoryWindow';
 import { WORLD_ID } from '../../lib/world';
 import WorldApp from './WorldApp';
 
@@ -63,30 +62,37 @@ const usage = [
     },
 ];
 
+const SIZES = {
+    large: { width: 1000, height: 680 },
+    regular: { width: 820, height: 560 },
+    narrow: { width: 480, height: 640 },
+} as const;
+
 const meta = {
     title: 'Apps/WorldApp',
     component: WorldApp,
     parameters: { layout: 'fullscreen' },
     beforeEach: withStoryLives,
     decorators: [
-        (Story) => (
-            <div className="h-[720px] w-[1040px] p-6">
-                {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
-                <WindowFrame
-                    id="world"
-                    title="World"
-                    icon="/img/icons/world.ico"
-                    width={1000}
-                    height={680}
-                    zIndex={1}
-                    onMinimize={fn()}
-                    onMaximize={fn()}
-                    onClose={fn()}
+        (Story, { parameters }) => {
+            const size =
+                SIZES[(parameters.size as keyof typeof SIZES) ?? 'large'];
+            return (
+                <div
+                    className="p-6"
+                    style={{ width: size.width + 40, height: size.height + 40 }}
                 >
-                    <Story />
-                </WindowFrame>
-            </div>
-        ),
+                    {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
+                    <StoryWindow
+                        id="world"
+                        title="World"
+                        icon="/img/icons/world.ico"
+                    >
+                        <Story />
+                    </StoryWindow>
+                </div>
+            );
+        },
         seeded([
             [getGetWorldsPartyIdQueryKey(WORLD_ID), status],
             [
@@ -102,3 +108,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const Regular: Story = { parameters: { size: 'regular' } };
+
+export const Narrow: Story = { parameters: { size: 'narrow' } };

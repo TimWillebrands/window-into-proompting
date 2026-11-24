@@ -5,9 +5,11 @@ import {
     ControlGrid,
     GroupBox,
     ListView,
+    Stack,
     StatusText,
     Text,
     TextBox,
+    WindowLayout,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, Suspense, useState } from 'react';
@@ -29,12 +31,14 @@ import { inOrder, isCurrent, KINDS, summary } from './relations-lib';
 
 export default function RelationsApp() {
     return (
-        <div className="flex h-full flex-col gap-2 overflow-auto p-2">
-            <Suspense fallback={null}>
-                <Book />
-                <Doors />
-            </Suspense>
-        </div>
+        <WindowLayout contentLabel="Relations" scroll="both">
+            <Stack gap="md" pad="md">
+                <Suspense fallback={null}>
+                    <Book />
+                    <Doors />
+                </Suspense>
+            </Stack>
+        </WindowLayout>
     );
 }
 
@@ -180,7 +184,7 @@ function rowCells(
                 Move apart
             </CommandButton>
         ) : (
-            <span className="flex flex-wrap gap-1">
+            <Stack as="span" direction="row" wrap gap="xs">
                 <CommandButton
                     size="small"
                     disabled={isPending}
@@ -195,10 +199,10 @@ function rowCells(
                 >
                     At {first(relation.bId)}'s
                 </CommandButton>
-            </span>
+            </Stack>
         ),
         actions: (
-            <span className="flex flex-wrap justify-end gap-1">
+            <Stack as="span" direction="row" wrap justify="end" gap="xs">
                 {isCurrent(relation) ? (
                     <CommandButton
                         size="small"
@@ -237,7 +241,7 @@ function rowCells(
                 >
                     Forget
                 </CommandButton>
-            </span>
+            </Stack>
         ),
     };
 }
@@ -288,7 +292,7 @@ function NewRelation({
     return (
         <form onSubmit={submit}>
             <GroupBox title="What are they to each other?">
-                <div className="flex flex-wrap items-center gap-1.5">
+                <Stack direction="row" wrap align="center" gap="sm">
                     {pick(aId, setAId, 'Someone')}
                     {pick(bId, setBId, 'Someone else')}
                     <ComboBox
@@ -322,7 +326,7 @@ function NewRelation({
                     >
                         Add
                     </CommandButton>
-                </div>
+                </Stack>
             </GroupBox>
         </form>
     );

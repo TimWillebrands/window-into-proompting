@@ -5,6 +5,7 @@ import {
     GroupBox,
     Icon,
     ProgressBar,
+    Stack,
     StatusBar,
     StatusBarField,
     Swatch,
@@ -14,6 +15,7 @@ import {
     TextBox,
     Toolbar,
     ToolbarButton,
+    WindowLayout,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -176,81 +178,12 @@ function MemoryGraphInner() {
     }, [view]);
 
     return (
-        <div className="flex h-full min-h-0 flex-col">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pe-2">
-                <Toolbar aria-label="Memory Graph">
-                    <ToolbarButton
-                        icon={<Icon name="refresh" />}
-                        onClick={refresh}
-                        disabled={graphQuery.isFetching}
-                        title="Fetch the latest memory snapshot — the view does not update on its own"
-                    >
-                        {graphQuery.isFetching ? 'Refreshing…' : 'Refresh'}
-                    </ToolbarButton>
-                </Toolbar>
-                <FieldRow label="Memories of" labelWidth="auto">
-                    <ComboBox
-                        value={lens ?? ''}
-                        onChange={(e) => setLens(e.target.value || null)}
-                        options={[
-                            { value: '', label: 'everyone' },
-                            ...people.map((p) => ({
-                                value: p.id,
-                                label: p.label,
-                            })),
-                        ]}
-                    />
-                </FieldRow>
-                <FieldRow label="Topics" labelWidth="auto">
-                    <ComboBox
-                        value={concepts}
-                        onChange={(e) =>
-                            setConcepts(e.target.value as ConceptMode)
-                        }
-                        title="One-off topics are hidden by default — they only ever touch a single memory"
-                        options={[
-                            { value: 'shared', label: 'recurring (2+)' },
-                            { value: 'all', label: 'all' },
-                            { value: 'none', label: 'hidden' },
-                        ]}
-                    />
-                </FieldRow>
-                <CheckBox
-                    checked={showStances}
-                    onChange={(e) => setShowStances(e.target.checked)}
-                >
-                    Stances
-                </CheckBox>
-                <TextBox
-                    type="search"
-                    aria-label="Search memories"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search memories…"
-                    className="w-40"
-                />
-            </div>
-            <div className="flex min-h-0 flex-1">
-                <div ref={containerRef} className="relative min-w-0 flex-1">
-                    {graph.nodes.length === 0 ? (
-                        <EmptyState />
-                    ) : isClient ? (
-                        <Suspense fallback={<LoadingState />}>
-                            <MemoryGraphCanvas
-                                view={view}
-                                lens={lens}
-                                width={canvasSize.width}
-                                height={canvasSize.height}
-                                selectedNodeId={selectedId}
-                                matches={matches}
-                                onNodeClick={(node) => selectNode(node.id)}
-                                onBackgroundClick={() => selectNode(null)}
-                            />
-                        </Suspense>
-                    ) : (
-                        <LoadingState />
-                    )}
-                </div>
+        <WindowLayout
+            scroll="none"
+            contentLabel="Memory graph"
+            detailsLabel="Inspector"
+            detailsWidth="wide"
+            detailsPane={
                 <MemoryGraphSidePanel
                     node={selectedNode}
                     index={index}
@@ -269,17 +202,102 @@ function MemoryGraphInner() {
                         />
                     ) : null}
                 </MemoryGraphSidePanel>
+            }
+            toolbar={
+                <Stack
+                    direction="row"
+                    wrap
+                    align="center"
+                    gap="lg"
+                    rowGap="xs"
+                    className="pe-2"
+                >
+                    <Toolbar aria-label="Memory Graph">
+                        <ToolbarButton
+                            icon={<Icon name="refresh" />}
+                            onClick={refresh}
+                            disabled={graphQuery.isFetching}
+                            title="Fetch the latest memory snapshot — the view does not update on its own"
+                        >
+                            {graphQuery.isFetching ? 'Refreshing…' : 'Refresh'}
+                        </ToolbarButton>
+                    </Toolbar>
+                    <FieldRow label="Memories of" labelWidth="auto">
+                        <ComboBox
+                            value={lens ?? ''}
+                            onChange={(e) => setLens(e.target.value || null)}
+                            options={[
+                                { value: '', label: 'everyone' },
+                                ...people.map((p) => ({
+                                    value: p.id,
+                                    label: p.label,
+                                })),
+                            ]}
+                        />
+                    </FieldRow>
+                    <FieldRow label="Topics" labelWidth="auto">
+                        <ComboBox
+                            value={concepts}
+                            onChange={(e) =>
+                                setConcepts(e.target.value as ConceptMode)
+                            }
+                            title="One-off topics are hidden by default — they only ever touch a single memory"
+                            options={[
+                                { value: 'shared', label: 'recurring (2+)' },
+                                { value: 'all', label: 'all' },
+                                { value: 'none', label: 'hidden' },
+                            ]}
+                        />
+                    </FieldRow>
+                    <CheckBox
+                        checked={showStances}
+                        onChange={(e) => setShowStances(e.target.checked)}
+                    >
+                        Stances
+                    </CheckBox>
+                    <TextBox
+                        type="search"
+                        aria-label="Search memories"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search memories…"
+                        className="w-40"
+                    />
+                </Stack>
+            }
+            statusBar={
+                <StatusBar>
+                    <StatusBarField>{counts.Participant} people</StatusBarField>
+                    <StatusBarField>{counts.Event} memories</StatusBarField>
+                    <StatusBarField>{counts.Concept} topics</StatusBarField>
+                    <StatusBarField grow>
+                        {counts.STANCE} stances
+                        {matches ? ` · ${matches.size} matches` : ''}
+                    </StatusBarField>
+                </StatusBar>
+            }
+        >
+            <div ref={containerRef} className="relative">
+                {graph.nodes.length === 0 ? (
+                    <EmptyState />
+                ) : isClient ? (
+                    <Suspense fallback={<LoadingState />}>
+                        <MemoryGraphCanvas
+                            view={view}
+                            lens={lens}
+                            width={canvasSize.width}
+                            height={canvasSize.height}
+                            selectedNodeId={selectedId}
+                            matches={matches}
+                            onNodeClick={(node) => selectNode(node.id)}
+                            onBackgroundClick={() => selectNode(null)}
+                        />
+                    </Suspense>
+                ) : (
+                    <LoadingState />
+                )}
             </div>
-            <StatusBar>
-                <StatusBarField>{counts.Participant} people</StatusBarField>
-                <StatusBarField>{counts.Event} memories</StatusBarField>
-                <StatusBarField>{counts.Concept} topics</StatusBarField>
-                <StatusBarField grow>
-                    {counts.STANCE} stances
-                    {matches ? ` · ${matches.size} matches` : ''}
-                </StatusBarField>
-            </StatusBar>
-        </div>
+        </WindowLayout>
     );
 }
 
@@ -344,29 +362,44 @@ function KeyRow({
     children: React.ReactNode;
 }) {
     return (
-        <Text as="div" tone="muted" className="flex items-center gap-2">
-            <span className="inline-flex w-6 justify-center gap-0.5">
-                {children}
-            </span>
-            {label}
+        <Text as="div" tone="muted">
+            <Stack direction="row" align="center" gap="md">
+                <Stack
+                    as="span"
+                    inline
+                    direction="row"
+                    justify="center"
+                    gap="xxs"
+                    className="w-6"
+                >
+                    {children}
+                </Stack>
+                {label}
+            </Stack>
         </Text>
     );
 }
 
 function LoadingState() {
     return (
-        <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+        <Stack
+            align="center"
+            justify="center"
+            gap="md"
+            pad="xl"
+            className="h-full"
+        >
             <ProgressBar marquee label="Loading memory" className="w-40" />
             <Text as="p" tone="muted">
                 Loading memory…
             </Text>
-        </div>
+        </Stack>
     );
 }
 
 function EmptyState() {
     return (
-        <div className="flex h-full items-center justify-center p-4">
+        <Stack align="center" justify="center" pad="xl" className="h-full">
             <GroupBox
                 title="No memories captured yet"
                 icon={<Icon name="memory-graph" />}
@@ -378,6 +411,6 @@ function EmptyState() {
                     topics.
                 </Text>
             </GroupBox>
-        </div>
+        </Stack>
     );
 }

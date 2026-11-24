@@ -1,10 +1,12 @@
 import {
     ComboBox,
     Post,
+    Stack,
     StatusBar,
     StatusBarField,
     SunkenField,
     Text,
+    WindowLayout,
 } from '@partytown/ui';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 import {
@@ -50,52 +52,74 @@ export default function DiaryApp({ personaId }: { personaId?: string }) {
 
     const selected = personas.find((p) => p.personaId === selectedId);
 
-    return (
-        <div className="flex h-full flex-col">
-            <div className="flex items-center gap-3 px-2 py-1">
-                <label htmlFor={pickerId}>Diary of:</label>
-                <ComboBox
-                    id={pickerId}
-                    value={selectedId ?? ''}
-                    onChange={(e) => select(e.currentTarget.value)}
-                >
-                    {selectedId ? null : (
-                        <option value="">— pick a persona —</option>
-                    )}
-                    {personas.map((p) => (
-                        <option key={p.personaId} value={p.personaId}>
-                            {p.name}
-                        </option>
-                    ))}
-                </ComboBox>
-                <span className="ml-auto">Read-only</span>
-            </div>
-            {selectedId ? (
-                <DiaryPage
-                    personaId={selectedId}
-                    name={selected?.name ?? 'Unknown'}
-                />
-            ) : (
-                <SunkenField text="reading" className="mx-1 mb-1 flex-1">
-                    <Note>No AI personas in this world yet.</Note>
-                </SunkenField>
-            )}
-        </div>
+    const picker = (
+        <Stack direction="row" align="center" gap="lg">
+            <label htmlFor={pickerId}>Diary of:</label>
+            <ComboBox
+                id={pickerId}
+                value={selectedId ?? ''}
+                onChange={(e) => select(e.currentTarget.value)}
+            >
+                {selectedId ? null : (
+                    <option value="">— pick a persona —</option>
+                )}
+                {personas.map((p) => (
+                    <option key={p.personaId} value={p.personaId}>
+                        {p.name}
+                    </option>
+                ))}
+            </ComboBox>
+            <span className="ml-auto">Read-only</span>
+        </Stack>
+    );
+
+    return selectedId ? (
+        <DiaryPage
+            personaId={selectedId}
+            name={selected?.name ?? 'Unknown'}
+            picker={picker}
+        />
+    ) : (
+        <WindowLayout addressBar={picker} scroll="none">
+            <SunkenField text="reading" className="m-1">
+                <Note>No AI personas in this world yet.</Note>
+            </SunkenField>
+        </WindowLayout>
     );
 }
 
-function DiaryPage({ personaId, name }: { personaId: string; name: string }) {
+function DiaryPage({
+    personaId,
+    name,
+    picker,
+}: {
+    personaId: string;
+    name: string;
+    picker: ReactNode;
+}) {
     const diaryQuery = useGetWorldsPartyIdDiaryPersonaId(WORLD_ID, personaId);
     const entries = diaryQuery.data?.data ?? [];
 
     return (
-        <>
+        <WindowLayout
+            addressBar={picker}
+            scroll="none"
+            statusBar={
+                <StatusBar>
+                    <StatusBarField grow>{name}.txt</StatusBarField>
+                    <StatusBarField>
+                        {entries.length}{' '}
+                        {entries.length === 1 ? 'entry' : 'entries'}
+                    </StatusBarField>
+                </StatusBar>
+            }
+        >
             <SunkenField
                 text="reading"
                 role="region"
                 aria-label={`Diary of ${name}`}
                 tabIndex={0}
-                className="mx-1 flex-1"
+                className="mx-1"
             >
                 {diaryQuery.isPending ? <Note>Loading…</Note> : null}
                 {diaryQuery.isError ? (
@@ -115,14 +139,7 @@ function DiaryPage({ personaId, name }: { personaId: string; name: string }) {
                     </Post>
                 ))}
             </SunkenField>
-            <StatusBar>
-                <StatusBarField grow>{name}.txt</StatusBarField>
-                <StatusBarField>
-                    {entries.length}{' '}
-                    {entries.length === 1 ? 'entry' : 'entries'}
-                </StatusBarField>
-            </StatusBar>
-        </>
+        </WindowLayout>
     );
 }
 

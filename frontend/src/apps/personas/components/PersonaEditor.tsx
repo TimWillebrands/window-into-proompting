@@ -3,6 +3,7 @@ import {
     FieldRow,
     GroupBox,
     Slider,
+    Stack,
     StatusText,
     Text,
     TextArea,
@@ -123,9 +124,10 @@ export default function PersonaEditor({
     };
 
     return (
-        <form
-            className="flex flex-col gap-3"
+        <Stack
+            as="form"
             noValidate
+            gap="lg"
             onSubmit={(event) => {
                 event.preventDefault();
                 if (!persona.id || isGeneratingBio) return;
@@ -143,15 +145,15 @@ export default function PersonaEditor({
                 });
             }}
         >
-            <div className="flex items-center gap-2">
+            <Stack direction="row" align="center" gap="md">
                 <Portrait who={persona.id} alt="" width={32} height={32} />
-                <div className="flex flex-col">
+                <Stack>
                     <strong>{name || 'Unnamed persona'}</strong>
                     <Text as="p" tone="muted">
                         Changes apply after you click Save Changes.
                     </Text>
-                </div>
-            </div>
+                </Stack>
+            </Stack>
 
             <GroupBox title="Details">
                 <FieldRow label="Persona Name">
@@ -238,7 +240,7 @@ export default function PersonaEditor({
                 <StatusText tone="go">Saved.</StatusText>
             ) : null}
 
-            <div className="flex justify-between gap-2">
+            <Stack direction="row" justify="between" gap="md">
                 <CommandButton
                     tone="danger"
                     disabled={deleteMutation.isPending}
@@ -258,8 +260,8 @@ export default function PersonaEditor({
                 <CommandButton isDefault disabled={saveMutation.isPending}>
                     {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </CommandButton>
-            </div>
-        </form>
+            </Stack>
+        </Stack>
     );
 }
 
@@ -276,7 +278,13 @@ function DialSlider({
 }) {
     return (
         <FieldRow label={label} hint={help}>
-            <span className="flex w-full items-center gap-2">
+            <Stack
+                as="span"
+                direction="row"
+                align="center"
+                gap="md"
+                className="w-full"
+            >
                 <Slider
                     min={0}
                     max={100}
@@ -290,7 +298,7 @@ function DialSlider({
                     className="flex-1"
                 />
                 <span>{value.toFixed(2)}</span>
-            </span>
+            </Stack>
         </FieldRow>
     );
 }

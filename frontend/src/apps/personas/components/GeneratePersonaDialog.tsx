@@ -3,6 +3,7 @@ import {
     Dialog,
     FieldRow,
     Icon,
+    Stack,
     StatusText,
     TextArea,
     TextBox,
@@ -148,7 +149,7 @@ export default function GeneratePersonaDialog({
                 </>
             }
         >
-            <div className="flex flex-col gap-2">
+            <Stack gap="md">
                 <FieldRow label="Describe your persona" layout="stacked">
                     <TextBox
                         value={prompt}
@@ -182,7 +183,7 @@ export default function GeneratePersonaDialog({
                     </StatusText>
                 )}
                 {error && <StatusText tone="danger">{error}</StatusText>}
-            </div>
+            </Stack>
         </Dialog>
     );
 }

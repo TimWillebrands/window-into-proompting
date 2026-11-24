@@ -8,7 +8,10 @@ import {
     TextBox,
     Toolbar,
     ToolbarButton,
+    ToolbarSeparator,
+    WindowLayout,
 } from '@partytown/ui';
+import { useState } from 'react';
 import { useDesktopContext } from '#lib/desktop-context';
 import { useNavHistoryStore } from '#lib/nav-history';
 import ControlPanelHome from './components/ControlPanelHome';
@@ -22,6 +25,8 @@ export default function ConfigPanelApp() {
     const currentEntry = stack[index];
     const section: string =
         currentEntry?.kind === 'config' ? currentEntry.section : 'home';
+    const models = section === 'llm-providers' || section === 'persona-models';
+    const [adding, setAdding] = useState(false);
 
     const canGoBack = index > 0;
     const canGoForward = index < stack.length - 1;
@@ -55,29 +60,47 @@ export default function ConfigPanelApp() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden">
-            <Toolbar aria-label="Navigation">
-                <ToolbarButton
-                    icon={<Icon name="back" />}
-                    disabled={!canGoBack}
-                    onClick={handleBack}
-                >
-                    Back
-                </ToolbarButton>
-                <ToolbarButton
-                    icon={<Icon name="forward" />}
-                    disabled={!canGoForward}
-                    onClick={handleForward}
-                >
-                    Forward
-                </ToolbarButton>
-            </Toolbar>
-            <FieldRow label="Address" labelWidth="auto" className="px-2 py-1">
-                <TextBox readOnly value={SECTION_NAMES[section] ?? section} />
-            </FieldRow>
-
-            <div className="flex min-h-0 flex-1">
-                <TaskPane className="w-[200px] flex-none">
+        <WindowLayout
+            toolbar={
+                <Toolbar aria-label="Navigation">
+                    <ToolbarButton
+                        icon={<Icon name="back" />}
+                        disabled={!canGoBack}
+                        onClick={handleBack}
+                    >
+                        Back
+                    </ToolbarButton>
+                    <ToolbarButton
+                        icon={<Icon name="forward" />}
+                        disabled={!canGoForward}
+                        onClick={handleForward}
+                    >
+                        Forward
+                    </ToolbarButton>
+                    {models && (
+                        <>
+                            <ToolbarSeparator />
+                            <ToolbarButton
+                                icon={<Icon name="add" />}
+                                onClick={() => setAdding(true)}
+                            >
+                                Add Provider
+                            </ToolbarButton>
+                        </>
+                    )}
+                </Toolbar>
+            }
+            addressBar={
+                <FieldRow label="Address" labelWidth="auto">
+                    <TextBox
+                        readOnly
+                        value={SECTION_NAMES[section] ?? section}
+                    />
+                </FieldRow>
+            }
+            taskPaneLabel="Control Panel"
+            taskPane={
+                <TaskPane>
                     <TaskPaneSection
                         title="Control Panel"
                         icon={<Icon name="control-panel" size={32} />}
@@ -110,21 +133,22 @@ export default function ConfigPanelApp() {
                         ))}
                     </TaskPaneSection>
                 </TaskPane>
-
-                <div className="min-w-0 flex-1 overflow-y-auto">
-                    {section === 'home' ? (
-                        <ControlPanelHome onNavigate={navigateTo} />
-                    ) : section === 'llm-providers' ||
-                      section === 'persona-models' ? (
-                        <ModelsSection />
-                    ) : (
-                        <Text as="p" tone="muted" className="p-4">
-                            This section no longer exists. Go Back or pick a
-                            category from the sidebar.
-                        </Text>
-                    )}
-                </div>
-            </div>
-        </div>
+            }
+            contentLabel={SECTION_NAMES[section] ?? 'Control Panel'}
+        >
+            {section === 'home' ? (
+                <ControlPanelHome onNavigate={navigateTo} />
+            ) : models ? (
+                <ModelsSection
+                    adding={adding}
+                    onAddClosed={() => setAdding(false)}
+                />
+            ) : (
+                <Text as="p" tone="muted" className="p-4">
+                    This section no longer exists. Go Back or pick a category
+                    from the sidebar.
+                </Text>
+            )}
+        </WindowLayout>
     );
 }

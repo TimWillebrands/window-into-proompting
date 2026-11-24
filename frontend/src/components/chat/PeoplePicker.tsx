@@ -1,4 +1,4 @@
-import { CheckBox, Text } from '@partytown/ui';
+import { CheckBox, Stack, Text } from '@partytown/ui';
 
 export interface PeoplePickerPerson {
     id: string;
@@ -27,8 +27,11 @@ export default function PeoplePicker({
     }
 
     return (
-        <div
-            className={`flex flex-wrap ${compact ? 'gap-x-2 gap-y-1' : 'gap-x-4 gap-y-2'}`}
+        <Stack
+            direction="row"
+            wrap
+            gap={compact ? 'md' : 'xl'}
+            rowGap={compact ? 'xs' : 'md'}
         >
             {people.map((person) => {
                 const selected = selectedSet.has(person.id);
@@ -48,6 +51,6 @@ export default function PeoplePicker({
                     </CheckBox>
                 );
             })}
-        </div>
+        </Stack>
     );
 }

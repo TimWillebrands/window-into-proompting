@@ -1,4 +1,4 @@
-import { CommandButton, GroupBox, StatusText } from '@partytown/ui';
+import { CommandButton, GroupBox, Stack, StatusText } from '@partytown/ui';
 import type { Persona } from '../../../api/model';
 import { useIsAdmin } from '../../../lib/world';
 import { canMoveIn, useResidency, useResidents } from '../residence';
@@ -19,7 +19,7 @@ export default function Residence({
 
     return (
         <GroupBox title="World">
-            <div className="flex items-center justify-between gap-2">
+            <Stack direction="row" align="center" justify="between" gap="md">
                 <span>
                     {lives
                         ? 'Lives in the World: has a Home and can be hired.'
@@ -51,7 +51,7 @@ export default function Residence({
                         Move in
                     </CommandButton>
                 ) : null}
-            </div>
+            </Stack>
             {error ? <StatusText tone="danger">{error}</StatusText> : null}
         </GroupBox>
     );

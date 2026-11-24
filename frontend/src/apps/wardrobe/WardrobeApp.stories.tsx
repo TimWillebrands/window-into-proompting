@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { type QueryClient, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
-import { fn } from 'storybook/test';
 import {
     getGetWorldsPartyIdJobsParticipantIdClothesQueryKey,
     getGetWorldsPartyIdPlacesQueryKey,
@@ -10,7 +9,7 @@ import {
 } from '#api/party-zone';
 import type { ShopItem } from '../../api/model/shopItem';
 import type { WalletSummary } from '../../api/model/walletSummary';
-import WindowFrame from '../../components/desktop/WindowFrame';
+import StoryWindow from '../../components/desktop/StoryWindow';
 import { WindowInstanceProvider } from '../../components/desktop/window-instance-context';
 import { usePlayerSession, WORLD_ID } from '../../lib/world';
 import WardrobeApp from './WardrobeApp';
@@ -130,43 +129,64 @@ function seed(client: QueryClient) {
 }
 
 function Seeded({ children }: { children: ReactNode }) {
-    const client = useQueryClient();
-    useState(() => {
-        seed(client);
-        usePlayerSession.setState({ userId: 'user-1', hydrated: true });
-        return true;
+    const [client] = useState(() => {
+        const fresh = storyClient();
+        seed(fresh);
+        return fresh;
     });
-    usePlayerSession();
-    return children;
+    return (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
 }
+
+const storyClient = () =>
+    new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false,
+                staleTime: Number.POSITIVE_INFINITY,
+                gcTime: Number.POSITIVE_INFINITY,
+            },
+            mutations: { retry: false },
+        },
+    });
 
 const meta = {
     title: 'Apps/WardrobeApp',
     component: WardrobeApp,
     parameters: { layout: 'fullscreen' },
+    beforeEach: () => {
+        const before = usePlayerSession.getState();
+        usePlayerSession.setState({ userId: 'user-1', hydrated: true });
+        return () =>
+            usePlayerSession.setState({
+                userId: before.userId,
+                hydrated: before.hydrated,
+            });
+    },
     decorators: [
-        (Story) => (
-            <Seeded>
-                <WindowInstanceProvider windowId="wardrobe">
-                    <div className="h-[720px] w-[1000px] p-6">
-                        {/* biome-ignore lint/correctness/useUniqueElementIds: stories render a single instance */}
-                        <WindowFrame
-                            id="wardrobe"
-                            title="Wardrobe"
-                            icon="/img/icons/wardrobe.ico"
-                            width={960}
-                            height={680}
-                            zIndex={1}
-                            onMinimize={fn()}
-                            onMaximize={fn()}
-                            onClose={fn()}
+        (Story, context) => {
+            const width = (context.parameters.width as number) ?? 960;
+            return (
+                <Seeded>
+                    <WindowInstanceProvider windowId="wardrobe">
+                        <div
+                            className="h-[720px] p-6"
+                            style={{ width: width + 40 }}
                         >
-                            <Story />
-                        </WindowFrame>
-                    </div>
-                </WindowInstanceProvider>
-            </Seeded>
-        ),
+                            {/* biome-ignore lint/correctness/useUniqueElementIds: stories render a single instance */}
+                            <StoryWindow
+                                id="wardrobe"
+                                title="Wardrobe"
+                                icon="/img/icons/wardrobe.ico"
+                            >
+                                <Story />
+                            </StoryWindow>
+                        </div>
+                    </WindowInstanceProvider>
+                </Seeded>
+            );
+        },
     ],
 } satisfies Meta<typeof WardrobeApp>;
 
@@ -191,6 +211,8 @@ export const TryingOn: Story = {
 };
 
 export const Someone: Story = { args: { participantId: 'bo' } };
+
+export const Narrow: Story = { parameters: { width: 480 } };
 
 export const Receipts: Story = {
     play: async ({ canvasElement }) => {

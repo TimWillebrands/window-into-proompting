@@ -1,4 +1,4 @@
-import { GroupBox, Icon, Text, Toolbar, ToolbarButton } from '@partytown/ui';
+import { GroupBox, Icon, Stack, Text } from '@partytown/ui';
 import { useMemo, useState } from 'react';
 import {
     useGetLlmConfigAssignments,
@@ -15,7 +15,13 @@ import PersonaMatrix from './PersonaMatrix';
 import ProviderCard from './ProviderCard';
 import ProviderEditor from './ProviderEditor';
 
-export default function ModelsSection() {
+export default function ModelsSection({
+    adding = false,
+    onAddClosed,
+}: {
+    adding?: boolean;
+    onAddClosed?: () => void;
+}) {
     const providersQuery = useGetLlmConfigProviders();
     const routesQuery = useGetLlmConfigPersonaRoutes();
     const availabilityQuery = useGetLlmConfigProvidersAvailability({
@@ -38,7 +44,8 @@ export default function ModelsSection() {
     }, [personasQuery.data]);
 
     const [editing, setEditing] = useState<LlmProviderEntry | null>(null);
-    const isNew = !editing?.id;
+    const open = editing ?? (adding ? EMPTY_ENTRY : null);
+    const isNew = !open?.id;
 
     const refresh = () => {
         providersQuery.refetch();
@@ -48,6 +55,7 @@ export default function ModelsSection() {
     };
     const close = () => {
         setEditing(null);
+        onAddClosed?.();
         refresh();
     };
     const pinnedTo = (providerId?: string) =>
@@ -58,68 +66,57 @@ export default function ModelsSection() {
         ).size;
 
     return (
-        <div className="flex flex-col">
-            <Toolbar aria-label="Language Models">
-                <ToolbarButton
-                    icon={<Icon name="add" />}
-                    onClick={() => setEditing({ ...EMPTY_ENTRY })}
-                >
-                    Add Provider
-                </ToolbarButton>
-            </Toolbar>
-
-            <div className="flex flex-col gap-3 p-3">
-                {providers.length === 0 ? (
-                    <GroupBox title="Providers">
-                        <div className="flex items-center gap-3">
-                            <Icon name="models" size={32} />
-                            <div className="flex flex-col gap-1">
-                                <strong>
-                                    Personas need a language model to speak.
-                                </strong>
-                                <Text as="p" tone="muted">
-                                    Add a provider (a local server, OpenRouter
-                                    or Claude) and chats can start generating.
-                                </Text>
-                            </div>
-                        </div>
-                    </GroupBox>
-                ) : (
-                    <>
-                        {providers.map((p) => (
-                            <ProviderCard
-                                key={p.id}
-                                provider={p}
-                                providers={providers}
-                                availability={availability.find(
-                                    (a) => a.providerId === p.id,
-                                )}
-                                personaCount={pinnedTo(p.id)}
-                                onEdit={() => setEditing({ ...p })}
-                                onDeleted={refresh}
-                                onToggled={refresh}
-                            />
-                        ))}
-                        <ModelSplit
+        <Stack gap="lg" pad="lg">
+            {providers.length === 0 ? (
+                <GroupBox title="Providers">
+                    <Stack direction="row" align="center" gap="lg">
+                        <Icon name="models" size={32} />
+                        <Stack gap="xs">
+                            <strong>
+                                Personas need a language model to speak.
+                            </strong>
+                            <Text as="p" tone="muted">
+                                Add a provider (a local server, OpenRouter or
+                                Claude) and chats can start generating.
+                            </Text>
+                        </Stack>
+                    </Stack>
+                </GroupBox>
+            ) : (
+                <>
+                    {providers.map((p) => (
+                        <ProviderCard
+                            key={p.id}
+                            provider={p}
                             providers={providers}
-                            availability={availability}
-                            assignments={assignments}
-                            onSaved={refresh}
+                            availability={availability.find(
+                                (a) => a.providerId === p.id,
+                            )}
+                            personaCount={pinnedTo(p.id)}
+                            onEdit={() => setEditing({ ...p })}
+                            onDeleted={refresh}
+                            onToggled={refresh}
                         />
-                        <PersonaMatrix
-                            personas={personas}
-                            providers={providers}
-                            routes={routes}
-                            assignments={assignments}
-                            onChanged={refresh}
-                        />
-                    </>
-                )}
-            </div>
-
-            {editing && (
-                <ProviderEditor entry={editing} isNew={isNew} onClose={close} />
+                    ))}
+                    <ModelSplit
+                        providers={providers}
+                        availability={availability}
+                        assignments={assignments}
+                        onSaved={refresh}
+                    />
+                    <PersonaMatrix
+                        personas={personas}
+                        providers={providers}
+                        routes={routes}
+                        assignments={assignments}
+                        onChanged={refresh}
+                    />
+                </>
             )}
-        </div>
+
+            {open && (
+                <ProviderEditor entry={open} isNew={isNew} onClose={close} />
+            )}
+        </Stack>
     );
 }

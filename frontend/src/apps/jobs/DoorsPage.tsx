@@ -1,4 +1,4 @@
-import { ComboBox, CommandButton } from '@partytown/ui';
+import { ComboBox, CommandButton, Stack } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -110,7 +110,7 @@ function DoorCard({ place }: { place: Place }) {
                     {allowed.map((id) => (
                         <Row key={id}>
                             {person(id)}
-                            <span className="flex-1">on the list</span>
+                            <Stack.Item grow>on the list</Stack.Item>
                             {isAdmin ? (
                                 <CommandButton
                                     size="small"
@@ -132,8 +132,11 @@ function DoorCard({ place }: { place: Place }) {
                 <p>Nobody else is on the list.</p>
             )}
             {isAdmin && door !== 'open' ? (
-                <form
-                    className="flex items-center gap-1.5"
+                <Stack
+                    as="form"
+                    direction="row"
+                    align="center"
+                    gap="sm"
                     onSubmit={(e) => {
                         e.preventDefault();
                         set(door, [...allowed, who]);
@@ -162,7 +165,7 @@ function DoorCard({ place }: { place: Place }) {
                     >
                         Add
                     </CommandButton>
-                </form>
+                </Stack>
             ) : null}
             <Refusal error={save.error} />
         </Card>

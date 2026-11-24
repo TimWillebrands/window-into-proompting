@@ -10,12 +10,14 @@ import {
     RadioButton,
     RadioGroup,
     Slider,
+    Stack,
     StatusText,
     TaskPane,
     TaskPaneSection,
     Text,
     TextArea,
     TextBox,
+    WindowLayout,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -46,74 +48,81 @@ export default function StanceFloorApp() {
     );
 
     return (
-        <div className="flex h-full min-h-0">
-            <TaskPane className="w-[280px] flex-none">
-                <TaskPaneSection
-                    title="Whose stance?"
-                    special
-                    collapsible={false}
-                >
-                    <ComboBox
-                        aria-label="Whose stance?"
-                        value={sourceId ?? ''}
-                        onChange={(e) => setSourceId(e.target.value || null)}
-                        options={[
-                            { value: '', label: '— pick a persona —' },
-                            ...personas.map((p) => ({
-                                value: p.id as string,
-                                label: p.name,
-                            })),
-                        ]}
-                    />
-                    {sourceId ? null : (
-                        <Text as="p" tone="muted">
-                            Pick the persona who holds the stance to begin.
-                        </Text>
-                    )}
-                </TaskPaneSection>
-
-                {sourceId ? (
-                    <>
-                        <ConsolidatePanel
-                            partyId={partyId}
-                            sourceId={sourceId}
+        <WindowLayout
+            taskPaneLabel="Stance Floor"
+            taskPaneWidth="wide"
+            contentLabel="Stances"
+            taskPane={
+                <TaskPane>
+                    <TaskPaneSection
+                        title="Whose stance?"
+                        special
+                        collapsible={false}
+                    >
+                        <ComboBox
+                            aria-label="Whose stance?"
+                            value={sourceId ?? ''}
+                            onChange={(e) =>
+                                setSourceId(e.target.value || null)
+                            }
+                            options={[
+                                { value: '', label: '— pick a persona —' },
+                                ...personas.map((p) => ({
+                                    value: p.id as string,
+                                    label: p.name,
+                                })),
+                            ]}
                         />
-                        <StanceAuthor
-                            partyId={partyId}
-                            sourceId={sourceId}
-                            personas={personas.map((p) => ({
-                                id: p.id as string,
-                                name: p.name as string,
-                            }))}
-                        />
-                    </>
-                ) : null}
-            </TaskPane>
+                        {sourceId ? null : (
+                            <Text as="p" tone="muted">
+                                Pick the persona who holds the stance to begin.
+                            </Text>
+                        )}
+                    </TaskPaneSection>
 
-            <div className="min-w-0 flex-1 overflow-y-auto p-2">
-                {sourceId ? (
+                    {sourceId ? (
+                        <>
+                            <ConsolidatePanel
+                                partyId={partyId}
+                                sourceId={sourceId}
+                            />
+                            <StanceAuthor
+                                partyId={partyId}
+                                sourceId={sourceId}
+                                personas={personas.map((p) => ({
+                                    id: p.id as string,
+                                    name: p.name as string,
+                                }))}
+                            />
+                        </>
+                    ) : null}
+                </TaskPane>
+            }
+        >
+            {sourceId ? (
+                <Stack pad="md">
                     <StanceLog
                         partyId={partyId}
                         sourceId={sourceId}
                         personaNameById={personaNameById}
                     />
-                ) : (
-                    <div className="flex h-full items-center justify-center">
-                        <GroupBox
-                            title="Stances are how a persona feels"
-                            icon={<Icon name="scales" />}
-                            className="max-w-[340px]"
-                        >
-                            <Text as="p" tone="muted">
-                                Pick a persona on the left to see its opinions
-                                about other participants, concepts, and itself —
-                                and to author or retract them.
-                            </Text>
-                        </GroupBox>
-                    </div>
-                )}
-            </div>
-        </div>
+                </Stack>
+            ) : (
+                <Stack align="center" justify="center" pad="md">
+                    <GroupBox
+                        title="Stances are how a persona feels"
+                        icon={<Icon name="scales" />}
+                        className="max-w-[340px]"
+                    >
+                        <Text as="p" tone="muted">
+                            Pick a persona on the left to see its opinions about
+                            other participants, concepts, and itself — and to
+                            author or retract them.
+                        </Text>
+                    </GroupBox>
+                </Stack>
+            )}
+        </WindowLayout>
     );
 }
 
@@ -362,12 +371,12 @@ function StanceLog({
 
     if (stancesQuery.isLoading) {
         return (
-            <div className="flex flex-col gap-2">
+            <Stack gap="md">
                 <ProgressBar marquee label="Loading stances" className="w-40" />
                 <Text as="p" tone="muted">
                     Loading stances…
                 </Text>
-            </div>
+            </Stack>
         );
     }
     if (stances.length === 0) {
@@ -386,7 +395,7 @@ function StanceLog({
     );
 
     return (
-        <div className="flex flex-col gap-1.5">
+        <Stack gap="sm">
             <Text as="p" tone="muted">
                 Append-only log — the latest stance per target counts (marked{' '}
                 {current}); older entries stay for history.
@@ -412,14 +421,23 @@ function StanceLog({
                     muted: !s.isCurrent,
                     cells: {
                         target: (
-                            <span className="flex flex-wrap items-center gap-1">
+                            <Stack
+                                as="span"
+                                direction="row"
+                                wrap
+                                align="center"
+                                gap="xs"
+                            >
                                 {targetLabel(s, personaNameById)}
                                 {s.isCurrent ? current : null}
-                            </span>
+                            </Stack>
                         ),
                         valence: (
-                            <span
-                                className="flex items-center gap-1.5"
+                            <Stack
+                                as="span"
+                                direction="row"
+                                align="center"
+                                gap="sm"
                                 title="−1 hostile · 0 neutral · +1 warm"
                             >
                                 <Meter
@@ -429,7 +447,7 @@ function StanceLog({
                                     className="w-12"
                                 />
                                 {Number(s.valence).toFixed(2)}
-                            </span>
+                            </Stack>
                         ),
                         reasoning: (
                             <Text as="span" size="reading">
@@ -458,7 +476,7 @@ function StanceLog({
                     },
                 }))}
             />
-        </div>
+        </Stack>
     );
 }
 

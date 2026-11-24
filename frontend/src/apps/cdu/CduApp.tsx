@@ -5,11 +5,13 @@ import {
     Hyperlink,
     Icon,
     Post,
+    Stack,
     TaskPane,
     TaskPaneSection,
+    WindowLayout,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
     getGetWorldsPartyIdCduQueryKey,
     useGetWorldsPartyIdCdu,
@@ -107,26 +109,26 @@ function State({ cdu }: { cdu: CduOverview }) {
                 {cdu.trunk.length === 0 ? (
                     <p>Nothing the world lacks.</p>
                 ) : (
-                    <ul className="grid gap-1.5">
+                    <Stack as="ul" gap="sm">
                         {cdu.trunk.map((c) => (
                             <li key={c.sha} className="wrap-anywhere">
                                 {shortSha(c.sha)} {c.subject}{' '}
                                 <span className="block">for {c.author}</span>
                             </li>
                         ))}
-                    </ul>
+                    </Stack>
                 )}
             </TaskPaneSection>
             {cdu.models.length > 0 ? (
                 <TaskPaneSection title="Minds, cheapest first">
-                    <ul className="grid gap-1.5">
+                    <Stack as="ul" gap="sm">
                         {cdu.models.map((m) => (
                             <li key={m.id} className="wrap-anywhere">
                                 {mindLine(m)}
                                 <span className="block">{m.label}</span>
                             </li>
                         ))}
-                    </ul>
+                    </Stack>
                 </TaskPaneSection>
             ) : null}
             <TaskPaneSection title="Agora">
@@ -152,7 +154,7 @@ function State({ cdu }: { cdu: CduOverview }) {
 function Said({ cdu }: { cdu: CduOverview }) {
     if (cdu.exchanges.length === 0) return <p>Nobody has spoken to it yet.</p>;
     return (
-        <div className="grid">
+        <Stack>
             {cdu.exchanges.map((e) => (
                 <Post
                     key={e.turnId}
@@ -171,7 +173,17 @@ function Said({ cdu }: { cdu: CduOverview }) {
                     {e.text}
                 </Post>
             ))}
-        </div>
+        </Stack>
+    );
+}
+
+function Notice({ children }: { children: ReactNode }) {
+    return (
+        <WindowLayout>
+            <Stack align="center" justify="center">
+                {children}
+            </Stack>
+        </WindowLayout>
     );
 }
 
@@ -188,30 +200,27 @@ export default function CduApp() {
     });
 
     const cdu = overview.data?.status === 200 ? overview.data.data : null;
-    if (!cdu)
-        return (
-            <div className="flex h-full items-center justify-center">
-                Connecting…
-            </div>
-        );
+    if (!cdu) return <Notice>Connecting…</Notice>;
     if (!cdu.enabled)
-        return (
-            <div className="flex h-full items-center justify-center">
-                No CDU is configured for this World.
-            </div>
-        );
+        return <Notice>No CDU is configured for this World.</Notice>;
 
     return (
-        <div className="flex h-full min-h-0">
-            <TaskPane className="w-[280px] flex-none">
-                <State cdu={cdu} />
-                <TaskPaneSection title="Spoken to it">
-                    <Said cdu={cdu} />
-                </TaskPaneSection>
-            </TaskPane>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col p-2">
+        <WindowLayout
+            scroll="none"
+            taskPaneLabel="CDU"
+            taskPaneWidth="wide"
+            taskPane={
+                <TaskPane>
+                    <State cdu={cdu} />
+                    <TaskPaneSection title="Spoken to it">
+                        <Said cdu={cdu} />
+                    </TaskPaneSection>
+                </TaskPane>
+            }
+        >
+            <Stack pad="md">
                 <Terminal />
-            </div>
-        </div>
+            </Stack>
+        </WindowLayout>
     );
 }

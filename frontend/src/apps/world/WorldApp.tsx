@@ -10,11 +10,14 @@ import {
     ListView,
     type ListViewColumn,
     ProgressBar,
+    Stack,
     StatusBar,
     StatusBarField,
     SunkenField,
     Text,
     TextBox,
+    useWindowMinimised,
+    WindowLayout,
 } from '@partytown/ui';
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
@@ -76,10 +79,13 @@ const appMeta = (a: WorldActivity): Meta =>
 
 function useNow(ms = 15000) {
     const [now, setNow] = useState(() => Date.now());
+    const minimised = useWindowMinimised();
     useEffect(() => {
+        if (minimised) return;
+        setNow(Date.now());
         const id = window.setInterval(() => setNow(Date.now()), ms);
         return () => window.clearInterval(id);
-    }, [ms]);
+    }, [ms, minimised]);
     return now;
 }
 
@@ -101,8 +107,9 @@ export default function WorldApp() {
     const lives = allLives.filter((l) => l.driver !== 'User');
     const [filterId, setFilterId] = useState<string | null>(null);
     const now = useNow();
+    const minimised = useWindowMinimised();
     const selvesQuery = useGetWorldsPartyIdSelves(WORLD_ID, {
-        query: { refetchInterval: 60_000 },
+        query: { refetchInterval: minimised ? false : 60_000 },
     });
     const selfById = new Map(
         (selvesQuery.data?.data ?? []).map((s) => [s.personaId, s]),
@@ -112,46 +119,84 @@ export default function WorldApp() {
     const nameById = new Map(lives.map((l) => [l.personaId, l.name]));
 
     return (
-        <div className="flex h-full flex-col">
-            <ClockBar status={status} />
-            <HappeningBar />
-            <div className="flex min-h-0 flex-1 gap-2 px-2 pb-2">
-                <GroupBox
-                    title={`Lives (${lives.length})`}
-                    icon={<Icon name="life" />}
-                    className="flex w-[300px] min-h-0 flex-none flex-col gap-2"
-                >
-                    <InviteBar residentIds={allLives.map((l) => l.personaId)} />
-                    <SunkenField
-                        role="group"
-                        aria-label="Lives"
-                        className="flex flex-1 flex-col gap-1"
+        <WindowLayout
+            toolbar={<ClockBar status={status} />}
+            addressBar={<HappeningBar />}
+            scroll="none"
+            taskPaneLabel="Lives"
+            taskPaneWidth="308px"
+            narrowBelow={640}
+            taskPane={
+                <Stack pad="md" className="pe-0">
+                    <GroupBox
+                        title={`Lives (${lives.length})`}
+                        icon={<Icon name="life" />}
+                        fill
                     >
-                        {lives.length === 0 ? (
-                            <Text as="p" tone="muted" className="px-3 py-2">
-                                No AI personas in this world yet. Invite one
-                                above.
-                            </Text>
-                        ) : null}
-                        {lives.map((life) => (
-                            <LifeRow
-                                key={life.personaId}
-                                life={life}
-                                self={selfById.get(life.personaId)}
-                                busy={life.busy}
-                                selected={filterId === life.personaId}
-                                onSelect={() =>
-                                    setFilterId((cur) =>
-                                        cur === life.personaId
-                                            ? null
-                                            : life.personaId,
-                                    )
-                                }
-                                now={now}
-                            />
-                        ))}
-                    </SunkenField>
-                </GroupBox>
+                        <InviteBar
+                            residentIds={allLives.map((l) => l.personaId)}
+                        />
+                        <SunkenField role="group" aria-label="Lives">
+                            <Stack gap="xs">
+                                {lives.length === 0 ? (
+                                    <Text
+                                        as="p"
+                                        tone="muted"
+                                        className="px-3 py-2"
+                                    >
+                                        No AI personas in this world yet. Invite
+                                        one above.
+                                    </Text>
+                                ) : null}
+                                {lives.map((life) => (
+                                    <LifeRow
+                                        key={life.personaId}
+                                        life={life}
+                                        self={selfById.get(life.personaId)}
+                                        busy={life.busy}
+                                        selected={filterId === life.personaId}
+                                        onSelect={() =>
+                                            setFilterId((cur) =>
+                                                cur === life.personaId
+                                                    ? null
+                                                    : life.personaId,
+                                            )
+                                        }
+                                        now={now}
+                                    />
+                                ))}
+                            </Stack>
+                        </SunkenField>
+                    </GroupBox>
+                </Stack>
+            }
+            contentLabel="Activity"
+            statusBar={
+                <StatusBar>
+                    <StatusBarField
+                        icon={<Icon name={status.running ? 'play' : 'stop'} />}
+                    >
+                        {status.running ? 'Running' : 'Paused'}
+                    </StatusBarField>
+                    <StatusBarField>
+                        Tick every {Number(status.tickSeconds ?? 0)}s
+                    </StatusBarField>
+                    <StatusBarField>
+                        {Number(status.actionsLastHour ?? 0)} /{' '}
+                        {Number(status.maxActionsPerHour ?? 0)} actions this
+                        hour
+                    </StatusBarField>
+                    <StatusBarField>
+                        {busyCount} of {lives.length} busy
+                    </StatusBarField>
+                    <StatusBarField>
+                        Last tick: {relTime(status.lastTickAt, now)}
+                    </StatusBarField>
+                    <SpendCell />
+                </StatusBar>
+            }
+        >
+            <Stack pad="md">
                 <ActivityFeed
                     filterId={filterId}
                     filterName={
@@ -161,29 +206,8 @@ export default function WorldApp() {
                     nameById={nameById}
                     now={now}
                 />
-            </div>
-            <StatusBar>
-                <StatusBarField
-                    icon={<Icon name={status.running ? 'play' : 'stop'} />}
-                >
-                    {status.running ? 'Running' : 'Paused'}
-                </StatusBarField>
-                <StatusBarField>
-                    Tick every {Number(status.tickSeconds ?? 0)}s
-                </StatusBarField>
-                <StatusBarField>
-                    {Number(status.actionsLastHour ?? 0)} /{' '}
-                    {Number(status.maxActionsPerHour ?? 0)} actions this hour
-                </StatusBarField>
-                <StatusBarField>
-                    {busyCount} of {lives.length} busy
-                </StatusBarField>
-                <StatusBarField>
-                    Last tick: {relTime(status.lastTickAt, now)}
-                </StatusBarField>
-                <SpendCell />
-            </StatusBar>
-        </div>
+            </Stack>
+        </WindowLayout>
     );
 }
 
@@ -191,10 +215,11 @@ const usd = (n: number) => `$${n < 1 ? n.toFixed(3) : n.toFixed(2)}`;
 
 function SpendCell() {
     const signedIn = usePlayerSession((s) => !!s.userId);
+    const minimised = useWindowMinimised();
     const usageQuery = useGetLlmConfigUsage({
         query: {
             enabled: signedIn,
-            refetchInterval: 30_000,
+            refetchInterval: minimised ? false : 30_000,
             staleTime: 15_000,
         },
     });
@@ -235,8 +260,11 @@ function InviteBar({ residentIds }: { residentIds: string[] }) {
     );
     if (candidates.length === 0) return null;
     return (
-        <form
-            className="flex items-center gap-1"
+        <Stack
+            as="form"
+            direction="row"
+            align="center"
+            gap="xs"
             onSubmit={(e) => {
                 e.preventDefault();
                 if (pick) moveIn(pick, () => setPick(''));
@@ -258,7 +286,7 @@ function InviteBar({ residentIds }: { residentIds: string[] }) {
             <CommandButton type="submit" disabled={!pick || isPending}>
                 Invite
             </CommandButton>
-        </form>
+        </Stack>
     );
 }
 
@@ -276,8 +304,11 @@ function HappeningBar() {
         },
     });
     return (
-        <form
-            className="mx-2 mb-2 flex items-center gap-1.5"
+        <Stack
+            as="form"
+            direction="row"
+            align="center"
+            gap="sm"
             onSubmit={(e) => {
                 e.preventDefault();
                 const trimmed = text.trim();
@@ -287,11 +318,12 @@ function HappeningBar() {
         >
             <label
                 htmlFor={inputId}
-                className="flex items-center gap-1 whitespace-nowrap"
                 title="Every persona perceives and remembers it"
             >
-                <Icon name="megaphone" />
-                <Text strong>Happening:</Text>
+                <Stack as="span" direction="row" align="center" gap="xs">
+                    <Icon name="megaphone" />
+                    <Text strong>Happening:</Text>
+                </Stack>
             </label>
             <TextBox
                 id={inputId}
@@ -315,7 +347,7 @@ function HappeningBar() {
             >
                 {announce.isPending ? 'Announcing…' : 'Announce'}
             </CommandButton>
-        </form>
+        </Stack>
     );
 }
 
@@ -338,7 +370,7 @@ function NumberField({
 }) {
     const id = useId();
     return (
-        <span className="flex items-center gap-1" title={title}>
+        <Stack as="span" direction="row" align="center" gap="xs" title={title}>
             <label htmlFor={id}>{label}</label>
             <TextBox
                 id={id}
@@ -351,7 +383,7 @@ function NumberField({
                 onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             />
             {unit}
-        </span>
+        </Stack>
     );
 }
 
@@ -437,7 +469,7 @@ function ClockBar({ status }: { status: WorldStatus }) {
             icon={<Icon name="clock" />}
             className="m-2 mb-1"
         >
-            <div className="flex flex-wrap items-center gap-3">
+            <Stack direction="row" wrap align="center" gap="lg">
                 <CommandButton
                     disabled={update.isPending}
                     tone={status.running ? 'neutral' : 'go'}
@@ -498,8 +530,10 @@ function ClockBar({ status }: { status: WorldStatus }) {
                         )
                     }
                 />
-                <div
-                    className="flex items-center gap-1.5"
+                <Stack
+                    direction="row"
+                    align="center"
+                    gap="sm"
                     title="Actions started in the last hour vs the hourly budget"
                 >
                     <ProgressBar
@@ -513,8 +547,13 @@ function ClockBar({ status }: { status: WorldStatus }) {
                     <Text tone={used >= budget ? 'danger' : undefined}>
                         {used} / {budget}
                     </Text>
-                </div>
-                <div className="ml-auto flex items-center gap-1.5">
+                </Stack>
+                <Stack
+                    direction="row"
+                    align="center"
+                    gap="sm"
+                    className="ml-auto"
+                >
                     {tickNote ? <Text tone="muted">{tickNote}</Text> : null}
                     <CommandButton
                         disabled={tick.isPending}
@@ -529,8 +568,8 @@ function ClockBar({ status }: { status: WorldStatus }) {
                     >
                         Tick now
                     </CommandButton>
-                </div>
-            </div>
+                </Stack>
+            </Stack>
             {update.isError ? (
                 <Text as="p" tone="danger">
                     Could not update the clock.
@@ -547,16 +586,18 @@ function SelfLines({ self }: { self: SelfSummary }) {
     const hunger =
         fed === null || fed >= 0.45 ? null : fed < 0.15 ? 'famished' : 'hungry';
     return (
-        <div className="grid gap-0.5">
-            <div
-                className="flex min-w-0 items-center gap-1"
+        <Stack gap="xxs">
+            <Stack
+                direction="row"
+                align="center"
+                gap="xs"
                 title={self.doing ?? undefined}
             >
                 <Icon name={asleep ? 'sleep' : 'home'} />
                 <Text className="truncate">
                     {asleep ? 'asleep' : (self.doing ?? 'up and about')}
                 </Text>
-            </div>
+            </Stack>
             <Text as="div" tone="muted">
                 {self.mood ? `mood: ${self.mood}` : null}
                 {self.energy ? ` · energy ${self.energy}` : null}
@@ -584,7 +625,7 @@ function SelfLines({ self }: { self: SelfSummary }) {
                     </ul>
                 </Expander>
             ) : null}
-        </div>
+        </Stack>
     );
 }
 
@@ -634,8 +675,8 @@ function LifeRow({
     };
 
     return (
-        <div className="grid gap-1 px-1 py-1">
-            <div className="flex items-center gap-1">
+        <Stack gap="xs" pad="xs">
+            <Stack direction="row" align="center" gap="xs">
                 <ContactRow
                     className="min-w-0 flex-1"
                     selected={selected}
@@ -649,8 +690,11 @@ function LifeRow({
                     picture={<Portrait who={life.personaId} size={24} />}
                     name={life.name}
                     details={
-                        <span
-                            className="flex items-center gap-1"
+                        <Stack
+                            as="span"
+                            direction="row"
+                            align="center"
+                            gap="xs"
                             title={`Chattiness ${chattiness.toFixed(2)}`}
                         >
                             chatty
@@ -662,15 +706,18 @@ function LifeRow({
                                 className="w-[48px]"
                             />
                             {busy ? (
-                                <span
-                                    className="flex items-center gap-1"
+                                <Stack
+                                    as="span"
+                                    direction="row"
+                                    align="center"
+                                    gap="xs"
                                     title="Taking a Life turn right now"
                                 >
                                     <Icon name="hourglass" />
                                     <Text tone="caution">thinking</Text>
-                                </span>
+                                </Stack>
                             ) : null}
-                        </span>
+                        </Stack>
                     }
                 />
                 <CommandButton
@@ -687,12 +734,14 @@ function LifeRow({
                 >
                     Diary
                 </CommandButton>
-            </div>
-            <div className="grid gap-0.5 pl-3">
+            </Stack>
+            <Stack gap="xxs" className="pl-3">
                 {self ? <SelfLines self={self} /> : null}
                 {last ? (
-                    <div
-                        className="flex min-w-0 items-center gap-1"
+                    <Stack
+                        direction="row"
+                        align="center"
+                        gap="xs"
                         title={last.summary}
                     >
                         <Icon name={appMeta(last).icon} />
@@ -700,15 +749,17 @@ function LifeRow({
                             {last.summary}{' '}
                             <Text tone="muted">· {relTime(last.ts, now)}</Text>
                         </Text>
-                    </div>
+                    </Stack>
                 ) : (
                     <Text as="div" tone="muted">
                         Hasn't done anything yet.
                     </Text>
                 )}
                 {nudging ? (
-                    <form
-                        className="flex gap-1"
+                    <Stack
+                        as="form"
+                        direction="row"
+                        gap="xs"
                         onSubmit={(e) => {
                             e.preventDefault();
                             sendNudge();
@@ -732,15 +783,15 @@ function LifeRow({
                         >
                             {tick.isPending ? '…' : 'Go'}
                         </CommandButton>
-                    </form>
+                    </Stack>
                 ) : null}
                 {note ? (
                     <Text as="div" tone="caution">
                         {note}
                     </Text>
                 ) : null}
-            </div>
-        </div>
+            </Stack>
+        </Stack>
     );
 }
 
@@ -837,13 +888,19 @@ function ActivityFeed({
                     </Text>
                 ),
                 app: (
-                    <span className="flex items-center gap-1" title={a.action}>
+                    <Stack
+                        as="span"
+                        direction="row"
+                        align="center"
+                        gap="xs"
+                        title={a.action}
+                    >
                         <Icon name={meta.icon} />
                         {meta.label}
-                    </span>
+                    </Stack>
                 ),
                 what: (
-                    <div className="grid gap-0.5">
+                    <Stack gap="xxs">
                         <div>
                             {open ? (
                                 <Hyperlink onClick={open}>
@@ -858,7 +915,7 @@ function ActivityFeed({
                                 “{a.thought}”
                             </Text>
                         ) : null}
-                    </div>
+                    </Stack>
                 ),
             },
         };
@@ -868,10 +925,10 @@ function ActivityFeed({
         <GroupBox
             title={`Activity${filterName ? ` — ${filterName}` : ''}`}
             icon={<Icon name="world" />}
-            className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
+            fill
         >
             {filterId ? (
-                <div className="flex">
+                <Stack direction="row">
                     <CommandButton
                         size="small"
                         icon={<Icon name="close" />}
@@ -879,7 +936,7 @@ function ActivityFeed({
                     >
                         Show everyone
                     </CommandButton>
-                </div>
+                </Stack>
             ) : null}
             {activitiesQuery.isError ? (
                 <Text as="p" tone="danger">
@@ -892,7 +949,6 @@ function ActivityFeed({
                 selectionMode="none"
                 columns={columns}
                 items={items}
-                className="min-h-0 flex-1"
                 onActivate={(id) => opens.get(id)?.()}
                 empty={
                     activitiesQuery.isPending

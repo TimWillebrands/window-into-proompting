@@ -1,5 +1,12 @@
+import {
+    windowActions as act,
+    emptyDesktop,
+    windowReducer,
+} from '@partytown/ui';
 import { defaultStringifySearch } from '@tanstack/react-router';
+import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
+import { desktopLayoutSchema } from '../types/desktop';
 import { PACKED_KEY, parseSearch, stringifySearch } from './search-codec';
 
 const bigDesktop = (n: number) => {
@@ -83,5 +90,60 @@ describe('search codec', () => {
         const perCommit = (performance.now() - start) / runs;
         console.info(`search codec: ${perCommit.toFixed(3)} ms per commit`);
         expect(perCommit).toBeLessThan(5);
+    });
+
+    it('keeps a window manager desktop through the URL and its schema', () => {
+        const area = { width: 1200, height: 800 };
+        const desktop = [
+            act.open({
+                appId: 'board',
+                title: 'Partyboard',
+                icon: 'board',
+                bounds: { x: 240, y: 120, width: 860, height: 600 },
+                props: { threadId: 't1' },
+                area,
+            }),
+            act.open({
+                appId: 'messenger-chat',
+                id: 'dm-1',
+                title: 'Denise — Conversation',
+                icon: 'chat',
+                area,
+            }),
+            act.snap('board', 'left', area),
+            act.minimise('dm-1'),
+            act.startMenu(true),
+        ].reduce(windowReducer, emptyDesktop);
+        const read = v.parse(
+            desktopLayoutSchema,
+            parseSearch(stringifySearch(desktop)),
+        );
+        expect(read).toEqual(desktop);
+    });
+
+    it('still reads desktops written before the window manager', () => {
+        const legacy = bigDesktop(3);
+        const maximised = legacy.windows['win-1'] as Record<string, unknown>;
+        maximised.maximized = true;
+        const read = v.parse(
+            desktopLayoutSchema,
+            parseSearch(stringifySearch(legacy)),
+        );
+        expect(read).toEqual(legacy);
+        const restored = windowReducer(read, act.toggleMaximise('win-1'));
+        expect(restored.windows['win-1']).toMatchObject({
+            maximized: false,
+            x: 101,
+            y: 81,
+            width: 800,
+            height: 600,
+        });
+        expect(restored.focusedId).toBe('win-1');
+    });
+
+    it('falls back to an empty desktop for a broken one', () => {
+        expect(
+            v.parse(desktopLayoutSchema, { windows: 'nope', focusedId: 3 }),
+        ).toEqual(emptyDesktop);
     });
 });

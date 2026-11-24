@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { fn } from 'storybook/test';
 import {
     useActiveGenerationPhases,
     useChatGroupGenerationState,
@@ -10,7 +9,7 @@ import {
     seeded,
     withStoryLives,
 } from '../../components/chat/story-seed';
-import WindowFrame from '../../components/desktop/WindowFrame';
+import StoryWindow from '../../components/desktop/StoryWindow';
 import type { RealtimeChatMessage } from '../../lib/realtime-store';
 import MessengerChatWindow from './MessengerChatWindow';
 
@@ -60,22 +59,23 @@ const meta = {
         mock(useActiveGenerationPhases, []);
     },
     decorators: [
-        (Story) => (
-            <div className="h-[520px] w-[600px] p-6">
+        (Story, { parameters }) => (
+            <div
+                className={
+                    parameters.narrow
+                        ? 'h-[520px] w-[400px] p-6'
+                        : 'h-[520px] w-[600px] p-6'
+                }
+            >
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
-                <WindowFrame
+                <StoryWindow
                     id="dm-ada"
-                    title="Ada — Conversation"
-                    icon="/img/icons/messenger.ico"
-                    width={560}
-                    height={480}
-                    zIndex={1}
-                    onMinimize={fn()}
-                    onMaximize={fn()}
-                    onClose={fn()}
+                    title="Ada - Conversation"
+                    icon="chat"
+                    skin="msn"
                 >
                     <Story />
-                </WindowFrame>
+                </StoryWindow>
             </div>
         ),
         seeded(),
@@ -90,3 +90,9 @@ export const Default: Story = {};
 export const Spectating: Story = {
     args: { spectate: true, withName: 'Ada & Linus' },
 };
+
+export const Noir: Story = { globals: { scheme: 'noir' } };
+
+export const Narrow: Story = { parameters: { narrow: true } };
+
+export const NoConversation: Story = { args: { chatGroupId: undefined } };

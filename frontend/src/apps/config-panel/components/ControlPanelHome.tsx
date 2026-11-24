@@ -7,7 +7,7 @@ export default function ControlPanelHome({
     onNavigate: (section: string) => void;
 }) {
     return (
-        <CategoryView title="Pick a category" className="min-h-full">
+        <CategoryView title="Pick a category">
             {SECTIONS.map((s) => (
                 <CategoryItem
                     key={s.id}

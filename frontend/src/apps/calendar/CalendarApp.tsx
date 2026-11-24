@@ -4,7 +4,9 @@ import {
     GroupBox,
     ListView,
     type ListViewColumn,
+    Stack,
     TextBox,
+    WindowLayout,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
@@ -69,63 +71,61 @@ export default function CalendarApp() {
         .slice(0, 10);
 
     return (
-        <div className="flex h-full flex-col gap-2 p-2">
-            <PlanForm playerId={playerId} />
-            <GroupBox
-                title="Coming up"
-                className="min-h-0 flex-1 grid-rows-[minmax(0,1fr)] content-stretch"
-            >
-                <ListView
-                    label="Coming up"
-                    className="min-h-0"
-                    columns={upcomingColumns}
-                    selectionMode="none"
-                    empty="Nothing planned. Personas plan get-togethers on their own — or plan one above."
-                    items={upcoming.map((g) => ({
-                        id: g.id ?? '',
-                        label: `“${g.title}”`,
-                        cells: {
-                            when: `${time(g.startsAt)}, ${startsIn(g, now)}`,
-                            where: whereOf(g),
-                            host: g.hostName,
-                            who: (
-                                <span
-                                    title={(g.attendeeIds ?? [])
-                                        .map(nameOf)
-                                        .join(', ')}
-                                >
-                                    {(g.attendeeIds ?? [])
-                                        .map(nameOf)
-                                        .join(', ')}
-                                </span>
-                            ),
-                            rsvp: <Rsvp g={g} playerId={playerId} />,
-                        },
-                    }))}
-                />
-            </GroupBox>
-            <GroupBox title="Recently">
-                <ListView
-                    label="Recently"
-                    className="max-h-[110px]"
-                    columns={pastColumns}
-                    selectionMode="none"
-                    empty="—"
-                    items={past.map((g) => ({
-                        id: g.id ?? '',
-                        label: `“${g.title}”`,
-                        cells: {
-                            when: time(g.startsAt),
-                            where: whereOf(g),
-                            outcome:
-                                g.status === 'Missed'
-                                    ? 'missed, the world was asleep'
-                                    : `${g.attendeeIds?.length ?? 0} said they'd come`,
-                        },
-                    }))}
-                />
-            </GroupBox>
-        </div>
+        <WindowLayout scroll="none">
+            <Stack gap="md" pad="md">
+                <PlanForm playerId={playerId} />
+                <GroupBox title="Coming up" fill>
+                    <ListView
+                        label="Coming up"
+                        columns={upcomingColumns}
+                        selectionMode="none"
+                        empty="Nothing planned. Personas plan get-togethers on their own — or plan one above."
+                        items={upcoming.map((g) => ({
+                            id: g.id ?? '',
+                            label: `“${g.title}”`,
+                            cells: {
+                                when: `${time(g.startsAt)}, ${startsIn(g, now)}`,
+                                where: whereOf(g),
+                                host: g.hostName,
+                                who: (
+                                    <span
+                                        title={(g.attendeeIds ?? [])
+                                            .map(nameOf)
+                                            .join(', ')}
+                                    >
+                                        {(g.attendeeIds ?? [])
+                                            .map(nameOf)
+                                            .join(', ')}
+                                    </span>
+                                ),
+                                rsvp: <Rsvp g={g} playerId={playerId} />,
+                            },
+                        }))}
+                    />
+                </GroupBox>
+                <GroupBox title="Recently">
+                    <ListView
+                        label="Recently"
+                        className="max-h-[110px]"
+                        columns={pastColumns}
+                        selectionMode="none"
+                        empty="—"
+                        items={past.map((g) => ({
+                            id: g.id ?? '',
+                            label: `“${g.title}”`,
+                            cells: {
+                                when: time(g.startsAt),
+                                where: whereOf(g),
+                                outcome:
+                                    g.status === 'Missed'
+                                        ? 'missed, the world was asleep'
+                                        : `${g.attendeeIds?.length ?? 0} said they'd come`,
+                            },
+                        }))}
+                    />
+                </GroupBox>
+            </Stack>
+        </WindowLayout>
     );
 }
 
@@ -182,8 +182,12 @@ function PlanForm({ playerId }: { playerId: string | null }) {
     });
     const room = roomId || rooms[0]?.id || '';
     return (
-        <form
-            className="flex flex-wrap items-center gap-1.5"
+        <Stack
+            as="form"
+            direction="row"
+            wrap
+            align="center"
+            gap="sm"
             onSubmit={(e) => {
                 e.preventDefault();
                 if (!title.trim() || !room) return;
@@ -257,6 +261,6 @@ function PlanForm({ playerId }: { playerId: string | null }) {
             >
                 Plan it
             </CommandButton>
-        </form>
+        </Stack>
     );
 }

@@ -2,6 +2,7 @@ import {
     ChatLog,
     ChatMessage,
     CheckBox,
+    Columns,
     ComboBox,
     CommandButton,
     FieldRow,
@@ -9,14 +10,18 @@ import {
     HudPanel,
     Icon,
     ListView,
+    Pane,
     ProgressBar,
+    Stack,
     TaskPane,
     TaskPaneSection,
     Text,
     TextBox,
+    Tiles,
     type Tone,
     Toolbar,
     ToolbarButton,
+    WindowLayout,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -166,19 +171,25 @@ export default function PlacesApp() {
         places[0];
 
     return (
-        <div className="flex h-full min-h-0">
-            <Navigator
-                place={selected}
-                places={navigatorPlaces(places, playerId)}
-                away={awayLines(bodies, allPlaces)}
-                bodies={bodies}
-                me={me}
-                playerId={playerId}
-                selectedId={selected?.id}
-                onSelect={setSelectedId}
-                allEars={allEars}
-                onAllEars={setAllEars}
-            />
+        <WindowLayout
+            taskPaneLabel="Places"
+            taskPaneWidth="wide"
+            taskPane={
+                <Navigator
+                    place={selected}
+                    places={navigatorPlaces(places, playerId)}
+                    away={awayLines(bodies, allPlaces)}
+                    bodies={bodies}
+                    me={me}
+                    playerId={playerId}
+                    selectedId={selected?.id}
+                    onSelect={setSelectedId}
+                    allEars={allEars}
+                    onAllEars={setAllEars}
+                />
+            }
+            contentLabel={selected ? placeLabel(selected, playerId) : 'Places'}
+        >
             {selected ? (
                 <PlaceView
                     place={selected}
@@ -193,7 +204,7 @@ export default function PlacesApp() {
                     allEars={allEars}
                 />
             ) : null}
-        </div>
+        </WindowLayout>
     );
 }
 
@@ -300,11 +311,7 @@ function Navigator({
         ? occupancy(place, here)
         : { share: 0, level: 'calm' as const };
     return (
-        <TaskPane
-            role="navigation"
-            aria-label="Places"
-            className="w-[272px] shrink-0"
-        >
+        <TaskPane>
             {place ? (
                 <TaskPaneSection
                     special
@@ -389,11 +396,14 @@ function Navigator({
                     aside={`${away.length} offscreen`}
                 >
                     {away.map((line) => (
-                        <div
+                        <Stack
                             key={line.participantId}
-                            className="flex items-center justify-between gap-2"
+                            direction="row"
+                            align="center"
+                            justify="between"
+                            gap="md"
                         >
-                            <span className="min-w-0">{line.text}</span>
+                            <Stack.Item>{line.text}</Stack.Item>
                             {playerId ? (
                                 <CommandButton
                                     size="small"
@@ -420,7 +430,7 @@ function Navigator({
                                     Visit
                                 </CommandButton>
                             ) : null}
-                        </div>
+                        </Stack>
                     ))}
                 </TaskPaneSection>
             ) : null}
@@ -555,61 +565,70 @@ function PlaceView({
     const here = bodies.length;
     const pops =
         knockers.length > 0 || profiled ? (
-            <div className="flex max-h-[calc(100%-110px)] w-[min(420px,calc(100%-60px))] flex-col gap-1.5 overflow-y-auto">
-                {knockers.map((id) => (
-                    <HudPanel
-                        key={id}
-                        role="status"
-                        icon={<Icon name="door" />}
-                        title={
-                            allBodies.find((b) => b.participantId === id)
-                                ?.name ?? 'Someone'
-                        }
-                    >
-                        <div className="flex items-center gap-2">
-                            <span className="min-w-0 flex-1">
-                                {workplaceDoor(place)
-                                    ? 'is at the door.'
-                                    : 'is knocking at your door.'}
-                            </span>
-                            <CommandButton
-                                size="small"
-                                tone="go"
-                                disabled={letIn.isPending}
-                                onClick={() =>
-                                    letIn.mutate({
-                                        partyId: WORLD_ID,
-                                        data: {
-                                            visitorId: id,
-                                            ownerId: playerId,
-                                        },
-                                    })
-                                }
-                            >
-                                Let in
-                            </CommandButton>
-                        </div>
-                    </HudPanel>
-                ))}
-                {profiled ? (
-                    <BodyProfile
-                        body={profiled}
-                        canEdit={profiled.participantId === playerId || allEars}
-                        isMe={profiled.participantId === playerId}
-                        onClose={() => setProfileId(null)}
-                    />
-                ) : null}
-            </div>
+            <Pane grow={false} className="w-[420px] max-w-full">
+                <Stack gap="sm">
+                    {knockers.map((id) => (
+                        <HudPanel
+                            key={id}
+                            role="status"
+                            icon={<Icon name="door" />}
+                            title={
+                                allBodies.find((b) => b.participantId === id)
+                                    ?.name ?? 'Someone'
+                            }
+                        >
+                            <Stack direction="row" align="center" gap="md">
+                                <Stack.Item grow>
+                                    {workplaceDoor(place)
+                                        ? 'is at the door.'
+                                        : 'is knocking at your door.'}
+                                </Stack.Item>
+                                <CommandButton
+                                    size="small"
+                                    tone="go"
+                                    disabled={letIn.isPending}
+                                    onClick={() =>
+                                        letIn.mutate({
+                                            partyId: WORLD_ID,
+                                            data: {
+                                                visitorId: id,
+                                                ownerId: playerId,
+                                            },
+                                        })
+                                    }
+                                >
+                                    Let in
+                                </CommandButton>
+                            </Stack>
+                        </HudPanel>
+                    ))}
+                    {profiled ? (
+                        <BodyProfile
+                            body={profiled}
+                            canEdit={
+                                profiled.participantId === playerId || allEars
+                            }
+                            isMe={profiled.participantId === playerId}
+                            onClose={() => setProfileId(null)}
+                        />
+                    ) : null}
+                </Stack>
+            </Pane>
         ) : null;
     const hud = (
         <>
-            <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-start gap-2 p-2 pr-[56px]">
+            <Stack
+                align="start"
+                gap="md"
+                pad="md"
+                className="pointer-events-none absolute inset-0 pr-14 pb-28"
+            >
                 <HudPanel
                     icon={<Icon name={placeIcon(place, playerId)} />}
                     title={`${placeLabel(place, playerId)} · ${here === 0 ? 'empty' : `${here} here`}`}
                 />
                 {pops}
-            </div>
+            </Stack>
             {me && travelling ? (
                 <Travel
                     me={me}
@@ -618,7 +637,12 @@ function PlaceView({
                     onTurnBack={turnBack}
                 />
             ) : null}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 p-2">
+            <Stack
+                align="center"
+                gap="md"
+                pad="md"
+                className="pointer-events-none absolute inset-x-0 bottom-0"
+            >
                 {amHere && me && !arranging ? (
                     <PoseBar
                         place={place}
@@ -629,20 +653,21 @@ function PlaceView({
                 ) : null}
                 {situation && !travelling ? (
                     <HudPanel className="self-stretch">
-                        <span
-                            className="min-w-0 truncate hover:whitespace-normal"
+                        <Stack.Item
+                            truncate
+                            className="hover:whitespace-normal"
                             title={situation}
                         >
                             {situation}
-                        </span>
+                        </Stack.Item>
                     </HudPanel>
                 ) : null}
-            </div>
+            </Stack>
         </>
     );
 
     return (
-        <main className="@container flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto p-2 *:shrink-0">
+        <Stack gap="md" pad="md">
             {canKnock || canGo || (mayArrange && !arranging) ? (
                 <Toolbar aria-label="Place tasks">
                     {canKnock ? (
@@ -683,10 +708,10 @@ function PlaceView({
                 </Toolbar>
             ) : null}
             {!playerId ? (
-                <p className="flex items-center gap-2">
+                <Stack as="p" direction="row" align="center" gap="md">
                     <Icon name="info" />
                     Sign in on the Welcome screen to have a body here.
-                </p>
+                </Stack>
             ) : null}
             {allEars ? <MakerTools place={place} playerId={playerId} /> : null}
             {arranging && mayArrange ? (
@@ -715,9 +740,13 @@ function PlaceView({
             {webgl2 ? (
                 <Suspense
                     fallback={
-                        <div className="flex min-h-[240px] flex-[1_0_240px] items-center justify-center">
+                        <Stack
+                            align="center"
+                            justify="center"
+                            className="min-h-[240px] flex-[1_0_240px]"
+                        >
                             <ProgressBar marquee label="Loading the Place" />
-                        </div>
+                        </Stack>
                     }
                 >
                     <PlaceScene
@@ -753,10 +782,10 @@ function PlaceView({
             ) : (
                 <>
                     {situation ? (
-                        <p className="flex items-start gap-2">
+                        <Stack as="p" direction="row" align="start" gap="md">
                             <Icon name="info" />
                             {situation}
-                        </p>
+                        </Stack>
                     ) : null}
                     {amHere && me ? (
                         <PoseBar place={place} me={me} bodies={allBodies} />
@@ -772,114 +801,132 @@ function PlaceView({
                             onSpotClick={onSpot}
                         />
                         {pops ? (
-                            <div className="pointer-events-none absolute inset-x-0 top-0 p-2">
+                            <Stack
+                                pad="md"
+                                className="pointer-events-none absolute inset-0"
+                            >
                                 {pops}
-                            </div>
+                            </Stack>
                         ) : null}
                     </div>
                 </>
             )}
-            <div className="flex flex-col gap-1">
-                <Toolbar aria-label="Show" className="@min-[641px]:hidden">
-                    <ToolbarButton
-                        icon={<Icon name="chat" />}
-                        pressed={tab === 'talk'}
-                        onClick={() => setTab('talk')}
-                    >
-                        Talk
-                    </ToolbarButton>
-                    <ToolbarButton
-                        icon={<Icon name="chair" />}
-                        pressed={tab === 'spots'}
-                        onClick={() => setTab('spots')}
-                    >
-                        Spots · {here}
-                    </ToolbarButton>
-                </Toolbar>
-                <div className="grid h-[236px] grid-cols-[minmax(0,1fr)_minmax(260px,0.9fr)] gap-2 *:min-h-0 @max-[640px]:h-[200px] @max-[640px]:grid-cols-1">
-                    <div
-                        className={`grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] content-start gap-1.5 overflow-y-auto${tab === 'talk' ? ' @max-[640px]:hidden' : ''}`}
-                    >
-                        {amHere && ownHome ? (
-                            <DecorateForm playerId={playerId} />
-                        ) : null}
-                        {(place.spots ?? []).map((s) => {
-                            const at = bodies.filter(
-                                (b) => bodySpotId(b) === s.id,
-                            );
-                            const capacity = Number(s.capacity ?? 1);
-                            const full = at.length >= capacity;
-                            const mineSpot = at.some(
-                                (b) => b.participantId === playerId,
-                            );
-                            const things = furni.filter(
-                                (f) => f.spotId === s.id,
-                            );
-                            return (
-                                <GroupBox
-                                    key={s.id}
-                                    title={`${s.name ?? ''} · ${at.length}/${capacity}`}
-                                    current={mineSpot}
-                                    icon={
-                                        mineSpot ? (
-                                            <Icon name="location" />
-                                        ) : undefined
-                                    }
-                                    className="content-start gap-1"
-                                >
-                                    {at.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                            {at.map((b) => (
-                                                <BodyChip
-                                                    key={b.participantId}
-                                                    body={b}
-                                                    isMe={
-                                                        b.participantId ===
-                                                        playerId
-                                                    }
-                                                    onClick={() =>
-                                                        setProfileId(
-                                                            b.participantId ??
-                                                                null,
-                                                        )
-                                                    }
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <span>nobody</span>
-                                    )}
-                                    {amHere && !mineSpot && !full ? (
-                                        <CommandButton
-                                            size="small"
-                                            className="justify-self-start"
-                                            disabled={move.isPending}
-                                            onClick={() => goTo(s.id)}
-                                        >
-                                            Go
-                                        </CommandButton>
-                                    ) : null}
-                                    {things.map((f) => (
-                                        <FurniRow
-                                            key={f.furniId}
-                                            furni={f}
-                                            canAct={amHere}
-                                            playerId={playerId}
-                                            onOpen={
-                                                ownHome
-                                                    ? () => setLaptopOpen(true)
-                                                    : undefined
-                                            }
-                                        />
-                                    ))}
-                                </GroupBox>
-                            );
-                        })}
-                    </div>
+            <Columns
+                narrow="one"
+                narrowBelow={640}
+                show={tab === 'spots' ? 0 : 1}
+                className="h-[236px]"
+                switcher={
+                    <Toolbar aria-label="Show">
+                        <ToolbarButton
+                            icon={<Icon name="chat" />}
+                            pressed={tab === 'talk'}
+                            onClick={() => setTab('talk')}
+                        >
+                            Talk
+                        </ToolbarButton>
+                        <ToolbarButton
+                            icon={<Icon name="chair" />}
+                            pressed={tab === 'spots'}
+                            onClick={() => setTab('spots')}
+                        >
+                            Spots · {here}
+                        </ToolbarButton>
+                    </Toolbar>
+                }
+            >
+                <Columns.Column weight={1.2}>
+                    <Pane>
+                        <Tiles minWidth="150px">
+                            {amHere && ownHome ? (
+                                <DecorateForm playerId={playerId} />
+                            ) : null}
+                            {(place.spots ?? []).map((s) => {
+                                const at = bodies.filter(
+                                    (b) => bodySpotId(b) === s.id,
+                                );
+                                const capacity = Number(s.capacity ?? 1);
+                                const full = at.length >= capacity;
+                                const mineSpot = at.some(
+                                    (b) => b.participantId === playerId,
+                                );
+                                const things = furni.filter(
+                                    (f) => f.spotId === s.id,
+                                );
+                                return (
+                                    <GroupBox
+                                        key={s.id}
+                                        title={`${s.name ?? ''} · ${at.length}/${capacity}`}
+                                        current={mineSpot}
+                                        icon={
+                                            mineSpot ? (
+                                                <Icon name="location" />
+                                            ) : undefined
+                                        }
+                                        className="gap-1"
+                                    >
+                                        {at.length > 0 ? (
+                                            <Stack
+                                                direction="row"
+                                                wrap
+                                                gap="xs"
+                                            >
+                                                {at.map((b) => (
+                                                    <BodyChip
+                                                        key={b.participantId}
+                                                        body={b}
+                                                        isMe={
+                                                            b.participantId ===
+                                                            playerId
+                                                        }
+                                                        onClick={() =>
+                                                            setProfileId(
+                                                                b.participantId ??
+                                                                    null,
+                                                            )
+                                                        }
+                                                    />
+                                                ))}
+                                            </Stack>
+                                        ) : (
+                                            <span>nobody</span>
+                                        )}
+                                        {amHere && !mineSpot && !full ? (
+                                            <CommandButton
+                                                size="small"
+                                                className="justify-self-start"
+                                                disabled={move.isPending}
+                                                onClick={() => goTo(s.id)}
+                                            >
+                                                Go
+                                            </CommandButton>
+                                        ) : null}
+                                        {things.map((f) => (
+                                            <FurniRow
+                                                key={f.furniId}
+                                                furni={f}
+                                                canAct={amHere}
+                                                playerId={playerId}
+                                                onOpen={
+                                                    ownHome
+                                                        ? () =>
+                                                              setLaptopOpen(
+                                                                  true,
+                                                              )
+                                                        : undefined
+                                                }
+                                            />
+                                        ))}
+                                    </GroupBox>
+                                );
+                            })}
+                        </Tiles>
+                    </Pane>
+                </Columns.Column>
+                <Columns.Column>
                     {amHere && place.talkRoomId ? (
                         <PlaceTalk
                             shown={tab === 'talk'}
-                            tucked={tab === 'spots'}
                             roomId={place.talkRoomId}
                             playerId={playerId}
                             allEars={allEars}
@@ -894,12 +941,9 @@ function PlaceView({
                         <GroupBox
                             title="Talk here"
                             icon={<Icon name="chat" />}
-                            className={`flex min-h-0 flex-col${tab === 'spots' ? ' @max-[640px]:hidden' : ''}`}
+                            fill
                         >
-                            <ChatLog
-                                aria-label="Talk here"
-                                className="min-h-0 flex-1"
-                            >
+                            <ChatLog aria-label="Talk here">
                                 <TalkNote>
                                     {amHere
                                         ? 'Nobody to talk to here yet.'
@@ -908,9 +952,9 @@ function PlaceView({
                             </ChatLog>
                         </GroupBox>
                     )}
-                </div>
-            </div>
-        </main>
+                </Columns.Column>
+            </Columns>
+        </Stack>
     );
 }
 
@@ -942,9 +986,9 @@ function Travel({
             role="status"
             icon={<Icon name="walk" />}
             title={`${from ? `${placeLabel(from, playerId)} → ` : ''}${placeLabel(to, playerId)}`}
-            className="w-[min(380px,calc(100%-260px))] min-w-[220px]"
+            className="w-[380px]"
         >
-            <div className="flex items-center gap-2">
+            <Stack direction="row" align="center" gap="md">
                 <ProgressBar
                     className="min-w-0 flex-1"
                     value={share * 100}
@@ -962,7 +1006,7 @@ function Travel({
                         Back
                     </CommandButton>
                 ) : null}
-            </div>
+            </Stack>
         </HudPanel>
     );
 }
@@ -1039,9 +1083,11 @@ function LookEditor({ body }: { body: Body }) {
     if (!fields) return null;
     const a = (body.appearance ?? {}) as Record<string, unknown>;
     return (
-        <div className="flex flex-col gap-1">
-            <form
-                className="flex gap-1"
+        <Stack gap="xs">
+            <Stack
+                as="form"
+                direction="row"
+                gap="xs"
                 onSubmit={(e) => {
                     e.preventDefault();
                     if (!wish.trim()) return;
@@ -1067,7 +1113,7 @@ function LookEditor({ body }: { body: Body }) {
                 <CommandButton type="submit" disabled={restyle.isPending}>
                     {restyle.isPending ? 'Changing…' : 'Change'}
                 </CommandButton>
-            </form>
+            </Stack>
             {fields.map((f) => (
                 <FieldRow key={f.key} label={f.label}>
                     <ComboBox
@@ -1091,7 +1137,7 @@ function LookEditor({ body }: { body: Body }) {
                     />
                 </FieldRow>
             ))}
-        </div>
+        </Stack>
     );
 }
 
@@ -1114,12 +1160,12 @@ function Droste({ onClose }: { onClose: () => void }) {
     return (
         <GroupBox
             title={
-                <span className="flex items-center gap-2">
+                <Stack as="span" direction="row" align="center" gap="md">
                     Your laptop
                     <CommandButton size="small" onClick={onClose}>
                         Close
                     </CommandButton>
-                </span>
+                </Stack>
             }
             icon={<Icon name="laptop" />}
         >
@@ -1148,8 +1194,12 @@ function DecorateForm({ playerId }: { playerId: string | null }) {
     const decorate = usePostWorldsPartyIdPlacesDecorate();
     const [text, setText] = useState('');
     return (
-        <form
-            className="col-span-full flex items-center gap-1"
+        <Stack
+            as="form"
+            direction="row"
+            align="center"
+            gap="xs"
+            className="col-span-full"
             onSubmit={(e) => {
                 e.preventDefault();
                 if (!text.trim()) return;
@@ -1182,7 +1232,7 @@ function DecorateForm({ playerId }: { playerId: string | null }) {
             >
                 Put up
             </CommandButton>
-        </form>
+        </Stack>
     );
 }
 
@@ -1239,8 +1289,10 @@ function FurniRow({
     )?.data?.done;
     if (doable)
         return (
-            <div
-                className="flex min-w-0 items-center gap-1"
+            <Stack
+                direction="row"
+                align="center"
+                gap="xs"
                 title={
                     left
                         ? `${left.byName?.split(' ')[0]} left: “${left.text}”`
@@ -1248,9 +1300,9 @@ function FurniRow({
                 }
             >
                 <Icon name="hand" />
-                <span className="min-w-0 flex-1 truncate">
+                <Stack.Item grow truncate>
                     {gave ?? furni.useLabel}
-                </span>
+                </Stack.Item>
                 {canAct && !gave ? (
                     <CommandButton
                         size="small"
@@ -1260,17 +1312,19 @@ function FurniRow({
                         {act.isPending ? '…' : 'Do'}
                     </CommandButton>
                 ) : null}
-            </div>
+            </Stack>
         );
     return (
-        <div
-            className="flex min-w-0 items-center gap-1"
+        <Stack
+            direction="row"
+            align="center"
+            gap="xs"
             title={furni.notable ?? furni.name ?? undefined}
         >
             <span>{furniIcon(furni)}</span>
-            <span className="min-w-0 flex-1 truncate">
+            <Stack.Item grow truncate>
                 {furni.notable ?? furni.name}
-            </span>
+            </Stack.Item>
             {canAct && onOpen && furni.kind === 'laptop' ? (
                 <CommandButton size="small" onClick={onOpen}>
                     Open
@@ -1295,7 +1349,7 @@ function FurniRow({
                     Use
                 </CommandButton>
             ) : null}
-        </div>
+        </Stack>
     );
 }
 
@@ -1333,14 +1387,12 @@ function BodyChip({
 
 function PlaceTalk({
     shown: visible,
-    tucked,
     roomId,
     playerId,
     nearby,
     allEars,
 }: {
     shown: boolean;
-    tucked: boolean;
     roomId: string;
     playerId: string | null;
     nearby: Body[];
@@ -1402,15 +1454,10 @@ function PlaceTalk({
     };
 
     return (
-        <GroupBox
-            title="Said out loud here"
-            icon={<Icon name="chat" />}
-            className={`flex min-h-0 flex-col${tucked ? ' @max-[640px]:hidden' : ''}`}
-        >
+        <GroupBox title="Said out loud here" icon={<Icon name="chat" />} fill>
             <ChatLog
                 ref={logRef}
                 aria-label="Said out loud here"
-                className="min-h-0 flex-1"
                 onScroll={(e) => {
                     const el = e.currentTarget;
                     atEnd.current =
@@ -1496,8 +1543,11 @@ function PlaceTalk({
                     </TalkNote>
                 ) : null}
             </ChatLog>
-            <form
-                className="flex items-center gap-1"
+            <Stack
+                as="form"
+                direction="row"
+                align="center"
+                gap="xs"
                 onSubmit={(e) => {
                     e.preventDefault();
                     void say();
@@ -1565,7 +1615,7 @@ function PlaceTalk({
                 >
                     Say
                 </CommandButton>
-            </form>
+            </Stack>
         </GroupBox>
     );
 }

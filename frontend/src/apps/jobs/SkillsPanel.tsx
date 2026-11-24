@@ -1,4 +1,4 @@
-import { CommandButton, TextBox } from '@partytown/ui';
+import { CommandButton, Stack, TextBox } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -41,9 +41,9 @@ export function SkillsPanel({
 
     const row = (s: SkillView) => (
         <Row key={s.id}>
-            <span className="min-w-0 flex-1" title={s.how}>
+            <Stack.Item grow title={s.how}>
                 {skillLabel(s)}
-            </span>
+            </Stack.Item>
             {isAdmin && !s.intrinsic ? (
                 <>
                     <CommandButton
@@ -93,8 +93,11 @@ export function SkillsPanel({
                 </Rows>
             )}
             {isAdmin ? (
-                <form
-                    className="flex items-center gap-1.5"
+                <Stack
+                    as="form"
+                    direction="row"
+                    align="center"
+                    gap="sm"
                     onSubmit={(e) => {
                         e.preventDefault();
                         if (!skill.trim()) return;
@@ -136,7 +139,7 @@ export function SkillsPanel({
                     >
                         Add
                     </CommandButton>
-                </form>
+                </Stack>
             ) : null}
         </Card>
     );

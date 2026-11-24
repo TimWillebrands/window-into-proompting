@@ -1,6 +1,7 @@
 import {
     ContactRow,
     Icon,
+    Stack,
     TaskPane,
     TaskPaneLink,
     TaskPaneSection,
@@ -11,14 +12,14 @@ import { NEW_MEMBERS, PROFILE_STUB, RECENT_ACTIVITY } from './stub-data';
 
 export default function ProfilePanel() {
     return (
-        <TaskPane className="hidden w-[300px] shrink-0 overflow-y-auto @[1000px]:block">
+        <TaskPane className="flex-1">
             <TaskPaneSection
                 title={PROFILE_STUB.name}
                 icon={<Icon name="user" size={32} />}
                 special
                 collapsible={false}
             >
-                <div className="flex flex-col items-center gap-1 text-center">
+                <Stack align="center" gap="xs" className="text-center">
                     <Portrait
                         alt={PROFILE_STUB.name}
                         who={PROFILE_STUB.avatarSeed}
@@ -29,7 +30,7 @@ export default function ProfilePanel() {
                         {PROFILE_STUB.name}
                     </Text>
                     <Text>{PROFILE_STUB.handle}</Text>
-                </div>
+                </Stack>
             </TaskPaneSection>
 
             <TaskPaneSection title="New Members">

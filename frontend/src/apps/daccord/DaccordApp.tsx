@@ -4,9 +4,11 @@ import {
     Presence,
     type PresenceStatus,
     ProgressBar,
+    Stack,
     StatusBar,
     StatusBarField,
     Text,
+    WindowLayout,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
@@ -16,13 +18,13 @@ import {
     useGetPartyIdChatGroupsSuspense,
     usePostPartyIdChatGroups,
 } from '#api/party-zone';
+import { useDesktopContext, useDesktopStore } from '#lib/desktop-context';
 import {
     useRealtimeConnectionStatus,
     useRealtimeStoreActions,
 } from '#lib/realtime-store';
 import { useWindowInstance } from '../../components/desktop/window-instance-context';
 import { useSetWindowTitleBar } from '../../components/desktop/window-titlebar-context';
-import { useDesktopContext, useDesktopStore } from '../../lib/desktop-context';
 import { WORLD_ID } from '../../lib/world';
 import CreateRoomDialog from './components/CreateRoomDialog';
 import DaccordSearchBar from './components/DaccordSearchBar';
@@ -152,6 +154,20 @@ export default function DaccordApp() {
         />
     );
 
+    const sidebar = (
+        <DaccordSidebar
+            realRooms={chatGroups.map((g) => ({
+                id: g.id,
+                name: g.name,
+            }))}
+            onSelectRoom={(id) => enterRoom(id, view.kind === 'room')}
+            activeRoomId={view.kind === 'room' ? view.chatGroupId : undefined}
+            activeCategory={activeCategory}
+            onSelectCategory={setActiveCategory}
+            onCreateRoom={() => setCreateOpen(true)}
+        />
+    );
+
     const status = (
         <StatusBar>
             <StatusBarField
@@ -167,21 +183,10 @@ export default function DaccordApp() {
     if (view.kind === 'room') {
         const selected = chatGroups.find((g) => g.id === view.chatGroupId);
         return (
-            <div className="flex h-full flex-col overflow-hidden">
-                <div className="@container relative flex min-h-0 flex-1 overflow-hidden">
-                    <DaccordSidebar
-                        realRooms={chatGroups.map((g) => ({
-                            id: g.id,
-                            name: g.name,
-                        }))}
-                        onSelectRoom={(id) => enterRoom(id, true)}
-                        activeRoomId={view.chatGroupId}
-                        activeCategory={activeCategory}
-                        onSelectCategory={setActiveCategory}
-                        onCreateRoom={() => setCreateOpen(true)}
-                    />
-                    <main className="flex min-w-0 flex-1 flex-col">
-                        <div className="flex min-w-0 items-center gap-2 px-2 py-2">
+            <>
+                <WindowLayout
+                    toolbar={
+                        <Stack direction="row" align="center" gap="md" pad="md">
                             <CommandButton
                                 icon={<Icon name="back" />}
                                 onClick={exitRoom}
@@ -196,55 +201,58 @@ export default function DaccordApp() {
                                 chatGroupId={view.chatGroupId}
                                 scenario={selected?.scenario ?? null}
                             />
-                        </div>
-                        <div className="min-h-0 flex-1 px-2 pb-2">
-                            <Suspense fallback={<ChatLoadingSpinner />}>
-                                <ChatView chatGroupId={view.chatGroupId} />
-                            </Suspense>
-                        </div>
-                    </main>
-                    {dialog}
-                </div>
-                {status}
-            </div>
+                        </Stack>
+                    }
+                    taskPaneLabel="D'Accord"
+                    taskPaneWidth="wide"
+                    taskPaneNarrow="hide"
+                    narrowBelow={820}
+                    taskPane={sidebar}
+                    scroll="none"
+                    contentLabel={selected?.name ?? 'Room'}
+                    statusBar={status}
+                >
+                    <Suspense fallback={<ChatLoadingSpinner />}>
+                        <ChatView chatGroupId={view.chatGroupId} />
+                    </Suspense>
+                </WindowLayout>
+                {dialog}
+            </>
         );
     }
 
     return (
-        <div className="flex h-full flex-col overflow-hidden">
-            <div className="@container relative flex min-h-0 flex-1 overflow-hidden">
-                <DaccordSidebar
-                    realRooms={chatGroups.map((g) => ({
-                        id: g.id,
-                        name: g.name,
-                    }))}
-                    onSelectRoom={(id) => enterRoom(id, false)}
-                    activeCategory={activeCategory}
-                    onSelectCategory={setActiveCategory}
-                    onCreateRoom={() => setCreateOpen(true)}
+        <>
+            <WindowLayout
+                taskPaneLabel="D'Accord"
+                taskPaneWidth="wide"
+                taskPaneNarrow="hide"
+                taskPane={sidebar}
+                detailsLabel="Profile"
+                detailsPane={<ProfilePanel />}
+                detailsNarrow="hide"
+                detailsNarrowBelow={1000}
+                contentLabel="Explore"
+                statusBar={status}
+            >
+                <DiscoverFeed
+                    realRooms={chatGroups}
+                    searchQuery={searchQuery}
+                    onSelectRealRoom={(id) => enterRoom(id, false)}
+                    onOpenCreate={() => setCreateOpen(true)}
                 />
-                <main className="flex min-w-0 flex-1 flex-col">
-                    <DiscoverFeed
-                        realRooms={chatGroups}
-                        searchQuery={searchQuery}
-                        onSelectRealRoom={(id) => enterRoom(id, false)}
-                        onOpenCreate={() => setCreateOpen(true)}
-                    />
-                </main>
-                <ProfilePanel />
-                {dialog}
-            </div>
-            {status}
-        </div>
+            </WindowLayout>
+            {dialog}
+        </>
     );
 }
 
 function ChatLoadingSpinner() {
     return (
-        <div className="flex h-full flex-col items-center justify-center gap-3">
+        <Stack align="center" justify="center" gap="lg">
             <ProgressBar marquee label="Loading chat" className="w-[160px]" />
             <Text tone="muted">Loading chat...</Text>
-        </div>
+        </Stack>
     );
 }
 

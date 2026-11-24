@@ -1,3 +1,4 @@
+import type { WindowManagerState } from '@partytown/ui';
 import * as v from 'valibot';
 
 const windowSnapshot = v.object({
@@ -50,5 +51,8 @@ export const desktopLayoutSchema = v.object({
     startMenuOpen: v.optional(v.fallback(v.boolean(), false), false),
 });
 
-export type DesktopLayoutState = v.InferOutput<typeof desktopLayoutSchema>;
-export type Window = DesktopLayoutState['windows'][number];
+type KitState<T extends WindowManagerState> = T;
+
+export type DesktopLayoutState = KitState<
+    v.InferOutput<typeof desktopLayoutSchema>
+>;

@@ -6,6 +6,7 @@ import {
     HudPanel,
     Icon,
     type IconName,
+    Stack,
     SwatchPicker,
     TextArea,
     TextBox,
@@ -121,11 +122,7 @@ export function PoseBar({
             {company.slice(0, 3).flatMap((b) => pairs.map((p) => button(p, b)))}
         </Toolbar>
     );
-    return floating ? (
-        <HudPanel className="max-w-[calc(100%-80px)]">{bar}</HudPanel>
-    ) : (
-        bar
-    );
+    return floating ? <HudPanel className="mx-10">{bar}</HudPanel> : bar;
 }
 
 export function ArrangeTools({
@@ -158,18 +155,18 @@ export function ArrangeTools({
         });
     return (
         <GroupBox title="Arranging" icon={<Icon name="chair" />}>
-            <div className="flex items-center gap-2">
-                <span className="min-w-0 flex-1">
+            <Stack direction="row" align="center" gap="md">
+                <Stack.Item grow>
                     {thing
                         ? `${thing.name}: click a tile to put it there.`
                         : 'Click a thing to pick it up.'}
-                </span>
+                </Stack.Item>
                 <CommandButton size="small" tone="go" onClick={onDone}>
                     Done
                 </CommandButton>
-            </div>
+            </Stack>
             {thing && place.id ? (
-                <div className="flex flex-wrap gap-1">
+                <Stack direction="row" wrap gap="xs">
                     <CommandButton
                         size="small"
                         icon={<Icon name="refresh" />}
@@ -231,7 +228,7 @@ export function ArrangeTools({
                             </CommandButton>
                         </>
                     ) : null}
-                </div>
+                </Stack>
             ) : null}
             <Swatches
                 label="Walls"
@@ -261,8 +258,8 @@ function Swatches({
     onPick: (c: string | null) => void;
 }) {
     return (
-        <div className="flex items-center gap-2">
-            <span className="w-[40px] shrink-0">{label}</span>
+        <Stack direction="row" align="center" gap="md">
+            <span className="w-10 flex-none">{label}</span>
             <SwatchPicker
                 label={label}
                 colours={colours}
@@ -270,7 +267,7 @@ function Swatches({
                 noneLabel="Default"
                 onValueChange={onPick}
             />
-        </div>
+        </Stack>
     );
 }
 
@@ -311,7 +308,12 @@ export function MakerTools({
                             : undefined
                     }
                 >
-                    <div className="flex items-center gap-2 justify-self-stretch">
+                    <Stack
+                        direction="row"
+                        align="center"
+                        gap="md"
+                        className="justify-self-stretch"
+                    >
                         <TextBox
                             value={idea}
                             className="min-w-0 flex-1"
@@ -333,7 +335,7 @@ export function MakerTools({
                         >
                             {create.isPending ? 'Designing…' : 'Build'}
                         </CommandButton>
-                    </div>
+                    </Stack>
                 </FieldRow>
             </form>
             <form
@@ -354,7 +356,12 @@ export function MakerTools({
                 }}
             >
                 <FieldRow label="Make a thing">
-                    <div className="flex items-center gap-2 justify-self-stretch">
+                    <Stack
+                        direction="row"
+                        align="center"
+                        gap="md"
+                        className="justify-self-stretch"
+                    >
                         <TextBox
                             value={what}
                             className="min-w-0 flex-1"
@@ -368,7 +375,7 @@ export function MakerTools({
                         >
                             Make
                         </CommandButton>
-                    </div>
+                    </Stack>
                 </FieldRow>
             </form>
             {(place.kind === 'home' || place.kind === 'public') && place.id ? (
@@ -418,8 +425,9 @@ function Redesign({
     const [rename, setRename] = useState('');
     const [outdoor, setOutdoor] = useState(false);
     return (
-        <form
-            className="flex flex-col gap-1"
+        <Stack
+            as="form"
+            gap="xs"
             onSubmit={(e) => {
                 e.preventDefault();
                 if (!text.trim()) return;
@@ -465,7 +473,7 @@ function Redesign({
                     onChange={(e) => setText(e.currentTarget.value)}
                 />
             </FieldRow>
-            <div className="flex items-center gap-2">
+            <Stack direction="row" align="center" gap="md">
                 <TextBox
                     value={rename}
                     aria-label="New name"
@@ -487,7 +495,7 @@ function Redesign({
                 >
                     {redesign.isPending ? 'Designing…' : 'Redesign'}
                 </CommandButton>
-            </div>
-        </form>
+            </Stack>
+        </Stack>
     );
 }

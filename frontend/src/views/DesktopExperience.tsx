@@ -1,19 +1,18 @@
-import { createElement, useEffect, useMemo, useState } from 'react';
-import { Rnd } from 'react-rnd';
+import { Desktop, DesktopIcon, type MenuEntry } from '@partytown/ui';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import AppIcon from '../components/desktop/AppIcon';
 import ClerkPlayerBridge from '../components/desktop/ClerkPlayerBridge';
 import CreateCharacterScreen from '../components/desktop/CreateCharacterScreen';
-import DesktopIcon from '../components/desktop/DesktopIcon';
-import DesktopTaskbar from '../components/desktop/DesktopTaskbar';
+import DesktopTray from '../components/desktop/DesktopTray';
 import DesktopWallpaper from '../components/desktop/DesktopWallpaper';
 import NotificationBanners from '../components/desktop/notifications/NotificationBanners';
 import NotificationCenter from '../components/desktop/notifications/NotificationCenter';
 import NotificationTray from '../components/desktop/notifications/NotificationTray';
 import StartMenu from '../components/desktop/StartMenu';
 import WelcomeScreen from '../components/desktop/WelcomeScreen';
-import WindowFrame from '../components/desktop/WindowFrame';
-import { WindowInstanceProvider } from '../components/desktop/window-instance-context';
-import { DesktopProvider, useDesktopContext } from '../lib/desktop-context';
-import { DESKTOP_ICONS, WINDOW_PRESETS } from '../lib/window-presets';
+import { DesktopProvider, useDesktopStore } from '../lib/desktop-context';
+import { desktopPrograms, PROGRAMS } from '../lib/window-presets';
 import {
     useCanOpen,
     useForgetStoppedWorld,
@@ -23,205 +22,79 @@ import {
     WorldRealtimeBridge,
 } from '../lib/world';
 
-const TASKBAR_HEIGHT = 30;
-const MIN_WIDTH = 360;
-const MIN_HEIGHT = 240;
-const DRAG_HANDLE = 'window-drag-handle';
-
-function useViewport() {
-    const [size, setSize] = useState(() => ({
-        width: typeof window === 'undefined' ? 1024 : window.innerWidth,
-        height: typeof window === 'undefined' ? 768 : window.innerHeight,
-    }));
-    useEffect(() => {
-        const handler = () =>
-            setSize({ width: window.innerWidth, height: window.innerHeight });
-        window.addEventListener('resize', handler);
-        return () => window.removeEventListener('resize', handler);
-    }, []);
-    return size;
-}
+const renderIcon = (icon: string, size: 16 | 32 | 48) => (
+    <AppIcon icon={icon} size={size} />
+);
 
 function DesktopWindowLayer() {
     const canOpen = useCanOpen();
-    const {
-        desktopState,
-        openWindow,
-        focusWindow,
-        closeWindow,
-        minimizeWindow,
-        restoreWindow,
-        toggleMaximize,
-        updateSize,
-        updatePosition,
-        toggleStartMenu,
-        closeStartMenu,
-    } = useDesktopContext();
-    const viewport = useViewport();
-
-    const windowEntries = useMemo(
-        () => Object.values(desktopState.windows),
-        [desktopState.windows],
+    const desktopState = useDesktopStore((s) => s.desktopState);
+    const dispatch = useDesktopStore((s) => s.dispatch);
+    const openWindow = useDesktopStore((s) => s.openWindow);
+    const closeStartMenu = useDesktopStore((s) => s.closeStartMenu);
+    const queryClient = useQueryClient();
+    const [byName, setByName] = useState(false);
+    const shortcuts = PROGRAMS.filter(
+        (program) => program.shortcut && canOpen(program.access),
     );
-
-    const handleTaskbarToggle = (id: string) => {
-        const window = desktopState.windows[id];
-        if (!window) return;
-        if (window.minimized) {
-            restoreWindow(id);
-            return;
-        }
-        if (desktopState.focusedId === id) {
-            minimizeWindow(id);
-        } else {
-            focusWindow(id);
-        }
-    };
+    if (byName)
+        shortcuts.sort((a, b) =>
+            (a.shortcut ?? '').localeCompare(b.shortcut ?? ''),
+        );
+    const desktopMenu: MenuEntry[] = [
+        {
+            id: 'arrange',
+            label: 'Arrange Icons By',
+            items: [
+                {
+                    id: 'name',
+                    label: 'Name',
+                    checked: byName,
+                    onSelect: () => setByName(true),
+                },
+            ],
+        },
+        {
+            id: 'refresh',
+            label: 'Refresh',
+            onSelect: () => void queryClient.invalidateQueries(),
+        },
+        { type: 'separator', id: 'properties-separator' },
+        {
+            id: 'properties',
+            label: 'Properties',
+            onSelect: () => openWindow('display'),
+        },
+    ];
 
     return (
-        <>
-            <div className="absolute inset-0">
-                {DESKTOP_ICONS.filter((i) => canOpen(i.access)).map(
-                    (icon, index) => (
-                        <DesktopIcon
-                            key={icon.id}
-                            label={icon.label}
-                            icon={icon.icon}
-                            position={{ x: 20, y: 20 + index * 110 }}
-                            onActivate={() => openWindow(icon.windowId)}
-                        />
-                    ),
-                )}
-            </div>
-
-            <div
-                className="absolute inset-0 pointer-events-none"
-                style={{ bottom: TASKBAR_HEIGHT }}
-            >
-                {windowEntries.map((windowState) => {
-                    const preset = WINDOW_PRESETS.find(
-                        (entry) =>
-                            entry.id === (windowState.appId || windowState.id),
-                    );
-                    if (!preset) return null;
-
-                    if (windowState.minimized) {
-                        return null;
-                    }
-
-                    const isMaximized = windowState.maximized;
-                    const focused = desktopState.focusedId === windowState.id;
-
-                    const size = isMaximized
-                        ? {
-                              width: viewport.width,
-                              height: viewport.height - TASKBAR_HEIGHT,
-                          }
-                        : {
-                              width: windowState.width,
-                              height: windowState.height,
-                          };
-                    const position = isMaximized
-                        ? { x: 0, y: 0 }
-                        : { x: windowState.x, y: windowState.y };
-
-                    return (
-                        <Rnd
-                            key={windowState.id}
-                            size={size}
-                            position={position}
-                            minWidth={MIN_WIDTH}
-                            minHeight={MIN_HEIGHT}
-                            bounds="parent"
-                            dragHandleClassName={DRAG_HANDLE}
-                            disableDragging={isMaximized}
-                            enableResizing={!isMaximized}
-                            style={{
-                                zIndex: windowState.zIndex,
-                                pointerEvents: 'auto',
-                            }}
-                            onDragStart={() => focusWindow(windowState.id)}
-                            onDragStop={(_e, data) => {
-                                updatePosition(windowState.id, {
-                                    x: data.x,
-                                    y: data.y,
-                                });
-                            }}
-                            onResizeStart={() => focusWindow(windowState.id)}
-                            onResizeStop={(_e, _dir, ref, _delta, pos) => {
-                                updateSize(windowState.id, {
-                                    width: ref.offsetWidth,
-                                    height: ref.offsetHeight,
-                                });
-                                updatePosition(windowState.id, {
-                                    x: pos.x,
-                                    y: pos.y,
-                                });
-                            }}
-                        >
-                            <div
-                                className="h-full w-full"
-                                onPointerDown={() =>
-                                    focusWindow(windowState.id)
-                                }
-                            >
-                                <WindowFrame
-                                    id={windowState.id}
-                                    title={windowState.title ?? preset.title}
-                                    width={windowState.width}
-                                    height={windowState.height}
-                                    zIndex={windowState.zIndex}
-                                    icon={preset.icon}
-                                    focused={focused}
-                                    maximized={isMaximized}
-                                    dragHandleClassName={DRAG_HANDLE}
-                                    onClose={() => closeWindow(windowState.id)}
-                                    onMinimize={() =>
-                                        minimizeWindow(windowState.id)
-                                    }
-                                    onMaximize={() =>
-                                        toggleMaximize(windowState.id)
-                                    }
-                                >
-                                    <WindowInstanceProvider
-                                        windowId={windowState.id}
-                                    >
-                                        {createElement(
-                                            preset.component,
-                                            windowState.props ?? {},
-                                        )}
-                                    </WindowInstanceProvider>
-                                </WindowFrame>
-                            </div>
-                        </Rnd>
-                    );
-                })}
-            </div>
-
-            {desktopState.startMenuOpen && (
-                <StartMenu
-                    onLaunch={(id) => openWindow(id)}
-                    onClose={closeStartMenu}
+        <Desktop
+            state={desktopState}
+            onAction={dispatch}
+            programs={desktopPrograms}
+            renderIcon={renderIcon}
+            wallpaper={<DesktopWallpaper />}
+            desktopMenu={desktopMenu}
+            icons={shortcuts.map((program) => (
+                <DesktopIcon
+                    key={program.id}
+                    icon={<AppIcon icon={program.icon} size={48} />}
+                    label={program.shortcut}
+                    onClick={() => openWindow(program.id)}
                 />
-            )}
-
-            <DesktopTaskbar
-                windows={windowEntries.map((window) => ({
-                    id: window.id,
-                    title: window.title,
-                    icon: window.icon,
-                    minimized: window.minimized,
-                }))}
-                focusedId={desktopState.focusedId}
-                startMenuOpen={desktopState.startMenuOpen}
-                onToggle={handleTaskbarToggle}
-                onClose={closeWindow}
-                onStartClick={toggleStartMenu}
-                tray={<NotificationTray />}
-            />
+            ))}
+            startMenu={
+                <StartMenu onLaunch={openWindow} onClose={closeStartMenu} />
+            }
+            tray={
+                <DesktopTray>
+                    <NotificationTray />
+                </DesktopTray>
+            }
+        >
             <NotificationBanners />
             <NotificationCenter />
-        </>
+        </Desktop>
     );
 }
 
@@ -241,7 +114,6 @@ export default function DesktopExperience() {
         if (userId && !playerId) return <CreateCharacterScreen />;
         return (
             <section key={worldId} className="fixed inset-0">
-                <DesktopWallpaper />
                 <DesktopProvider>
                     <DesktopWindowLayer />
                     <WorldRealtimeBridge key={playerId ?? 'visitor'} />

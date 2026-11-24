@@ -3,8 +3,10 @@ import {
     GroupBox,
     Icon,
     ListView,
+    Stack,
     StatusText,
     Text,
+    WindowLayout,
 } from '@partytown/ui';
 import { useMemo, useState } from 'react';
 import { useGetPersonaSuspense } from '#api/party-zone';
@@ -38,79 +40,87 @@ export default function PersonasApp() {
     };
 
     return (
-        <div className="relative flex h-full min-h-0">
-            <div className="flex w-[210px] flex-none flex-col gap-2 p-2">
-                {personasQuery.isError ? (
-                    <StatusText tone="danger">
-                        Could not load personas. Check that the backend is
-                        running, then reopen this window.
-                    </StatusText>
-                ) : null}
-                <ListView
-                    view="tiles"
-                    label={`Personas (${personas.length})`}
-                    className="min-h-0 flex-1"
-                    selected={selectedId ? [selectedId] : []}
-                    onSelectionChange={(ids) => setSelectedId(ids[0] ?? null)}
-                    empty={
-                        personasQuery.isError
-                            ? undefined
-                            : 'No personas yet. Create one below — it can then join chat rooms and speak on its own.'
-                    }
-                    items={personas.map((persona) => ({
-                        id: persona.id ?? '',
-                        label: persona.name,
-                        largeIcon: (
-                            <Portrait
-                                who={persona.id}
-                                alt=""
-                                width={32}
-                                height={32}
+        <>
+            <WindowLayout
+                taskPaneLabel="Personas"
+                taskPane={
+                    <Stack gap="md" pad="md">
+                        {personasQuery.isError ? (
+                            <StatusText tone="danger">
+                                Could not load personas. Check that the backend
+                                is running, then reopen this window.
+                            </StatusText>
+                        ) : null}
+                        <ListView
+                            view="tiles"
+                            label={`Personas (${personas.length})`}
+                            className="min-h-0 flex-1"
+                            selected={selectedId ? [selectedId] : []}
+                            onSelectionChange={(ids) =>
+                                setSelectedId(ids[0] ?? null)
+                            }
+                            empty={
+                                personasQuery.isError
+                                    ? undefined
+                                    : 'No personas yet. Create one below — it can then join chat rooms and speak on its own.'
+                            }
+                            items={personas.map((persona) => ({
+                                id: persona.id ?? '',
+                                label: persona.name,
+                                largeIcon: (
+                                    <Portrait
+                                        who={persona.id}
+                                        alt=""
+                                        width={32}
+                                        height={32}
+                                    />
+                                ),
+                                details: residents.has(persona.id ?? '')
+                                    ? ['In the World']
+                                    : undefined,
+                            }))}
+                        />
+                        <GroupBox title="Create a persona">
+                            <NewPersonaButton
+                                onCreated={(id) => {
+                                    setSelectedId(id);
+                                    setAskOnSaveId(id);
+                                }}
                             />
-                        ),
-                        details: residents.has(persona.id ?? '')
-                            ? ['In the World']
-                            : undefined,
-                    }))}
-                />
-                <GroupBox title="Create a persona">
-                    <NewPersonaButton
-                        onCreated={(id) => {
-                            setSelectedId(id);
-                            setAskOnSaveId(id);
-                        }}
-                    />
-                    <CommandButton
-                        className="w-full"
-                        icon={<Icon name="sparkle" />}
-                        title="Describe the persona in a sentence and let the AI write the name, bio and system prompt"
-                        onClick={() => setShowGenerateDialog(true)}
-                    >
-                        Generate with AI...
-                    </CommandButton>
-                </GroupBox>
-            </div>
-
-            <div className="min-w-0 flex-1 overflow-y-auto p-3">
+                            <CommandButton
+                                className="w-full"
+                                icon={<Icon name="sparkle" />}
+                                title="Describe the persona in a sentence and let the AI write the name, bio and system prompt"
+                                onClick={() => setShowGenerateDialog(true)}
+                            >
+                                Generate with AI...
+                            </CommandButton>
+                        </GroupBox>
+                    </Stack>
+                }
+                contentLabel={selectedPersona?.name ?? 'Personas'}
+            >
                 {selectedPersona ? (
-                    <PersonaEditor
-                        key={selectedPersona.id}
-                        persona={selectedPersona}
-                        onDeleted={() => setSelectedId(null)}
-                        onSaved={() => {
-                            if (askOnSaveId !== selectedPersona.id) return;
-                            setAskOnSaveId(null);
-                            setAskingId(askOnSaveId);
-                        }}
-                    />
+                    <Stack pad="lg">
+                        <PersonaEditor
+                            key={selectedPersona.id}
+                            persona={selectedPersona}
+                            onDeleted={() => setSelectedId(null)}
+                            onSaved={() => {
+                                if (askOnSaveId !== selectedPersona.id) return;
+                                setAskOnSaveId(null);
+                                setAskingId(askOnSaveId);
+                            }}
+                        />
+                    </Stack>
                 ) : (
-                    <div className="flex h-full items-center justify-center">
+                    <Stack align="center" justify="center" pad="lg">
                         <GroupBox
                             title="Personas are the AI characters of this party"
                             icon={<Icon name="personas" />}
                             className="max-w-[340px]"
                         >
-                            <div className="flex items-start gap-3">
+                            <Stack direction="row" align="start" gap="lg">
                                 <Icon name="users" size={32} />
                                 <Text as="p" tone="muted">
                                     Each one has a name, a bio, and a system
@@ -118,11 +128,11 @@ export default function PersonasApp() {
                                     rooms. Select one on the left to edit it, or
                                     create a new one below the list.
                                 </Text>
-                            </div>
+                            </Stack>
                         </GroupBox>
-                    </div>
+                    </Stack>
                 )}
-            </div>
+            </WindowLayout>
 
             {showGenerateDialog && (
                 <GeneratePersonaDialog
@@ -139,6 +149,6 @@ export default function PersonasApp() {
                     onClose={() => setAskingId(null)}
                 />
             )}
-        </div>
+        </>
     );
 }

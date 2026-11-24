@@ -2,6 +2,7 @@ import {
     CommandButton,
     Icon,
     Meter,
+    Stack,
     Swatch,
     TaskPane,
     TaskPaneLink,
@@ -36,7 +37,7 @@ export default function MemoryGraphSidePanel({
 }: MemoryGraphSidePanelProps) {
     const ctx: PanelCtx | null = node ? { node, index, onSelectNode } : null;
     return (
-        <TaskPane className="h-full w-[300px] flex-none" aria-label="Inspector">
+        <TaskPane>
             {!ctx ? (
                 <TaskPaneSection title="Inspector" special collapsible={false}>
                     <Text as="p" tone="muted">
@@ -140,10 +141,10 @@ function PersonPanel({
     return (
         <>
             <Lead title="Person" onBack={onBack}>
-                <strong className="flex items-center gap-1.5">
+                <Stack as="strong" direction="row" align="center" gap="sm">
                     <Swatch colour={node.colour} shape="dot" size="large" />
                     {node.label}
-                </strong>
+                </Stack>
                 <Text as="p" tone="muted">
                     {memories.length} memories · {stances.length} stances
                 </Text>
@@ -401,18 +402,23 @@ function StanceList({
                         }
                         onClick={() => onSelectNode(otherId)}
                     >
-                        <span className="flex items-center gap-1.5">
-                            <strong className="min-w-0 flex-1">
+                        <Stack
+                            as="span"
+                            direction="row"
+                            align="center"
+                            gap="sm"
+                        >
+                            <Stack.Item as="strong" grow>
                                 {other?.label ?? otherId}
                                 {s.source === s.target ? ' (self)' : ''}
-                            </strong>
+                            </Stack.Item>
                             <Meter
                                 diverging
                                 value={s.valence ?? 0}
                                 label={`valence ${(s.valence ?? 0).toFixed(2)}`}
                                 title={`valence ${(s.valence ?? 0).toFixed(2)}`}
                             />
-                        </span>
+                        </Stack>
                         <Text as="span" size="reading">
                             {s.reasoning}
                         </Text>
@@ -481,25 +487,29 @@ function Row({
 }) {
     return (
         <TaskPaneLink icon={icon} onClick={onClick}>
-            <span className="flex flex-col gap-0.5">{children}</span>
+            <Stack as="span" gap="xxs">
+                {children}
+            </Stack>
         </TaskPaneLink>
     );
 }
 
 function Meta({ children }: { children: ReactNode }) {
     return (
-        <Text
-            as="span"
-            tone="muted"
-            className="flex flex-wrap items-center gap-1"
-        >
-            {children}
+        <Text as="span" tone="muted">
+            <Stack as="span" direction="row" wrap align="center" gap="xs">
+                {children}
+            </Stack>
         </Text>
     );
 }
 
 function ChipRow({ children }: { children: ReactNode }) {
-    return <div className="flex flex-wrap gap-x-3">{children}</div>;
+    return (
+        <Stack direction="row" wrap gap="lg" rowGap="none">
+            {children}
+        </Stack>
+    );
 }
 
 function byStrength(links: EnrichedMemoryLink[]) {

@@ -3,6 +3,7 @@ import {
     CommandButton,
     Icon,
     ListView,
+    Stack,
     TextBox,
 } from '@partytown/ui';
 import { useState } from 'react';
@@ -59,7 +60,6 @@ export function CompaniesPage() {
                     <ListView
                         view="tiles"
                         label="Companies"
-                        className="flex-none"
                         activateOn="single"
                         onActivate={(id) => go({ page: 'company', id })}
                         items={companies.map((c) => ({
@@ -96,8 +96,9 @@ function FoundForm() {
 
     return (
         <Card title="Start a company">
-            <form
-                className="grid gap-2"
+            <Stack
+                as="form"
+                gap="md"
                 onSubmit={(e) => {
                     e.preventDefault();
                     found.mutate(
@@ -188,7 +189,7 @@ function FoundForm() {
                     </CommandButton>
                 </Actions>
                 <Refusal error={found.error} />
-            </form>
+            </Stack>
         </Card>
     );
 }
@@ -367,9 +368,9 @@ function Staff({ company }: { company: CompanySummary }) {
                             >
                                 {s.name}
                             </Jump>
-                            <span className="flex-1">
+                            <Stack.Item grow>
                                 Brier {brierLabel(s.brier)}
-                            </span>
+                            </Stack.Item>
                             <CommandButton
                                 size="small"
                                 tone="caution"
@@ -388,8 +389,11 @@ function Staff({ company }: { company: CompanySummary }) {
                     ))}
                 </Rows>
             )}
-            <form
-                className="flex items-center gap-1.5"
+            <Stack
+                as="form"
+                direction="row"
+                align="center"
+                gap="sm"
                 onSubmit={(e) => {
                     e.preventDefault();
                     hire.mutate(
@@ -427,7 +431,7 @@ function Staff({ company }: { company: CompanySummary }) {
                 >
                     Hire
                 </CommandButton>
-            </form>
+            </Stack>
             <Refusal error={hire.error ?? dismiss.error} />
         </Card>
     );
@@ -459,8 +463,9 @@ function TradeForm({ company }: { company: CompanySummary }) {
 
     return (
         <Card title="Trade">
-            <form
-                className="grid gap-2"
+            <Stack
+                as="form"
+                gap="md"
                 onSubmit={(e) => {
                     e.preventDefault();
                     trade.mutate({
@@ -556,7 +561,7 @@ function TradeForm({ company }: { company: CompanySummary }) {
                     </CommandButton>
                 </Actions>
                 <Refusal error={trade.error} />
-            </form>
+            </Stack>
         </Card>
     );
 }

@@ -1,4 +1,10 @@
-import { CommandButton, Icon, ProgressBar, TextArea } from '@partytown/ui';
+import {
+    CommandButton,
+    Icon,
+    ProgressBar,
+    Stack,
+    TextArea,
+} from '@partytown/ui';
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
 import Portrait from '../../components/Portrait';
 import { MAX_BODY, remaining } from './board-lib';
@@ -55,7 +61,11 @@ export default function Composer({
     };
 
     return (
-        <div className={compact ? 'flex gap-2 pt-1.5' : 'flex gap-3'}>
+        <Stack
+            direction="row"
+            gap={compact ? 'md' : 'lg'}
+            className={compact ? 'pt-1.5' : undefined}
+        >
             {playerId && (
                 <Portrait
                     className="flex-none self-start"
@@ -65,7 +75,7 @@ export default function Composer({
                     height={compact ? 28 : 40}
                 />
             )}
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Stack grow gap="sm">
                 <TextArea
                     ref={ref}
                     className="max-h-[220px] resize-none"
@@ -83,14 +93,25 @@ export default function Composer({
                         if (e.key === 'Escape' && onCancel) onCancel();
                     }}
                 />
-                <div className="flex items-center gap-2">
+                <Stack direction="row" align="center" gap="md">
                     {error && (
-                        <span className="flex min-w-0 items-center gap-1">
+                        <Stack
+                            as="span"
+                            direction="row"
+                            align="center"
+                            gap="xs"
+                        >
                             <Icon name="error" />
-                            <span className="truncate">{error}</span>
-                        </span>
+                            <Stack.Item truncate>{error}</Stack.Item>
+                        </Stack>
                     )}
-                    <span className="ml-auto flex items-center gap-2">
+                    <Stack
+                        as="span"
+                        direction="row"
+                        align="center"
+                        gap="md"
+                        className="ml-auto"
+                    >
                         {body.length > 0 && <Count left={left} />}
                         {onCancel && (
                             <CommandButton size="small" onClick={onCancel}>
@@ -107,16 +128,16 @@ export default function Composer({
                         >
                             {pending ? 'Posting…' : submitLabel}
                         </CommandButton>
-                    </span>
-                </div>
-            </div>
-        </div>
+                    </Stack>
+                </Stack>
+            </Stack>
+        </Stack>
     );
 }
 
 function Count({ left }: { left: number }) {
     return (
-        <span className="flex items-center gap-1">
+        <Stack as="span" direction="row" align="center" gap="xs">
             <ProgressBar
                 className="w-[64px]"
                 value={MAX_BODY - left}
@@ -125,6 +146,6 @@ function Count({ left }: { left: number }) {
                 valueText={`${left} characters left`}
             />
             {left <= 20 && <span>{left}</span>}
-        </span>
+        </Stack>
     );
 }

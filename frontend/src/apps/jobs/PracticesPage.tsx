@@ -3,6 +3,7 @@ import {
     CommandButton,
     Icon,
     ListView,
+    Stack,
     TextBox,
 } from '@partytown/ui';
 import { useState } from 'react';
@@ -47,7 +48,6 @@ export function PracticesPage() {
                     <ListView
                         view="tiles"
                         label="Practices"
-                        className="flex-none"
                         activateOn="single"
                         onActivate={(id) => go({ page: 'person', id })}
                         items={practices.map((p) => ({
@@ -133,8 +133,9 @@ export function BookForm({ practitionerId }: { practitionerId?: string }) {
     const clients = people.filter((p) => p.participantId !== practitioner);
 
     return (
-        <form
-            className="grid gap-2"
+        <Stack
+            as="form"
+            gap="md"
             onSubmit={(e) => {
                 e.preventDefault();
                 book.mutate(
@@ -206,6 +207,6 @@ export function BookForm({ practitionerId }: { practitionerId?: string }) {
                 </CommandButton>
             </Actions>
             <Refusal error={book.error} />
-        </form>
+        </Stack>
     );
 }

@@ -3,6 +3,7 @@ import {
     CommandButton,
     Icon,
     ProgressBar,
+    Stack,
     TaskPaneSection,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
@@ -52,46 +53,48 @@ export default function GrowingPane() {
             {report.rows.slice(0, 8).map((row) => {
                 const s = growingSummary(row, Number(report.openAt));
                 return (
-                    <div
-                        key={row.localeId}
-                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-0.5"
-                        title={s.who}
-                    >
-                        <span className="truncate">{s.name}</span>
-                        <CommandButton
-                            size="small"
-                            disabled={open.isPending}
-                            onClick={() =>
-                                open.mutate({
-                                    partyId: WORLD_ID,
-                                    localeId: row.localeId,
-                                })
-                            }
-                        >
-                            Open
-                        </CommandButton>
+                    <Stack key={row.localeId} gap="xxs" title={s.who}>
+                        <Stack direction="row" align="center" gap="sm">
+                            <Stack.Item grow truncate>
+                                {s.name}
+                            </Stack.Item>
+                            <CommandButton
+                                size="small"
+                                disabled={open.isPending}
+                                onClick={() =>
+                                    open.mutate({
+                                        partyId: WORLD_ID,
+                                        localeId: row.localeId,
+                                    })
+                                }
+                            >
+                                Open
+                            </CommandButton>
+                        </Stack>
                         <ProgressBar
-                            className="col-span-full"
                             value={s.share * 100}
                             tone="neutral"
                             label={`${s.name} footfall`}
                         />
-                        <span className="col-span-full">{s.note}</span>
-                    </div>
+                        <span>{s.note}</span>
+                    </Stack>
                 );
             })}
             {report.opened.map((o) => (
-                <div
-                    key={o.placeId}
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5"
-                >
-                    <span className="flex min-w-0 items-center gap-1">
+                <Stack key={o.placeId} direction="row" align="center" gap="sm">
+                    <Stack
+                        as="span"
+                        direction="row"
+                        align="center"
+                        gap="xs"
+                        grow
+                    >
                         <Icon name="new" />
-                        <span className="truncate">
+                        <Stack.Item truncate>
                             {o.name}
                             {o.district ? ` (${o.district})` : ''}
-                        </span>
-                    </span>
+                        </Stack.Item>
+                    </Stack>
                     <CommandButton
                         size="small"
                         disabled={close.isPending}
@@ -104,7 +107,7 @@ export default function GrowingPane() {
                     >
                         Close
                     </CommandButton>
-                </div>
+                </Stack>
             ))}
         </TaskPaneSection>
     );
