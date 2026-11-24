@@ -32,6 +32,9 @@ public sealed record class PartyStreamEvent
 
     [Id(8)]
     public PartyTown.Grains.SkippedTurn? SkippedTurn { get; init; }
+
+    [Id(9)]
+    public ChatGroupInfo? Conversation { get; init; }
 }
 
 [GenerateSerializer, Alias(nameof(MessageStreamEvent))]

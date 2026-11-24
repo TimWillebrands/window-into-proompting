@@ -5,8 +5,8 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface ProceedRequest {
-    chatGroupId?: string;
-    /** @nullable */
-    senderId?: string | null;
+export interface ConversationMember {
+    id: string;
+    name: string;
+    human: boolean;
 }

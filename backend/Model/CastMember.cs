@@ -40,9 +40,6 @@ public sealed record class CastMember
 
     public SelfView ToSelfView(DriverKind effective)
         => new(Id, Name, effective, Bio, SystemPrompt, Chattiness, Impulsivity);
-
-    public DriverKind EffectiveIn(IReadOnlyDictionary<Guid, DriverKind> overrides)
-        => overrides.TryGetValue(Id, out var kind) ? kind : DefaultDriver;
 }
 
 public readonly record struct ParticipantView(Guid Id, string Name, DriverKind Driver);

@@ -22,4 +22,6 @@ export interface WorldActivity {
     withPersonaId?: string | null;
     /** @nullable */
     affordance?: string | null;
+    /** @nullable */
+    among?: string[] | null;
 }

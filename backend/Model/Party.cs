@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace PartyTown.Model;
@@ -56,36 +55,20 @@ public sealed record class ChatGroupInfo
     public string? Scenario { get; set; }
 
     [Id(4)]
-    public string Kind { get; set; } = ChatGroupKinds.Room;
+    public string Kind { get; set; } = ChatGroupKinds.Group;
 
     [Id(5)]
     public List<Guid>? MemberIds { get; set; }
+
+    [Id(6)]
+    public Guid? CreatedBy { get; set; }
 }
 
 public static class ChatGroupKinds
 {
-    public const string Room = "room";
+    public const string Group = "room";
     public const string Direct = "dm";
     public const string Place = "place";
-}
-
-public sealed record class CreateChatGroupRequest
-{
-    public string Name { get; set; } = string.Empty;
-
-    [MaxLength(ChatGroupLimits.MaxScenarioLength)]
-    public string? Scenario { get; set; }
-}
-
-public sealed record class UpdateChatGroupScenarioRequest
-{
-    [MaxLength(ChatGroupLimits.MaxScenarioLength)]
-    public string? Scenario { get; set; }
-}
-
-public static class ChatGroupLimits
-{
-    public const int MaxScenarioLength = 2000;
 }
 
 public sealed record class CreatePartyRequest
@@ -100,38 +83,9 @@ public sealed record class UpdatePartyParticipantsRequest
     public List<PartyParticipant> Participants { get; set; } = [];
 }
 
-public sealed record class UpdateChatGroupParticipantIdsRequest
-{
-    public List<Guid> ParticipantIds { get; set; } = [];
-}
-
-public sealed record class UpdateChatGroupDriverOverridesRequest
-{
-    public List<DriverOverrideEntry> Overrides { get; set; } = [];
-}
-
-public sealed record class DriverOverrideEntry
-{
-    public Guid PersonaId { get; set; }
-    public DriverKind Kind { get; set; }
-}
-
 public sealed record class PromptRequest
 {
     public Guid ChatGroupId { get; set; }
     public string Prompt { get; set; } = string.Empty;
     public Guid? SenderId { get; set; }
-}
-
-public sealed record class ProceedRequest
-{
-    public Guid ChatGroupId { get; set; }
-    public Guid? SenderId { get; set; }
-}
-
-public sealed record class RepromptRequest
-{
-    public Guid ChatGroupId { get; set; }
-    public Guid? SenderId { get; set; }
-    public string? SenderName { get; set; }
 }

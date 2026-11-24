@@ -55,37 +55,38 @@ public class PartyMembershipTest : IClassFixture<PartyClusterFixture>
     }
 
     [Fact]
-    public async Task Join_DropsIdsOutsidePartyCast()
+    public async Task CreateChatGroup_NamedMembers_AreItsCast()
     {
         var party = await NewPartyAsync();
         var alice = Link(Guid.NewGuid(), "Alice", DriverKind.LLM);
-        await party.AddParticipantsAsync(new List<PartyParticipant> { alice });
-        var room = _fx.GrainFactory.GetGrain<IChatGroupGrain>((await party.CreateChatGroup("kitchen")).Id);
-        await room.SetParticipantIdsAsync(new HashSet<Guid>());
+        var bob = Link(Guid.NewGuid(), "Bob", DriverKind.LLM);
+        await party.AddParticipantsAsync(new List<PartyParticipant> { alice, bob });
 
-        var stranger = Guid.NewGuid();
-        var members = await room.JoinAsync(new List<Guid> { alice.Id, stranger });
+        var group = await party.CreateChatGroup("kitchen", new List<Guid> { alice.Id }, alice.Id);
 
-        Assert.Contains(alice.Id, members);
-        Assert.DoesNotContain(stranger, members);
+        Assert.Equal(ChatGroupKinds.Group, group.Kind);
+        Assert.Equal(alice.Id, group.CreatedBy);
+        Assert.Equal(new[] { alice.Id }, (await _fx.GrainFactory.GetGrain<IChatGroupGrain>(group.Id).GetParticipantIdsAsync()).ToArray());
+        Assert.Equal(new[] { alice.Id }, (await party.GetChatGroups()).Single(g => g.Id == group.Id).MemberIds);
     }
 
     [Fact]
-    public async Task RoomCast_UserDefaultOverriddenToLlm_SpeaksAsLibraryPersona()
+    public async Task RoomCast_DefaultDriverDecides_WhoSpeaks()
     {
         var party = await NewPartyAsync();
         var vlad = Guid.NewGuid();
+        var anne = Guid.NewGuid();
         await _fx.GrainFactory.GetGrain<IPersonaRootGrain>(Guid.Empty)
             .AddPersona(new Persona(vlad, "Vlad", "You are Vlad.", "broody"));
-        await party.AddParticipantsAsync(new List<PartyParticipant> { Link(vlad, "Vlad", DriverKind.User) });
-        var room = _fx.GrainFactory.GetGrain<IChatGroupGrain>((await party.CreateChatGroup("kitchen")).Id);
-        await room.JoinAsync(new List<Guid> { vlad });
-        await room.SetDriverOverridesAsync(new Dictionary<Guid, DriverKind> { [vlad] = DriverKind.LLM });
+        await party.AddParticipantsAsync(new List<PartyParticipant> { Link(vlad, "Vlad", DriverKind.LLM), Link(anne, "Anne", DriverKind.User) });
+        var room = _fx.GrainFactory.GetGrain<IChatGroupGrain>((await party.CreateChatGroup("kitchen", new List<Guid> { vlad, anne })).Id);
 
-        var self = (await room.GetCastAsync()).Speaker(vlad);
+        var cast = await room.GetCastAsync();
+        var self = cast.Speaker(vlad);
 
         Assert.NotNull(self);
         Assert.Equal("broody", self.Value.Bio);
         Assert.Equal("You are Vlad.", self.Value.SystemPrompt);
+        Assert.Null(cast.Speaker(anne));
     }
 }

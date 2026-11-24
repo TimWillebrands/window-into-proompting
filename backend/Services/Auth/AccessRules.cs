@@ -25,7 +25,7 @@ public static class AccessRules
         => Humans(cast, claimed).Contains(id) && !cast.Any(p => p.Id == id && p.Driver == DriverKind.LLM);
 
     public static IReadOnlyCollection<Guid>? PrivateMembers(ChatGroupInfo group, IReadOnlySet<Guid> humans)
-        => group.Kind == ChatGroupKinds.Direct && group.MemberIds is { } members && members.Any(humans.Contains) ? members : null;
+        => group.Kind is ChatGroupKinds.Direct or ChatGroupKinds.Group && group.MemberIds is { } members && members.Any(humans.Contains) ? members : null;
 
     public static bool CanSeeRoom(Viewer viewer, IReadOnlyCollection<Guid>? privateMembers)
         => privateMembers is null || (viewer.PlayerId is { } id && privateMembers.Contains(id));
@@ -33,6 +33,8 @@ public static class AccessRules
     public static bool CanSeeActivity(Viewer viewer, WorldActivity activity, IReadOnlySet<Guid> humans) => activity.App switch
     {
         DiaryApp => viewer.SignedIn,
+        MessengerApp when activity.Among is { } among && among.Any(humans.Contains)
+            => viewer.PlayerId is { } id && among.Contains(id),
         MessengerApp when humans.Contains(activity.PersonaId) || activity.WithPersonaId is { } with && humans.Contains(with)
             => viewer.PlayerId is { } id && (id == activity.PersonaId || id == activity.WithPersonaId),
         _ => true,

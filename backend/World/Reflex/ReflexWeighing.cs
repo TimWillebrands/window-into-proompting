@@ -73,7 +73,7 @@ public static class ReflexWeighing
         return p.Kind switch
         {
             PerceptKind.Direct => $"{who} sends {name} a private message: \"{WorldStream.Clip(p.Text, 300)}\"",
-            PerceptKind.Line => $"In {(string.IsNullOrWhiteSpace(p.RoomName) ? "a group chat" : $"#{p.RoomName}")}, {who} writes: \"{WorldStream.Clip(p.Text, 300)}\"",
+            PerceptKind.Line => $"In a group chat, {who} writes: \"{WorldStream.Clip(p.Text, 300)}\"",
             PerceptKind.Speech => $"{who} says out loud, close to {name}: \"{WorldStream.Clip(p.Text, 300)}\"",
             PerceptKind.Arrival => p.Near
                 ? $"{who} just walked up and is now right next to {name}.{(p.FromAura is { Length: > 0 } aura ? $" Up close: {aura.TrimEnd('.')}." : string.Empty)}"

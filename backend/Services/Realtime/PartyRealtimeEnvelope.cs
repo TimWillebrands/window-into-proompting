@@ -34,6 +34,7 @@ public interface IRoomFrame : IPartyRealtimeData
 [JsonDerivedType(typeof(PartyRaceEvaluationData), "party_race_evaluation")]
 [JsonDerivedType(typeof(PartySkippedTurnData), "party_skipped_turn")]
 [JsonDerivedType(typeof(PartyWorldEventData), "party_world_event")]
+[JsonDerivedType(typeof(PartyConversationData), "party_conversation")]
 public interface IPartyRealtimeData;
 
 public sealed record class PartySnapshotData(
@@ -68,6 +69,8 @@ public sealed record class PersonaGenerationErrorData(string Message) : IPartyRe
 public sealed record class PartyRaceEvaluationData(Guid PartyId, Guid ChatGroupId, PartyTown.Grains.RaceEvaluation Evaluation) : IRoomFrame;
 
 public sealed record class PartySkippedTurnData(Guid PartyId, Guid ChatGroupId, PartyTown.Grains.SkippedTurn Skipped) : IRoomFrame;
+
+public sealed record class PartyConversationData(Guid PartyId, Guid ChatGroupId, ChatGroupInfo? Conversation) : IRoomFrame;
 
 public sealed record class PartyWorldEventData(Guid PartyId, string Kind, System.Text.Json.JsonElement Payload) : IPartyRealtimeData;
 

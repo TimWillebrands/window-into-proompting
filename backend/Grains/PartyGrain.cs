@@ -1,8 +1,10 @@
 using Orleans.Concurrency;
 using Orleans.EventSourcing;
 using Orleans.Providers;
+using Orleans.Streams;
 using PartyTown.Logging;
 using PartyTown.Model;
+using PartyTown.Services.Streaming;
 
 namespace PartyTown.Grains;
 
@@ -12,10 +14,29 @@ public sealed class PartyGrain(
     ILogger<PartyGrain> logger)
     : JournaledGrain<PartyState, PartyEvent>, IPartyGrain
 {
-    public override Task OnActivateAsync(CancellationToken cancellationToken)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Grain activated");
-        return base.OnActivateAsync(cancellationToken);
+        await base.OnActivateAsync(cancellationToken);
+        if (State.ChatGroups.Any(g => g.Kind == ChatGroupKinds.Group && g.MemberIds is null))
+            this.RegisterGrainTimer(KnowGroupMembersAsync, new GrainTimerCreationOptions(TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan));
+    }
+
+    private async Task KnowGroupMembersAsync()
+    {
+        foreach (var group in State.ChatGroups.Where(g => g.Kind == ChatGroupKinds.Group && g.MemberIds is null).ToList())
+        {
+            try
+            {
+                var members = await GrainFactory.GetGrain<IChatGroupGrain>(group.Id).GetParticipantIdsAsync();
+                RaiseEvent(new ChatGroupMembersSetEvent { ChatGroupId = group.Id, MemberIds = members.ToList() });
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Couldn't read the members of group {ChatGroupId}", group.Id);
+            }
+        }
+        await ConfirmEvents();
     }
 
     public override Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
@@ -129,25 +150,19 @@ public sealed class PartyGrain(
     }
 
     public Task<List<ChatGroupInfo>> GetChatGroups()
-        => Task.FromResult(State.ChatGroups.ToList());
+        => Task.FromResult(State.ChatGroups.Select(g => g.Scenario is null ? g : g with { Scenario = null }).ToList());
 
-    public async Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null)
+    public async Task<ChatGroupInfo> CreateChatGroup(string name, List<Guid>? memberIds = null, Guid? createdBy = null)
     {
-        var normalizedScenario = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim();
-        if (normalizedScenario is { Length: > ChatGroupLimits.MaxScenarioLength })
-        {
-            logger.LogWarning(
-                "Scenario length {Length} exceeded cap {Cap} on CreateChatGroup; truncating",
-                normalizedScenario.Length, ChatGroupLimits.MaxScenarioLength);
-            normalizedScenario = normalizedScenario[..ChatGroupLimits.MaxScenarioLength];
-        }
-
+        var members = (memberIds ?? State.Participants.Select(p => p.Id).ToList()).Where(id => id != Guid.Empty).Distinct().ToList();
         var chatGroup = new ChatGroupInfo
         {
             Id = Guid.NewGuid(),
             Name = name,
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Scenario = normalizedScenario
+            Kind = ChatGroupKinds.Group,
+            MemberIds = members,
+            CreatedBy = createdBy,
         };
 
         RaiseEvent(new ChatGroupCreatedEvent { ChatGroup = chatGroup });
@@ -155,9 +170,28 @@ public sealed class PartyGrain(
 
         var registry = GrainFactory.GetGrain<IPartyRootGrain>(Guid.Empty);
         await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
+        await GrainFactory.GetGrain<IChatGroupGrain>(chatGroup.Id).SetParticipantIdsAsync(members.ToHashSet());
+        await PublishConversationAsync(chatGroup);
 
         return chatGroup;
     }
+
+    public async Task<ChatGroupInfo?> SetGroupMembersAsync(Guid chatGroupId, List<Guid> memberIds)
+    {
+        if (State.ChatGroups.FirstOrDefault(g => g.Id == chatGroupId) is not { Kind: ChatGroupKinds.Group }) return null;
+        var members = memberIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        RaiseEvent(new ChatGroupMembersSetEvent { ChatGroupId = chatGroupId, MemberIds = members });
+        await ConfirmEvents();
+        await GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId).SetParticipantIdsAsync(members.ToHashSet());
+        var updated = State.ChatGroups.First(g => g.Id == chatGroupId);
+        await PublishConversationAsync(updated);
+        return updated;
+    }
+
+    private Task PublishConversationAsync(ChatGroupInfo group)
+        => this.GetStreamProvider(PartyStreamIds.Provider)
+            .GetStream<PartyStreamEvent>(PartyStreamIds.PartyEventsNamespace, PartyStreamIds.PartyEventId(this.GetPrimaryKey()))
+            .OnNextAsync(new PartyStreamEvent { Type = "conversation", ChatGroupId = group.Id, Conversation = group });
 
     public async Task<ChatGroupInfo> GetOrCreateDirectChatAsync(Guid a, Guid b)
     {
@@ -183,6 +217,7 @@ public sealed class PartyGrain(
         await registry.RegisterChatGroup(chatGroup.Id, this.GetPrimaryKey());
         await GrainFactory.GetGrain<IChatGroupGrain>(chatGroup.Id)
             .SetParticipantIdsAsync(new HashSet<Guid> { a, b });
+        await PublishConversationAsync(chatGroup);
 
         return chatGroup;
     }
@@ -213,30 +248,6 @@ public sealed class PartyGrain(
 
         RaiseEvent(new ChatGroupRemovedEvent { ChatGroupId = chatGroupId });
         await ConfirmEvents();
-    }
-
-    public async Task UpdateChatGroupScenario(Guid chatGroupId, string? scenario)
-    {
-        if (!State.ChatGroups.Any(g => g.Id == chatGroupId))
-            return;
-
-        var normalized = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim();
-        if (normalized is { Length: > ChatGroupLimits.MaxScenarioLength })
-        {
-            logger.LogWarning(
-                "Scenario length {Length} exceeded cap {Cap} on UpdateChatGroupScenario for chat group {ChatGroupId}; truncating",
-                normalized.Length, ChatGroupLimits.MaxScenarioLength, chatGroupId);
-            normalized = normalized[..ChatGroupLimits.MaxScenarioLength];
-        }
-
-        RaiseEvent(new ChatGroupScenarioUpdatedEvent
-        {
-            ChatGroupId = chatGroupId,
-            Scenario = normalized
-        });
-        await ConfirmEvents();
-
-        await GrainFactory.GetGrain<IChatGroupGrain>(chatGroupId).SetScenarioAsync(normalized);
     }
 
     public async Task<List<ChatMessage>> DownloadMessages()
@@ -306,7 +317,10 @@ public interface IPartyGrain : IGrainWithGuidKey
     Task<List<ChatGroupInfo>> GetChatGroups();
 
     [Alias("CreateChatGroup")]
-    Task<ChatGroupInfo> CreateChatGroup(string name, string? scenario = null);
+    Task<ChatGroupInfo> CreateChatGroup(string name, List<Guid>? memberIds = null, Guid? createdBy = null);
+
+    [Alias("SetGroupMembersAsync")]
+    Task<ChatGroupInfo?> SetGroupMembersAsync(Guid chatGroupId, List<Guid> memberIds);
 
     [Alias("GetOrCreateDirectChatAsync")]
     Task<ChatGroupInfo> GetOrCreateDirectChatAsync(Guid a, Guid b);
@@ -316,9 +330,6 @@ public interface IPartyGrain : IGrainWithGuidKey
 
     [Alias("RemoveChatGroup")]
     Task RemoveChatGroup(Guid chatGroupId);
-
-    [Alias("UpdateChatGroupScenario")]
-    Task UpdateChatGroupScenario(Guid chatGroupId, string? scenario);
 
     [Alias("DownloadMessages")]
     Task<List<ChatMessage>> DownloadMessages();
@@ -351,7 +362,14 @@ public sealed record class PartyState
 
     public void Apply(ChatGroupCreatedEvent @event)
     {
-        ChatGroups.Add(@event.ChatGroup);
+        ChatGroups.Add(@event.ChatGroup with { Scenario = null });
+    }
+
+    public void Apply(ChatGroupMembersSetEvent @event)
+    {
+        var idx = ChatGroups.FindIndex(g => g.Id == @event.ChatGroupId);
+        if (idx >= 0)
+            ChatGroups[idx] = ChatGroups[idx] with { MemberIds = @event.MemberIds.ToList() };
     }
 
     public void Apply(ChatGroupRemovedEvent @event)
@@ -359,11 +377,8 @@ public sealed record class PartyState
         ChatGroups.RemoveAll(g => g.Id == @event.ChatGroupId);
     }
 
-    public void Apply(ChatGroupScenarioUpdatedEvent @event)
+    public void Apply(ChatGroupScenarioUpdatedEvent _)
     {
-        var idx = ChatGroups.FindIndex(g => g.Id == @event.ChatGroupId);
-        if (idx >= 0)
-            ChatGroups[idx] = ChatGroups[idx] with { Scenario = @event.Scenario };
     }
 
     public void Apply(PartySetEvent @event)
@@ -421,6 +436,16 @@ public sealed record class ChatGroupScenarioUpdatedEvent : PartyEvent
 
     [Id(1)]
     public string? Scenario { get; set; }
+}
+
+[GenerateSerializer, Alias(nameof(ChatGroupMembersSetEvent))]
+public sealed record class ChatGroupMembersSetEvent : PartyEvent
+{
+    [Id(0)]
+    public Guid ChatGroupId { get; set; }
+
+    [Id(1)]
+    public List<Guid> MemberIds { get; set; } = new();
 }
 
 [GenerateSerializer, Alias(nameof(ChatGroupRemovedEvent))]

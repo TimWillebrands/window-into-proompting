@@ -228,7 +228,7 @@ public sealed class WorldClockGrain(
         if (state.State.PlayersByClerkId.ContainsKey(clerkUserId)) return false;
         var party = GrainFactory.GetGrain<IPartyGrain>(PartyId);
         var info = await party.GetParty();
-        var free = Takeover.Free(info.Participants, state.State.PlayersByClerkId.Values, await party.GetChatGroups());
+        var free = await Takeover.FreeAsync(GrainFactory, info.Participants, state.State.PlayersByClerkId.Values, await party.GetChatGroups());
         if (free.FirstOrDefault(p => p.Id == personaId) is not { } link) return false;
 
         var humans = info.Participants.Where(p => p.Driver == DriverKind.User && p.Id != Narrator.PersonaId).ToList();
@@ -327,26 +327,8 @@ public sealed class WorldClockGrain(
         var due = await GrainFactory.GetGrain<ICalendarGrain>(PartyId).StartDueAsync(now.ToUnixTimeMilliseconds());
         if (due.Count == 0) return;
         foreach (var g in due)
-        {
             if (g.PlaceId is { } placeId)
-            {
                 await StartAtPlaceAsync(g, placeId, now);
-                continue;
-            }
-            var room = GrainFactory.GetGrain<IChatGroupGrain>(g.RoomId);
-            var members = await room.JoinAsync(g.AttendeeIds.ToList());
-            var attendees = g.AttendeeIds.Where(members.Contains).ToList();
-            var roomCast = await room.GetCastAsync();
-
-            await RecordAsync(new WorldActivity
-            {
-                PersonaId = g.HostId, PersonaName = g.HostName, App = "calendar", Action = "start", TargetId = g.RoomId,
-                Summary = $"\"{g.Title}\" is starting in #{g.RoomName} ({attendees.Count} going)",
-            });
-
-            foreach (var id in attendees.Where(id => roomCast.EffectiveOf(id) == DriverKind.LLM && !IsBusy(id, now)))
-                StartLife(id, $"It's time for \"{g.Title}\" in #{g.RoomName} — you said you'd be there.");
-        }
         await state.WriteStateAsync();
     }
 

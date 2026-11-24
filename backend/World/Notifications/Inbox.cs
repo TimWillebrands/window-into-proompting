@@ -6,6 +6,7 @@ namespace PartyTown.World.Notifications;
 public static class NotificationKinds
 {
     public const string Dm = "dm";
+    public const string Group = "group";
     public const string BoardReply = "board-reply";
     public const string BoardMention = "board-mention";
     public const string Respect = "respect";
@@ -30,6 +31,8 @@ public sealed record NotificationFeed(List<PlayerNotification> Items, long SeenA
 public sealed record GiftReceived(Guid FromId, string FromName, string Item, long At);
 
 public sealed record DmWaiting(Guid ChatGroupId, Guid WithId, string WithName, IReadOnlyList<ChatMessage> Recent);
+
+public sealed record GroupWaiting(Guid ChatGroupId, string Name, IReadOnlyList<ChatMessage> Recent);
 
 public static class Inbox
 {
@@ -103,12 +106,25 @@ public static class Inbox
             WorldStream.Clip(latest.Content, 160), "messenger", dm.ChatGroupId, dm.WithId, dm.WithName);
     }
 
+    public static PlayerNotification? FromGroup(GroupWaiting group, Guid self, long since, Func<Guid, string> nameOf)
+    {
+        var lastOwn = group.Recent.ToList().FindLastIndex(m => m.SenderId == self);
+        var waiting = group.Recent.Skip(lastOwn + 1)
+            .Where(m => m.SenderId != self && m.Error is null && !string.IsNullOrWhiteSpace(m.Content) && (m.SendAt ?? 0) > since)
+            .ToList();
+        if (waiting.Count == 0) return null;
+        var latest = waiting[^1];
+        return new PlayerNotification($"group:{group.ChatGroupId}:{latest.MessageId}", NotificationKinds.Group, latest.SendAt ?? 0,
+            $"{Names(waiting.Select(m => nameOf(m.SenderId)))} wrote in {group.Name}",
+            $"{nameOf(latest.SenderId)}: {WorldStream.Clip(latest.Content, 160)}", "messenger", group.ChatGroupId, latest.SenderId, nameOf(latest.SenderId));
+    }
+
     public static IEnumerable<PlayerNotification> FromGatherings(IEnumerable<Gathering> gatherings, Guid self, long since)
         => gatherings
             .Where(g => g.Status == GatheringStatus.Started && g.AttendeeIds.Contains(self) && g.StartsAt > since)
             .Select(g => new PlayerNotification($"gathering:{g.Id}", NotificationKinds.Gathering, g.StartsAt,
                 $"“{g.Title}” is starting", $"{Capitalise(g.Where)}. You said you'd be there.",
-                g.PlaceId is null ? "open-party" : "places", g.PlaceId ?? g.RoomId, g.HostId, g.HostName));
+                "places", g.PlaceId ?? g.RoomId, g.HostId, g.HostName));
 
     public static IEnumerable<PlayerNotification> FromGifts(IEnumerable<GiftReceived> gifts, Guid self, long since)
         => gifts

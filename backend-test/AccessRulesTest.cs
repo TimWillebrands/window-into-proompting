@@ -79,11 +79,37 @@ public class AccessRulesTest
     }
 
     [Fact]
-    public void PersonaOnlyDm_AndRooms_ArePublic()
+    public void PersonaOnlyDm_AndGroups_ArePublic()
     {
         Assert.Null(AccessRules.PrivateMembers(Dm(PersonaA, PersonaB), Humans));
-        Assert.Null(AccessRules.PrivateMembers(new ChatGroupInfo { Kind = ChatGroupKinds.Room }, Humans));
+        Assert.Null(AccessRules.PrivateMembers(new ChatGroupInfo { Kind = ChatGroupKinds.Group, MemberIds = new List<Guid> { PersonaA, PersonaB } }, Humans));
         Assert.True(AccessRules.CanSeeRoom(Viewer.Anonymous, null));
+    }
+
+    [Fact]
+    public void Group_WithAHuman_IsPrivateToItsMembers()
+    {
+        var group = new ChatGroupInfo { Kind = ChatGroupKinds.Group, MemberIds = new List<Guid> { Me, PersonaA, PersonaB } };
+
+        var members = AccessRules.PrivateMembers(group, Humans);
+
+        Assert.NotNull(members);
+        Assert.True(AccessRules.CanSeeRoom(new Viewer(Me), members));
+        Assert.False(AccessRules.CanSeeRoom(new Viewer(Other), members));
+        Assert.False(AccessRules.CanSeeRoom(Viewer.Anonymous, members));
+        Assert.Null(AccessRules.PrivateMembers(new ChatGroupInfo { Kind = ChatGroupKinds.Place, MemberIds = new List<Guid> { Me } }, Humans));
+    }
+
+    [Fact]
+    public void GroupActivity_WithAHuman_StaysAmongItsMembers()
+    {
+        var said = new WorldActivity { App = AccessRules.MessengerApp, PersonaId = PersonaA, Among = new List<Guid> { PersonaA, PersonaB, Me }, Summary = "in the group chat: \"secret\"" };
+        var personasOnly = said with { Among = new List<Guid> { PersonaA, PersonaB } };
+
+        Assert.True(AccessRules.CanSeeActivity(new Viewer(Me), said, Humans));
+        Assert.False(AccessRules.CanSeeActivity(new Viewer(Other), said, Humans));
+        Assert.False(AccessRules.CanSeeActivity(Viewer.Anonymous, said, Humans));
+        Assert.True(AccessRules.CanSeeActivity(Viewer.Anonymous, personasOnly, Humans));
     }
 
     [Fact]

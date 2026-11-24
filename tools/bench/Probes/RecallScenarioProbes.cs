@@ -140,6 +140,8 @@ public static class RecallScenarioProbes
         return messages;
     }
 
+    private static string? Setting(string? scene) => scene is null ? null : $"# Where you are\n{scene}\n";
+
     private static async Task<ChatMessage?> RunVladTurnAsync(
         Bench bench,
         IReadOnlyList<ChatMessage> history,
@@ -160,8 +162,8 @@ public static class RecallScenarioProbes
             totalAiRoundsInGroup: 0,
             onEvent: (_, _, _) => Task.CompletedTask,
             cancellationToken: ct,
-            scenario: scenario,
-            recollections: recalled.Select(r => r.Snippet).ToList());
+            recollections: recalled.Select(r => r.Snippet).ToList(),
+            presence: Setting(scenario));
 
         var (picked, autoDeployed) = RecallDeployment.ResolvePick(
             decision.MemoryToReference, decision.Respond, recalled);
@@ -191,9 +193,9 @@ public static class RecallScenarioProbes
             onEvent: (_, _, _) => Task.CompletedTask,
             cancellationToken: ct,
             turnInstruction: decision.Instruction,
-            scenario: scenario,
             memoryToReference: picked?.Snippet,
-            gutReaction: decision.Reason);
+            gutReaction: decision.Reason,
+            presence: Setting(scenario));
 
         bench.Observe($"{label}.speaking", new
         {

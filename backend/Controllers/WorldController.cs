@@ -156,7 +156,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     public async Task<ActionResult<List<FreePersona>>> GetFreePersonas(Guid partyId)
     {
         var party = grains.GetGrain<IPartyGrain>(partyId);
-        var free = Takeover.Free((await party.GetParty()).Participants, await Clock(partyId).GetClaimedAsync(), await party.GetChatGroups());
+        var free = await Takeover.FreeAsync(grains, (await party.GetParty()).Participants, await Clock(partyId).GetClaimedAsync(), await party.GetChatGroups());
         var result = new List<FreePersona>();
         foreach (var p in free.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
         {
@@ -252,18 +252,86 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         var party = grains.GetGrain<IPartyGrain>(partyId);
         var info = await party.GetParty();
         var names = info.Participants.ToDictionary(p => p.Id, p => p.Name);
+        ConversationMember Member(Guid id) => new(id, names.GetValueOrDefault(id, "someone"), humans.Contains(id));
 
         var result = new List<DirectChatSummary>();
-        foreach (var dm in (await party.GetChatGroups()).Where(g => g.Kind == ChatGroupKinds.Direct && g.MemberIds?.Contains(who) == true))
+        foreach (var chat in (await party.GetChatGroups()).Where(g => g.Kind is ChatGroupKinds.Direct or ChatGroupKinds.Group))
         {
-            if (!AccessRules.CanSeeRoom(viewer, AccessRules.PrivateMembers(dm, humans))) continue;
-            var other = dm.MemberIds!.First(id => id != who);
-            var last = (await grains.GetGrain<IChatGroupGrain>(dm.Id).GetRecentMessagesAsync(1)).LastOrDefault();
-            result.Add(new DirectChatSummary(dm.Id, other, names.GetValueOrDefault(other, "someone"),
-                last?.Content, last?.SenderId, last?.SendAt ?? dm.CreatedAt));
+            var members = (await Conversations.MembersAsync(grains, chat)).Where(id => id != Narrator.PersonaId).ToList();
+            if (!members.Contains(who) || members.Count < 2 && chat.Kind == ChatGroupKinds.Direct) continue;
+            if (!AccessRules.CanSeeRoom(viewer, AccessRules.PrivateMembers(chat with { MemberIds = members }, humans))) continue;
+            var last = (await grains.GetGrain<IChatGroupGrain>(chat.Id).GetRecentMessagesAsync(1)).LastOrDefault();
+            var direct = chat.Kind == ChatGroupKinds.Direct;
+            var other = direct ? members.First(id => id != who) : Guid.Empty;
+            result.Add(new DirectChatSummary(chat.Id, other, direct ? names.GetValueOrDefault(other, "someone") : chat.Name,
+                last?.Content, last?.SenderId, last?.SendAt ?? chat.CreatedAt,
+                chat.Kind, chat.Name, members.Select(Member).ToList(), chat.CreatedBy));
         }
         return Ok(result.OrderByDescending(r => r.LastAt).ToList());
     }
+
+    [HttpPost("messenger/groups")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ChatGroupInfo>> StartGroup(Guid partyId, [FromBody] StartGroupRequest request)
+    {
+        var from = await actors.ActAsync(User, partyId, request.FromPersonaId);
+        try
+        {
+            var group = await Conversations.StartAsync(grains, partyId, from, request.ParticipantIds ?? new List<Guid>(), request.Name);
+            posthog.Track(HttpContext, "group_started", new Dictionary<string, object>
+            {
+                ["party_id"] = partyId, ["room_id"] = group.Id, ["members"] = group.MemberIds?.Count ?? 0, ["named"] = !string.IsNullOrWhiteSpace(request.Name),
+            });
+            return Ok(group);
+        }
+        catch (ConversationRefused refused)
+        {
+            return Refused(refused);
+        }
+    }
+
+    [HttpPost("messenger/{chatGroupId:guid}/invite")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ChatGroupInfo>> InviteToConversation(Guid partyId, Guid chatGroupId, [FromBody] InviteToConversationRequest request)
+    {
+        var from = await actors.ActAsync(User, partyId, request.FromPersonaId);
+        try
+        {
+            var (group, started) = await Conversations.InviteAsync(grains, partyId, from, chatGroupId, request.PersonaId);
+            posthog.Track(HttpContext, "conversation_invited", new Dictionary<string, object>
+            {
+                ["party_id"] = partyId, ["room_id"] = group.Id, ["from_dm"] = started, ["members"] = group.MemberIds?.Count ?? 0,
+            });
+            return Ok(group);
+        }
+        catch (ConversationRefused refused)
+        {
+            return Refused(refused);
+        }
+    }
+
+    [HttpPost("messenger/{chatGroupId:guid}/leave")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> LeaveGroup(Guid partyId, Guid chatGroupId, [FromBody] LeaveGroupRequest request)
+    {
+        var who = await actors.ActAsync(User, partyId, request.FromPersonaId);
+        try
+        {
+            await Conversations.LeaveAsync(grains, partyId, who, chatGroupId);
+            posthog.Track(HttpContext, "group_left", new Dictionary<string, object> { ["party_id"] = partyId, ["room_id"] = chatGroupId });
+            return NoContent();
+        }
+        catch (ConversationRefused refused)
+        {
+            return Refused(refused);
+        }
+    }
+
+    private ActionResult Refused(ConversationRefused refused)
+        => refused.NotFound ? NotFound(refused.Message) : BadRequest(refused.Message);
 
     [HttpPost("messenger")]
     public async Task<ActionResult<ChatGroupInfo>> OpenDirectChat(Guid partyId, [FromBody] OpenDirectChatRequest request)
@@ -290,26 +358,14 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         if (string.IsNullOrWhiteSpace(request.Title) || request.StartsAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
             return BadRequest("Title and a future start time are required.");
         var (hostId, hostName) = await AuthorAsync(partyId, request.HostId);
-        Gathering g;
-        ActOutcome outcome;
-        if (request.PlaceId is { } placeId)
-        {
-            var place = (await grains.GetGrain<World.Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Places
-                .FirstOrDefault(p => p.Id == placeId && p.Kind == World.Places.PlaceKinds.Public && !p.Private);
-            if (place is null) return BadRequest("Unknown public place.");
-            (g, outcome) = await CalendarApp.PlanAtPlaceAsync(partyId, hostId, hostName, request.Title.Trim(), place, request.StartsAt, DateTimeOffset.UtcNow);
-        }
-        else
-        {
-            var room = (await grains.GetGrain<IPartyGrain>(partyId).GetChatGroups())
-                .FirstOrDefault(r => r.Id == request.RoomId && r.Kind == ChatGroupKinds.Room);
-            if (room is null) return BadRequest("Unknown room.");
-            (g, outcome) = await CalendarApp.PlanAsync(partyId, hostId, hostName, request.Title.Trim(), room, request.StartsAt, DateTimeOffset.UtcNow);
-        }
+        var place = (await grains.GetGrain<World.Places.IPlacesGrain>(partyId).GetSnapshotAsync()).Places
+            .FirstOrDefault(p => p.Id == request.PlaceId && p.Kind == World.Places.PlaceKinds.Public && !p.Private);
+        if (place is null) return BadRequest("A gathering needs a public Place.");
+        var (g, outcome) = await CalendarApp.PlanAtPlaceAsync(partyId, hostId, hostName, request.Title.Trim(), place, request.StartsAt, DateTimeOffset.UtcNow);
         await RecordAsync(partyId, hostId, hostName, CalendarApp.Id, outcome);
         posthog.Track(HttpContext, "gathering_planned", new Dictionary<string, object>
         {
-            ["party_id"] = partyId, ["gathering_id"] = g.Id, ["at_place"] = request.PlaceId is not null,
+            ["party_id"] = partyId, ["gathering_id"] = g.Id,
         });
         return Ok(g);
     }
@@ -346,7 +402,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         => Clock(partyId).RecordAsync(new WorldActivity
         {
             PersonaId = actorId, PersonaName = actorName, App = app, Action = outcome.Action,
-            Summary = outcome.Summary, TargetId = outcome.TargetId, WithPersonaId = outcome.WithPersonaId,
+            Summary = outcome.Summary, TargetId = outcome.TargetId, WithPersonaId = outcome.WithPersonaId, Among = outcome.Among?.ToList(),
         });
 
     private async Task<ViewsOf> ViewsOfAsync(Guid partyId)
@@ -379,7 +435,7 @@ public sealed record TickRequest(Guid? PersonaId, string? Nudge);
 public sealed record TickResponse(bool Started);
 public sealed record AnnounceRequest(string Text);
 public sealed record InviteResidentRequest(Guid PersonaId);
-public sealed record PlanGatheringRequest(string Title, Guid RoomId, long StartsAt, Guid? HostId, Guid? PlaceId = null);
+public sealed record PlanGatheringRequest(string Title, Guid PlaceId, long StartsAt, Guid? HostId);
 public sealed record RsvpRequest(Guid? PersonaId, bool Going = true);
 public sealed record PlayerResponse(Guid? PlayerId, string? Name, bool IsAdmin, bool Auto = false, string? Mission = null, string? Aura = null);
 
@@ -392,5 +448,10 @@ public sealed record CreateBoardPostRequest(string Body, Guid? AuthorId);
 public sealed record BoardRespectRequest(Guid? ReplyId, bool Given = true, Guid? AuthorId = null);
 public sealed record CreateBoardReplyRequest(string Body, Guid? AuthorId);
 public sealed record OpenDirectChatRequest(Guid WithPersonaId, Guid? FromPersonaId);
-public sealed record DirectChatSummary(Guid ChatGroupId, Guid WithId, string WithName, string? LastMessage, Guid? LastSenderId, long LastAt);
+public sealed record DirectChatSummary(Guid ChatGroupId, Guid WithId, string WithName, string? LastMessage, Guid? LastSenderId, long LastAt,
+    string Kind, string Name, List<ConversationMember> Members, Guid? CreatedBy = null);
+public sealed record ConversationMember(Guid Id, string Name, bool Human);
+public sealed record StartGroupRequest(List<Guid> ParticipantIds, string? Name = null, Guid? FromPersonaId = null);
+public sealed record InviteToConversationRequest(Guid PersonaId, Guid? FromPersonaId = null);
+public sealed record LeaveGroupRequest(Guid? FromPersonaId = null);
 public sealed record LifeSummary(Guid PersonaId, string Name, DriverKind Driver, double Chattiness, bool Busy, bool IsPlayer, WorldActivity? LastActivity, bool Afk = false);

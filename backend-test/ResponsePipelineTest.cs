@@ -44,10 +44,7 @@ public class ResponsePipelineTest
         var chatGroup = new Mock<IChatGroupGrain>();
         chatGroup.Setup(g => g.GetParticipantIdsAsync())
             .ReturnsAsync((IReadOnlySet<Guid>)new HashSet<Guid> { PersonaId });
-        chatGroup.Setup(g => g.GetDriverOverridesAsync())
-            .ReturnsAsync((IReadOnlyDictionary<Guid, DriverKind>)new Dictionary<Guid, DriverKind>());
         chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(partyId);
-        chatGroup.Setup(g => g.GetScenarioAsync()).ReturnsAsync((string?)null);
         chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
             .ReturnsAsync(new List<ChatMessage>());
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(0);
@@ -83,8 +80,7 @@ public class ResponsePipelineTest
         chatGroup.Setup(g => g.GetCastAsync()).ReturnsAsync(() => RoomCast.Create(
             partyGrain.Object.GetCastAsync().Result,
             new HashSet<Guid> { PersonaId },
-            new Dictionary<Guid, DriverKind>(),
-            ChatGroupKinds.Room));
+            ChatGroupKinds.Group));
 
         var factory = new Mock<IGrainFactory>();
         factory.Setup(f => f.GetGrain<ILlmRouterGrain>(0L, null)).Returns(router.Object);

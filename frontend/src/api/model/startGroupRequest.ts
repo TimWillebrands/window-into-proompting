@@ -5,10 +5,10 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface RepromptRequest {
-    chatGroupId?: string;
+export interface StartGroupRequest {
+    participantIds: string[];
     /** @nullable */
-    senderId?: string | null;
+    name?: string | null;
     /** @nullable */
-    senderName?: string | null;
+    fromPersonaId?: string | null;
 }

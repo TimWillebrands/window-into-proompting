@@ -110,7 +110,7 @@ public sealed partial class PlacesGrain(
         var app = kind switch
         {
             ChatGroupKinds.Direct => "messenger",
-            ChatGroupKinds.Room => "rooms",
+            ChatGroupKinds.Group => "rooms",
             _ => null,
         };
         if (app is not null) await NoteActivityAsync(m.SenderId, app);

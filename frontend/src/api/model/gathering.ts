@@ -20,5 +20,7 @@ export interface Gathering {
     /** @nullable */
     placeId?: string | null;
     /** @nullable */
+    cancelledBecause?: string | null;
+    /** @nullable */
     where?: string | null;
 }
