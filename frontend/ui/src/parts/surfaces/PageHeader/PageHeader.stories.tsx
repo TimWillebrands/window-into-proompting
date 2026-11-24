@@ -6,6 +6,7 @@ import {
     stage,
 } from '../../../story-kit/story-kit';
 import { Icon } from '../../icons';
+import { WindowLayout } from '../WindowLayout/WindowLayout';
 import { PageHeader } from './PageHeader';
 
 const meta = {
@@ -51,6 +52,19 @@ export const TitleOnly: Story = {
             title="A very long page title that runs out of room and ends in an ellipsis"
             className="ui-story-header"
         />
+    ),
+};
+
+export const InNarrowWindow: Story = {
+    render: (args) => (
+        <div style={{ width: 420, height: 120 }}>
+            <WindowLayout scroll="none">
+                <PageHeader
+                    {...args}
+                    icon={<Icon name="company" size={32} />}
+                />
+            </WindowLayout>
+        </div>
     ),
 };
 

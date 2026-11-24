@@ -1,9 +1,16 @@
 import {
     type ComponentPropsWithRef,
+    createContext,
+    type Dispatch,
     type ReactNode,
+    type SetStateAction,
     type SyntheticEvent,
+    useContext,
+    useEffect,
     useId,
+    useState,
 } from 'react';
+import { type SkinName, skinOf } from '../../../../skins';
 import { Glyph, type GlyphName } from '../glyphs';
 
 export type WindowProps = Omit<ComponentPropsWithRef<'section'>, 'title'> & {
@@ -17,11 +24,22 @@ export type WindowProps = Omit<ComponentPropsWithRef<'section'>, 'title'> & {
     onClose?: () => void;
     titleBarClassName?: string;
     titleBarAccessory?: ReactNode;
-    menuBar?: ReactNode;
-    statusBar?: ReactNode;
     bodyClassName?: string;
-    skin?: string;
+    skin?: SkinName;
 };
+
+const AccessoryContext = createContext<Dispatch<
+    SetStateAction<ReactNode>
+> | null>(null);
+
+export function useTitleBarAccessory(node: ReactNode) {
+    const set = useContext(AccessoryContext);
+    useEffect(() => {
+        if (!set) return;
+        set(node);
+        return () => set(null);
+    }, [set, node]);
+}
 
 const keepFromDrag = (event: SyntheticEvent) => event.stopPropagation();
 
@@ -71,8 +89,6 @@ export function Window({
     onClose,
     titleBarClassName,
     titleBarAccessory,
-    menuBar,
-    statusBar,
     bodyClassName,
     skin,
     className,
@@ -80,6 +96,21 @@ export function Window({
     ...rest
 }: WindowProps) {
     const titleId = useId();
+    const [placed, setPlaced] = useState<ReactNode>(null);
+    const accessory = titleBarAccessory ?? placed;
+    const look = skinOf(skin);
+    const maximise = look?.maximise === false ? undefined : onMaximise;
+    const regions = (place: 'frame' | 'titlebar') =>
+        look?.regions
+            ?.filter((region) => region.in === place)
+            .map((region) => (
+                <span
+                    key={region.name}
+                    className="ui-window-skin-region"
+                    data-region={region.name}
+                    aria-hidden="true"
+                />
+            ));
     return (
         <section
             aria-labelledby={titleId}
@@ -88,13 +119,16 @@ export function Window({
             data-maximised={maximised ? '' : undefined}
             data-ui-window-id={windowId}
             data-ui-skin={skin}
+            data-title-bar={look?.titleBar === 'tall' ? 'tall' : undefined}
             {...rest}
         >
+            {regions('frame')}
             {/* biome-ignore lint/a11y/noStaticElementInteractions: the title bar is the drag handle; double-click maximises, the caption buttons are the accessible route */}
             <header
                 className={join('ui-window-titlebar', titleBarClassName)}
-                onDoubleClick={onMaximise}
+                onDoubleClick={maximise}
             >
+                {regions('titlebar')}
                 {icon && (
                     <span className="ui-window-icon" aria-hidden="true">
                         {icon}
@@ -103,7 +137,7 @@ export function Window({
                 <span id={titleId} className="ui-window-title">
                     {title}
                 </span>
-                {titleBarAccessory && (
+                {accessory && (
                     // biome-ignore lint/a11y/noStaticElementInteractions: keeps pointer presses on the accessory from starting a drag
                     <span
                         className="ui-window-accessory"
@@ -112,7 +146,7 @@ export function Window({
                         onTouchStart={keepFromDrag}
                         onDoubleClick={keepFromDrag}
                     >
-                        {titleBarAccessory}
+                        {accessory}
                     </span>
                 )}
                 <span className="ui-window-captions">
@@ -124,12 +158,12 @@ export function Window({
                             onPress={onMinimise}
                         />
                     )}
-                    {onMaximise && (
+                    {maximise && (
                         <Caption
                             kind="maximise"
                             glyph={maximised ? 'restore' : 'maximise'}
                             label={maximised ? 'Restore' : 'Maximise'}
-                            onPress={onMaximise}
+                            onPress={maximise}
                         />
                     )}
                     {onClose && (
@@ -142,13 +176,11 @@ export function Window({
                     )}
                 </span>
             </header>
-            {menuBar && <div className="ui-window-menubar">{menuBar}</div>}
             <div className={join('ui-window-body', bodyClassName)}>
-                {children}
+                <AccessoryContext.Provider value={setPlaced}>
+                    {children}
+                </AccessoryContext.Provider>
             </div>
-            {statusBar && (
-                <footer className="ui-window-statusbar">{statusBar}</footer>
-            )}
         </section>
     );
 }

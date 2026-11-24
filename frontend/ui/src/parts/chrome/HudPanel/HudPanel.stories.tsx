@@ -120,6 +120,32 @@ export const Anchors: Story = {
     ),
 };
 
+export const TopKeepsClearOfCorners: Story = {
+    render: () => (
+        <div style={{ position: 'relative', width: 460, height: 160 }}>
+            <HudPanel
+                anchor="top"
+                icon={<Icon name="walk" />}
+                title="The Corner Café → The Library on the far side of the park"
+            >
+                <ProgressBar value={40} label="On the way" valueText="1:12" />
+            </HudPanel>
+            <HudPanel anchor="top-end">
+                <Toolbar orientation="vertical" aria-label="Zoom">
+                    <ToolbarButton
+                        aria-label="Zoom in"
+                        icon={<Icon name="zoom-in" />}
+                    />
+                    <ToolbarButton
+                        aria-label="Zoom out"
+                        icon={<Icon name="zoom-out" />}
+                    />
+                </Toolbar>
+            </HudPanel>
+        </div>
+    ),
+};
+
 export const InFlow: Story = {
     render: () => (
         <div className="ui-story-column">

@@ -12,6 +12,36 @@ export const seriesTokens = [
     '--ui-series-other',
 ] as const;
 
+export const primitiveTokens = [
+    '--ui-p-chrome-1',
+    '--ui-p-chrome-2',
+    '--ui-p-chrome-3',
+    '--ui-p-chrome-4',
+    '--ui-p-chrome-5',
+    '--ui-p-chrome-ink',
+    '--ui-p-desktop',
+    '--ui-p-face',
+    '--ui-p-face-lite',
+    '--ui-p-face-edge',
+    '--ui-p-content',
+    '--ui-p-ink',
+    '--ui-p-select',
+    '--ui-p-hot',
+    '--ui-p-neutral',
+    '--ui-p-go',
+    '--ui-p-caution',
+    '--ui-p-danger',
+] as const;
+
+export const primitiveNumbers = [
+    '--ui-p-ink-l',
+    '--ui-p-glass-alpha',
+    '--ui-p-gloss',
+    '--ui-p-shadow',
+    '--ui-p-lift',
+    '--ui-p-color-scheme',
+] as const;
+
 export const colourGroups: TokenGroup[] = [
     {
         title: 'Face (content)',
@@ -31,6 +61,7 @@ export const colourGroups: TokenGroup[] = [
             '--ui-text-muted',
             '--ui-text-disabled',
             '--ui-text-on-chrome',
+            '--ui-desktop-text',
             '--ui-text-error',
             '--ui-link',
             '--ui-link-hover',
@@ -50,6 +81,12 @@ export const colourGroups: TokenGroup[] = [
     {
         title: 'Chrome',
         tokens: [
+            '--ui-chrome-tint',
+            '--ui-chrome-sheen',
+            '--ui-chrome',
+            '--ui-chrome-deep',
+            '--ui-chrome-shade',
+            '--ui-desktop',
             '--ui-titlebar',
             '--ui-titlebar-inactive',
             '--ui-titlebar-text',
@@ -61,34 +98,16 @@ export const colourGroups: TokenGroup[] = [
             '--ui-taskbar-button',
             '--ui-taskbar-button-hover',
             '--ui-taskbar-button-active',
-            '--ui-tray',
             '--ui-chrome-edge',
-            '--ui-start',
-            '--ui-start-menu-header',
-            '--ui-start-menu-footer',
-            '--ui-start-menu-places',
-            '--ui-start-menu-places-text',
             '--ui-close',
             '--ui-control',
             '--ui-control-hover',
             '--ui-control-active',
             '--ui-control-edge',
             '--ui-control-hot',
-            '--ui-taskpane',
-            '--ui-taskpane-section',
-            '--ui-taskpane-body',
-            '--ui-taskpane-body-special',
             '--ui-group-title',
-        ],
-    },
-    {
-        title: 'Controls',
-        tokens: [
-            '--ui-combo-button',
-            '--ui-combo-button-edge',
-            '--ui-combo-arrow',
             '--ui-check-mark',
-            '--ui-progress-chunk',
+            '--ui-glint',
         ],
     },
     {
@@ -128,6 +147,7 @@ export const colourGroups: TokenGroup[] = [
 export type ContrastPair = {
     text: string;
     surface: string;
+    surfaceClass?: string;
     large?: boolean;
     solid?: boolean;
     exempt?: string;
@@ -139,6 +159,7 @@ export const contrastPairs: ContrastPair[] = [
     { text: '--ui-text', surface: '--ui-field' },
     { text: '--ui-text', surface: '--ui-content' },
     { text: '--ui-text', surface: '--ui-glass-tint-regular', solid: true },
+    { text: '--ui-text', surface: '--ui-chrome-tint' },
     { text: '--ui-text-muted', surface: '--ui-face' },
     { text: '--ui-text-muted', surface: '--ui-content' },
     {
@@ -148,9 +169,12 @@ export const contrastPairs: ContrastPair[] = [
     },
     { text: '--ui-link', surface: '--ui-face' },
     { text: '--ui-link', surface: '--ui-content' },
-    { text: '--ui-link', surface: '--ui-taskpane-section' },
-    { text: '--ui-link', surface: '--ui-taskpane-body' },
-    { text: '--ui-link', surface: '--ui-taskpane-body-special' },
+    { text: '--ui-link', surface: '--ui-chrome-tint' },
+    {
+        text: '--ui-link',
+        surface: 'task pane heading',
+        surfaceClass: 'ui-taskpane-heading',
+    },
     { text: '--ui-link-hover', surface: '--ui-face' },
     { text: '--ui-link-hover', surface: '--ui-content' },
     { text: '--ui-select-text', surface: '--ui-select' },
@@ -158,6 +182,8 @@ export const contrastPairs: ContrastPair[] = [
     { text: '--ui-text-error', surface: '--ui-face' },
     { text: '--ui-text-error', surface: '--ui-field' },
     { text: '--ui-group-title', surface: '--ui-face' },
+    { text: '--ui-group-title', surface: '--ui-content' },
+    { text: '--ui-desktop-text', surface: '--ui-desktop' },
     { text: '--ui-titlebar-text', surface: '--ui-titlebar' },
     {
         text: '--ui-titlebar-text',
@@ -165,23 +191,30 @@ export const contrastPairs: ContrastPair[] = [
         exempt: 'inactive window, dimmed on purpose',
     },
     { text: '--ui-text-on-chrome', surface: '--ui-taskbar', solid: true },
-    { text: '--ui-text-on-chrome', surface: '--ui-tray', solid: true },
+    {
+        text: '--ui-text-on-chrome',
+        surface: 'tray',
+        surfaceClass: 'ui-tray',
+        solid: true,
+    },
     { text: '--ui-text-on-chrome', surface: '--ui-taskbar-button' },
     { text: '--ui-text-on-chrome', surface: '--ui-taskbar-button-active' },
-    { text: '--ui-text-on-chrome', surface: '--ui-start', large: true },
     {
         text: '--ui-titlebar-text',
-        surface: '--ui-start-menu-header',
+        surface: 'Start menu header',
+        surfaceClass: 'ui-start-menu-header',
         solid: true,
     },
     {
         text: '--ui-titlebar-text',
-        surface: '--ui-start-menu-footer',
+        surface: 'Start menu footer',
+        surfaceClass: 'ui-start-menu-footer',
         solid: true,
     },
     {
-        text: '--ui-start-menu-places-text',
-        surface: '--ui-start-menu-places',
+        text: 'Start menu places',
+        surface: 'Start menu places',
+        surfaceClass: 'ui-start-menu-places',
         solid: true,
     },
     { text: '--ui-tone-neutral-text', surface: '--ui-tone-neutral' },

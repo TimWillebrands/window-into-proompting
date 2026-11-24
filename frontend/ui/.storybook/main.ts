@@ -2,7 +2,10 @@ import type { StorybookConfig } from '@storybook/react-vite';
 import react from '@vitejs/plugin-react';
 
 const config: StorybookConfig = {
-    stories: ['../src/**/*.stories.@(ts|tsx)'],
+    stories: [
+        '../src/**/*.stories.@(ts|tsx)',
+        '../skins/**/*.stories.@(ts|tsx)',
+    ],
     staticDirs: [{ from: './backdrops', to: '/backdrops' }],
     framework: {
         name: '@storybook/react-vite',

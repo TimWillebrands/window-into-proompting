@@ -9,9 +9,9 @@
         border-block-end: 2px solid var(--ui-control-hot);
         background: linear-gradient(
             90deg,
-            oklch(from var(--ui-tone-neutral) calc(l - 0.08) c h) 0%,
-            var(--ui-tone-neutral) 60%,
-            oklch(from var(--ui-tone-neutral) calc(l + 0.1) c h) 100%
+            var(--ui-chrome-deep) 0%,
+            var(--ui-chrome) 60%,
+            var(--ui-chrome-sheen) 100%
         );
         color: var(--ui-text-on-chrome);
         font-family: var(--ui-font-ui);
@@ -39,8 +39,7 @@
         font-weight: 700;
         text-overflow: ellipsis;
         white-space: nowrap;
-        text-shadow: 0 1px 1px
-            color-mix(in oklab, var(--ui-text) 35%, transparent);
+        text-shadow: var(--ui-chrome-text-shadow);
     }
 
     .ui-page-header-description {
@@ -58,5 +57,11 @@
         gap: var(--ui-space-3);
         min-width: 0;
         font-weight: 700;
+    }
+
+    @container ui-window-layout (width < 520px) {
+        .ui-page-header-description {
+            display: none;
+        }
     }
 }

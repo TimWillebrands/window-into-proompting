@@ -36,11 +36,16 @@
         --ui-space-6: 16px;
 
         --ui-radius-control: 3px;
+        --ui-radius-control-max: 5px;
         --ui-radius-pane: 8px;
         --ui-radius-float: 10px;
         --ui-radius-window: 14px;
         --ui-radius-pill: 999px;
         --ui-frame-width: 3px;
+        --ui-taskpane-width: 200px;
+        --ui-taskpane-width-wide: 280px;
+        --ui-details-width: 240px;
+        --ui-tile-width: 160px;
         --ui-radius-here: 0px;
         --ui-inset: 0px;
 
@@ -84,264 +89,535 @@
             var(--ui-radius-here) -
             var(--ui-inset)
         );
+        --ui-radius-control-inner: min(
+            var(--ui-radius-inner),
+            var(--ui-radius-control-max)
+        );
     }
 
     :root,
     [data-ui-scheme="luna-blue"] {
-        --ui-color-scheme: light;
+        --ui-p-color-scheme: light;
+        --ui-p-chrome-1: oklch(0.9042 0.0343 269.31);
+        --ui-p-chrome-2: oklch(0.6657 0.1643 259.19);
+        --ui-p-chrome-3: oklch(0.521 0.2021 262.97);
+        --ui-p-chrome-4: oklch(0.4757 0.2255 263.06);
+        --ui-p-chrome-5: oklch(0.3154 0.183 264);
+        --ui-p-chrome-ink: oklch(1 0 0);
+        --ui-p-desktop: oklch(0.4283 0.1378 254.33);
+        --ui-p-face: oklch(0.9318 0.0228 98.65);
+        --ui-p-face-lite: oklch(0.968 0.0106 106.6);
+        --ui-p-face-edge: oklch(0.7307 0.0216 94.61);
+        --ui-p-content: oklch(1 0 0);
+        --ui-p-ink: oklch(0 0 0);
+        --ui-p-ink-l: 0.5;
+        --ui-p-select: oklch(0.5354 0.1543 259.46);
+        --ui-p-hot: oklch(0.8086 0.1525 78.72);
+        --ui-p-neutral: oklch(0.5354 0.1543 259.46);
+        --ui-p-go: oklch(0.5204 0.1484 142.01);
+        --ui-p-caution: oklch(0.7677 0.1513 69.88);
+        --ui-p-danger: oklch(0.5577 0.1721 32);
+        --ui-p-glass-alpha: 0.8;
+        --ui-p-gloss: 1;
+        --ui-p-shadow: 1;
+        --ui-p-lift: 0;
+    }
 
-        --ui-face: #ece9d8;
-        --ui-face-lite: #f5f5ed;
-        --ui-face-edge: #aca899;
-        --ui-field: #ffffff;
-        --ui-field-edge: #7f9db9;
-        --ui-content: #ffffff;
+    [data-ui-scheme="olive-green"] {
+        --ui-p-color-scheme: light;
+        --ui-p-chrome-1: oklch(0.9241 0.0391 118.2);
+        --ui-p-chrome-2: oklch(0.6995 0.0946 119.58);
+        --ui-p-chrome-3: oklch(0.5004 0.0857 122.12);
+        --ui-p-chrome-4: oklch(0.4703 0.08 122.36);
+        --ui-p-chrome-5: oklch(0.3614 0.0603 125.26);
+        --ui-p-chrome-ink: oklch(1 0 0);
+        --ui-p-desktop: oklch(0.4283 0.1378 254.33);
+        --ui-p-face: oklch(0.9251 0.0292 106.96);
+        --ui-p-face-lite: oklch(0.9639 0.0158 106.69);
+        --ui-p-face-edge: oklch(0.7207 0.0351 109.12);
+        --ui-p-content: oklch(1 0 0);
+        --ui-p-ink: oklch(0 0 0);
+        --ui-p-ink-l: 0.48;
+        --ui-p-select: oklch(0.521 0.0856 125.86);
+        --ui-p-hot: oklch(0.8086 0.1525 78.72);
+        --ui-p-neutral: oklch(0.5354 0.1543 259.46);
+        --ui-p-go: oklch(0.5204 0.1484 142.01);
+        --ui-p-caution: oklch(0.7677 0.1513 69.88);
+        --ui-p-danger: oklch(0.5577 0.1721 32);
+        --ui-p-glass-alpha: 0.8;
+        --ui-p-gloss: 1;
+        --ui-p-shadow: 1;
+        --ui-p-lift: 0;
+    }
 
-        --ui-text: #000000;
-        --ui-text-muted: #5f5d54;
-        --ui-text-disabled: #a1a192;
-        --ui-text-on-chrome: #ffffff;
-        --ui-link: #215dc6;
-        --ui-link-hover: #1c4ba8;
+    [data-ui-scheme="silver"] {
+        --ui-p-color-scheme: light;
+        --ui-p-chrome-1: oklch(0.9538 0.008 286.25);
+        --ui-p-chrome-2: oklch(0.9889 0.004 286.33);
+        --ui-p-chrome-3: oklch(0.8606 0.0137 286.11);
+        --ui-p-chrome-4: oklch(0.7989 0.0168 286.01);
+        --ui-p-chrome-5: oklch(0.5611 0.0245 285.58);
+        --ui-p-chrome-ink: oklch(0 0 0);
+        --ui-p-desktop: oklch(0.4283 0.1378 254.33);
+        --ui-p-face: oklch(0.9056 0.0055 297.72);
+        --ui-p-face-lite: oklch(0.9707 0.0027 286.35);
+        --ui-p-face-edge: oklch(0.7202 0.0072 286.22);
+        --ui-p-content: oklch(1 0 0);
+        --ui-p-ink: oklch(0 0 0);
+        --ui-p-ink-l: 0.48;
+        --ui-p-select: oklch(0.4997 0.1 262.06);
+        --ui-p-hot: oklch(0.8086 0.1525 78.72);
+        --ui-p-neutral: oklch(0.5354 0.1543 259.46);
+        --ui-p-go: oklch(0.5204 0.1484 142.01);
+        --ui-p-caution: oklch(0.7677 0.1513 69.88);
+        --ui-p-danger: oklch(0.5577 0.1721 32);
+        --ui-p-glass-alpha: 0.8;
+        --ui-p-gloss: 1;
+        --ui-p-shadow: 1;
+        --ui-p-lift: 0;
+    }
 
-        --ui-select: #316ac5;
-        --ui-select-text: #ffffff;
-        --ui-focus: #316ac5;
-        --ui-select-inactive: #ece9d8;
-        --ui-select-inactive-text: #000000;
-        --ui-focus-on-chrome: #ffffff;
+    [data-ui-scheme="noir"] {
+        --ui-p-color-scheme: dark;
+        --ui-p-chrome-1: oklch(0.3109 0.0378 267.38);
+        --ui-p-chrome-2: oklch(0.4511 0.0466 267.32);
+        --ui-p-chrome-3: oklch(0.2525 0.024 267.07);
+        --ui-p-chrome-4: oklch(0.2196 0.0309 267.14);
+        --ui-p-chrome-5: oklch(0.1165 0.0142 272.6);
+        --ui-p-chrome-ink: oklch(1 0 0);
+        --ui-p-desktop: oklch(0.1599 0.0348 260.04);
+        --ui-p-face: oklch(0.298 0.013 272.94);
+        --ui-p-face-lite: oklch(0.3336 0.0164 270.89);
+        --ui-p-face-edge: oklch(0.4248 0.0205 270.9);
+        --ui-p-content: oklch(0.252 0.0099 268.29);
+        --ui-p-ink: oklch(0.9431 0 0);
+        --ui-p-ink-l: 0.78;
+        --ui-p-select: oklch(0.515 0.142 263);
+        --ui-p-hot: oklch(0.7647 0.1415 73.47);
+        --ui-p-neutral: oklch(0.515 0.142 263);
+        --ui-p-go: oklch(0.5204 0.1484 142.01);
+        --ui-p-caution: oklch(0.7494 0.1419 76.49);
+        --ui-p-danger: oklch(0.5577 0.1721 32);
+        --ui-p-glass-alpha: 0.82;
+        --ui-p-gloss: 0.6;
+        --ui-p-shadow: 1.35;
+        --ui-p-lift: 0.08;
+    }
+
+    :root,
+    [data-ui-scheme],
+    [data-ui-skin] {
+        --ui-color-scheme: var(--ui-p-color-scheme);
+
+        --ui-face: var(--ui-p-face);
+        --ui-face-lite: var(--ui-p-face-lite);
+        --ui-face-edge: var(--ui-p-face-edge);
+        --ui-field: oklch(
+            from var(--ui-p-content) calc(l - var(--ui-p-lift) * 0.3) c h
+        );
+        --ui-field-edge: oklch(
+            from color-mix(in oklab, var(--ui-p-face-edge), var(--ui-p-select))
+                calc(l + 0.05) calc(c * 0.794) calc(h - 9.9)
+        );
+        --ui-content: var(--ui-p-content);
+
+        --ui-text: var(--ui-p-ink);
+        --ui-text-muted: oklch(
+            from var(--ui-p-face) calc(var(--ui-p-ink-l) - 0.023) calc(c * 0.6)
+                h
+        );
+        --ui-text-disabled: oklch(
+            from var(--ui-p-face) calc(l * 0.475 + var(--ui-p-ink-l) * 0.525)
+                calc(c * 0.9) calc(h + 8)
+        );
+        --ui-text-on-chrome: var(--ui-p-chrome-ink);
         --ui-text-error: var(--ui-tone-danger-ink);
+        --ui-link: oklch(
+            from var(--ui-p-select) calc(var(--ui-p-ink-l) + 0.003)
+                calc(c * 1.137) calc(h + 1.3)
+        );
+        --ui-link-hover: color-mix(
+            in oklab,
+            var(--ui-link),
+            var(--ui-p-ink) 12%
+        );
+        --ui-desktop: var(--ui-p-desktop);
+        --ui-desktop-text: #ffffff;
+        --ui-glint: #ffffff;
+
+        --ui-select: var(--ui-p-select);
+        --ui-select-text: #ffffff;
+        --ui-select-inactive: oklch(
+            from var(--ui-p-face) calc(l + var(--ui-p-lift)) c h
+        );
+        --ui-select-inactive-text: var(--ui-p-ink);
+        --ui-focus: oklch(
+            from var(--ui-p-select) max(l, var(--ui-p-ink-l)) c h
+        );
+        --ui-focus-on-chrome: var(--ui-p-chrome-ink);
+
+        --ui-chrome-tint: var(--ui-p-chrome-1);
+        --ui-chrome-sheen: var(--ui-p-chrome-2);
+        --ui-chrome: var(--ui-p-chrome-3);
+        --ui-chrome-deep: var(--ui-p-chrome-4);
+        --ui-chrome-shade: var(--ui-p-chrome-5);
 
         --ui-titlebar: linear-gradient(
             180deg,
-            #2e61e4 0%,
-            #5292f7 6%,
-            #255ae1 25%,
-            #2f6bf6 80%,
-            #1133a0 100%
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.018) calc(c * 1.023)
+                        calc(h + 1.3)
+                )
+                0%,
+            var(--ui-p-chrome-2) 6%,
+            oklch(from var(--ui-p-chrome-3) l calc(c * 1.054) calc(h + 1)) 25%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.052) calc(c * 1.077)
+                        calc(h + 0.5)
+                )
+                80%,
+            oklch(
+                    from var(--ui-p-chrome-5) calc(l + 0.066) calc(c * 0.981)
+                        calc(h + 0.9)
+                )
+                100%
         );
         --ui-titlebar-inactive: linear-gradient(
             180deg,
-            #7b95dc 0%,
-            #a1b6e6 6%,
-            #7f95d9 25%,
-            #89a6e3 80%,
-            #7f92d9 100%
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.158) calc(c * 0.542)
+                        calc(h + 5.1)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-2) calc(l + 0.112) calc(c * 0.443)
+                        calc(h + 7.1)
+                )
+                6%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.159) calc(c * 0.515)
+                        calc(h + 6.8)
+                )
+                25%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.206) calc(c * 0.47)
+                        calc(h + 1.6)
+                )
+                80%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.153) calc(c * 0.533)
+                        calc(h + 8.9)
+                )
+                100%
         );
-        --ui-titlebar-text: #ffffff;
+        --ui-titlebar-text: var(--ui-p-chrome-ink);
         --ui-frame: linear-gradient(
             180deg,
-            #0b4ddc 0%,
-            #0a49d8 70%,
-            #073cc6 100%
+            oklch(from var(--ui-p-chrome-4) calc(l + 0.011) c calc(h - 0.2)) 0%,
+            var(--ui-p-chrome-4) 70%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l - 0.041) calc(c * 0.968)
+                        calc(h + 0.5)
+                )
+                100%
         );
         --ui-frame-inactive: linear-gradient(
             180deg,
-            #8ba3e3 0%,
-            #8199dd 70%,
-            #7389d2 100%
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l + 0.246) calc(c * 0.433)
+                        calc(h + 5.1)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l + 0.216) calc(c * 0.462)
+                        calc(h + 5.7)
+                )
+                70%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l + 0.168) calc(c * 0.5)
+                        calc(h + 7.2)
+                )
+                100%
         );
-        --ui-frame-edge: #001b8c;
-        --ui-frame-edge-inactive: #6a7fc4;
+        --ui-frame-edge: var(--ui-p-chrome-5);
+        --ui-frame-edge-inactive: oklch(
+            from var(--ui-p-chrome-4) calc(l + 0.134) calc(c * 0.479)
+                calc(h + 7.1)
+        );
         --ui-chrome-gloss:
-            inset 0 1px 0 rgb(255 255 255 / 0.42), inset 1px 0 0
-            rgb(255 255 255 / 0.2);
-        --ui-chrome-press: inset 1px 1px 2px rgb(0 18 70 / 0.65);
-        --ui-chrome-glow: 0 0 6px rgb(255 255 255 / 0.45);
-        --ui-chrome-edge: rgb(10 35 120 / 0.7);
-        --ui-chrome-text-shadow: 1px 1px 1px rgb(0 32 100 / 0.75);
+            inset 0 1px 0 rgb(255 255 255 / calc(0.42 * var(--ui-p-gloss))),
+            inset 1px 0 0 rgb(255 255 255 / calc(0.2 * var(--ui-p-gloss)));
+        --ui-chrome-press: inset 1px 1px 2px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.103) calc(c * 0.551)
+                    calc(h - 1.7) /
+                calc(0.65 * var(--ui-p-shadow))
+            );
+        --ui-chrome-glow: 0 0 6px
+            rgb(255 255 255 / calc(0.45 * var(--ui-p-gloss)));
+        --ui-chrome-edge: oklch(
+            from var(--ui-p-chrome-5) calc(l - 0.008) calc(c * 0.803)
+                calc(h + 1.1) /
+            0.7
+        );
+        --ui-chrome-text-shadow: 1px 1px 1px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.039) calc(c * 0.685)
+                    calc(h - 2.3) /
+                0.75
+            );
         --ui-taskbar: linear-gradient(
             180deg,
-            rgb(49 104 213 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0 1px,
-            rgb(56 136 233 / calc(var(--ui-glass-alpha-regular) * 1.15)) 1px 2px,
-            rgb(73 147 230 / calc(var(--ui-glass-alpha-regular) * 1.15)) 2px 3px,
-            rgb(48 123 229 / calc(var(--ui-glass-alpha-regular) * 1.15)) 3px 4px,
-            rgb(40 105 222 / calc(var(--ui-glass-alpha-regular) * 1.15)) 4px 5px,
-            rgb(35 90 216 / calc(var(--ui-glass-alpha-regular) * 1.15)) 5px 6px,
-            rgb(34 87 213 / calc(var(--ui-glass-alpha-regular) * 1.15)) 8px,
-            rgb(36 93 219 / calc(var(--ui-glass-alpha-regular) * 1.15)) 45%,
-            rgb(38 98 222 / calc(var(--ui-glass-alpha-regular) * 1.15))
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.022) calc(c * 0.881)
+                        calc(h - 0.8) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                0 1px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.105) calc(c * 0.819)
+                        calc(h - 7.7) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                1px 2px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.133) calc(c * 0.716)
+                        calc(h - 9.8) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                2px 3px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.073) calc(c * 0.876)
+                        calc(h - 5.1) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                3px 4px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.028) calc(c * 0.944)
+                        calc(h - 1.9) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                4px 5px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.009) c calc(h + 0.3) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                5px 6px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.017) c calc(h + 0.5) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                8px,
+            oklch(
+                    from var(--ui-p-chrome-3) l c h /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                45%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.013) calc(c * 0.988)
+                        calc(h - 0.6) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
                 calc(100% - 3px),
-            rgb(35 90 216 / calc(var(--ui-glass-alpha-regular) * 1.15))
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.009) c calc(h + 0.3) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
                 calc(100% - 3px) calc(100% - 2px),
-            rgb(30 80 196 / calc(var(--ui-glass-alpha-regular) * 1.15))
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.047) calc(c * 0.936)
+                        calc(h + 0.4) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
                 calc(100% - 2px) calc(100% - 1px),
-            rgb(25 65 165 / calc(var(--ui-glass-alpha-regular) * 1.15))
+            oklch(
+                    from var(--ui-p-chrome-5) calc(l + 0.1) calc(c * 0.916)
+                        calc(h - 0.1) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
                 calc(100% - 1px)
         );
         --ui-taskbar-button: linear-gradient(
             180deg,
-            #5d9cf8 0%,
-            #3c7eed 10%,
-            #2f6fe3 22%,
-            #2c6ade 60%,
-            #2a66d9 88%,
-            #2459c6 100%
+            oklch(
+                    from var(--ui-p-chrome-2) calc(l + 0.026) calc(c * 0.919)
+                        calc(h - 1.3)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.088) calc(c * 0.894)
+                        calc(h - 2.8)
+                )
+                10%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.046) calc(c * 0.933)
+                        calc(h - 1.8)
+                )
+                22%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.031) calc(c * 0.934)
+                        calc(h - 1.5)
+                )
+                60%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.018) calc(c * 0.927)
+                        calc(h - 1.2)
+                )
+                88%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.025) calc(c * 0.888)
+                        calc(h - 0.6)
+                )
+                100%
         );
         --ui-taskbar-button-hover: linear-gradient(
             180deg,
-            #7ab3ff 0%,
-            #4a8ff7 14%,
-            #3b7eee 55%,
-            #3878ea 88%,
-            #2d68d8 100%
+            oklch(
+                    from var(--ui-p-chrome-2) calc(l + 0.093) calc(c * 0.763)
+                        calc(h - 3.2)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-2) calc(l - 0.009) calc(c * 1.036)
+                        calc(h - 0.7)
+                )
+                14%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.088) calc(c * 0.902)
+                        calc(h - 2.9)
+                )
+                55%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.072) calc(c * 0.914)
+                        calc(h - 2.1)
+                )
+                88%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.022) calc(c * 0.906)
+                        calc(h - 1.3)
+                )
+                100%
         );
         --ui-taskbar-button-active: linear-gradient(
             180deg,
-            #16409a 0%,
-            #1b4cad 12%,
-            #1e52b7 60%,
-            #2158c0 100%
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l - 0.073) calc(c * 0.685)
+                        calc(h - 0.3)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l - 0.03) calc(c * 0.728)
+                        calc(h - 1)
+                )
+                12%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l - 0.008) calc(c * 0.752)
+                        calc(h - 1.2)
+                )
+                60%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l + 0.012) calc(c * 0.769)
+                        calc(h - 1.5)
+                )
+                100%
         );
-        --ui-tray:
-            linear-gradient(
-                90deg,
-                rgb(28 200 247 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0
-                    2px,
-                transparent 2px
-            ),
-            linear-gradient(
-                180deg,
-                rgb(10 82 180 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0
-                    1px,
-                rgb(13 104 196 / calc(var(--ui-glass-alpha-regular) * 1.15)) 1px
-                    2px,
-                rgb(14 112 202 / calc(var(--ui-glass-alpha-regular) * 1.15)) 2px
-                    3px,
-                rgb(14 114 203 / calc(var(--ui-glass-alpha-regular) * 1.15)) 45%,
-                rgb(11 108 200 / calc(var(--ui-glass-alpha-regular) * 1.15)) 58%,
-                rgb(12 116 206 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                    calc(100% - 5px),
-                rgb(15 134 216 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                    calc(100% - 3px) calc(100% - 2px),
-                rgb(18 116 204 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                    calc(100% - 2px) calc(100% - 1px),
-                rgb(20 72 170 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                    calc(100% - 1px)
-            );
-        --ui-start: linear-gradient(
-            180deg,
-            #5eac56 0%,
-            #3b9c2c 18%,
-            #36942b 60%,
-            #2a7d23 100%
-        );
-        --ui-start-menu-header: linear-gradient(
-            180deg,
-            rgb(45 96 197 / var(--ui-glass-alpha-regular)) 0%,
-            rgb(113 180 255 / var(--ui-glass-alpha-regular)) 2%,
-            rgb(45 96 197 / var(--ui-glass-alpha-regular)) 8%,
-            rgb(62 114 208 / var(--ui-glass-alpha-regular)) 100%
-        );
-        --ui-start-menu-footer: linear-gradient(
-            180deg,
-            rgb(62 114 206 / var(--ui-glass-alpha-regular)) 0%,
-            rgb(40 96 192 / var(--ui-glass-alpha-regular)) 100%
-        );
-        --ui-start-menu-places: rgb(
-            214 228 248 /
-            var(--ui-glass-alpha-regular)
-        );
-        --ui-start-menu-places-text: #112366;
         --ui-close: radial-gradient(
             circle at 85% 85%,
-            #cd512e 50%,
-            #d45b34 70%,
-            #e4a491 100%
+            oklch(
+                    from var(--ui-p-danger) calc(l + 0.036) calc(c * 0.96)
+                        calc(h + 4.3)
+                )
+                50%,
+            oklch(
+                    from var(--ui-p-danger) calc(l + 0.061) calc(c * 0.942)
+                        calc(h + 6)
+                )
+                70%,
+            oklch(
+                    from var(--ui-p-danger) calc(l + 0.217) calc(c * 0.471)
+                        calc(h + 5.2)
+                )
+                100%
         );
         --ui-control: linear-gradient(
             180deg,
-            #ffffff 0%,
-            #ecebe6 86%,
-            #d6d0c5 100%
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l + 0.032 + var(--ui-p-lift)) 0 h
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.029 + var(--ui-p-lift)) calc(c * 0.64)
+                        calc(h - 9.2)
+                )
+                86%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.109 + var(--ui-p-lift)) calc(c * 1.551)
+                        calc(h - 23.8)
+                )
+                100%
         );
         --ui-control-hover: linear-gradient(
             180deg,
-            #ffffff 0%,
-            #f4f3ee 86%,
-            #e2ddd3 100%
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l + 0.032 + var(--ui-p-lift) * 1.3) 0 h
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.004 + var(--ui-p-lift) * 1.3) calc(c * 0.636)
+                        calc(h - 9.2)
+                )
+                86%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.069 + var(--ui-p-lift) * 1.3) calc(c * 1.376)
+                        calc(h - 22)
+                )
+                100%
         );
         --ui-control-active: linear-gradient(
             180deg,
-            #cdcac3 0%,
-            #e3e3db 8%,
-            #e5e5de 94%,
-            #f2f2f1 100%
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.129 + var(--ui-p-lift) * 0.4) calc(c * 0.962)
+                        calc(h - 19.1)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.054 + var(--ui-p-lift) * 0.4) calc(c * 1.014)
+                        h
+                )
+                8%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.048 + var(--ui-p-lift) * 0.4) calc(c * 0.886)
+                        h
+                )
+                94%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.007 + var(--ui-p-lift) * 0.4) calc(c * 0.126)
+                        h
+                )
+                100%
         );
-        --ui-control-edge: #003c74;
-        --ui-control-hot: #f5b335;
-        --ui-taskpane: linear-gradient(180deg, #7ba2e7 0%, #6375d6 100%);
-        --ui-taskpane-section: linear-gradient(90deg, #ffffff 0%, #c6d3f7 100%);
-        --ui-taskpane-body: #d6dff7;
-        --ui-taskpane-body-special: #eff3ff;
-        --ui-group-title: #0046d5;
-        --ui-combo-button: linear-gradient(
-            180deg,
-            #e2eafe 0%,
-            #cad9fc 45%,
-            #b7cbf8 100%
+        --ui-control-edge: oklch(
+            from var(--ui-p-chrome-5) calc(l + 0.042) calc(c * 0.606)
+                calc(h - 10.8)
         );
-        --ui-combo-button-edge: #9db5ee;
-        --ui-combo-arrow: #4d6185;
-        --ui-check-mark: #21a121;
-        --ui-progress-chunk: linear-gradient(
-            180deg,
-            #a3e3a0 0%,
-            #6fd26c 15%,
-            #3fbf3c 35%,
-            #2fae2c 55%,
-            #45bd42 75%,
-            #86d983 100%
+        --ui-control-hot: var(--ui-p-hot);
+        --ui-group-title: oklch(
+            from var(--ui-p-select) calc(var(--ui-p-ink-l) - 0.034)
+                calc(c * 1.466) calc(h + 3.1)
         );
-        --ui-logon-band: #00309c;
-        --ui-logon-band-bottom: linear-gradient(
-            90deg,
-            #3833ac 0%,
-            #00309c 100%
+        --ui-check-mark: oklch(
+            from var(--ui-p-go) calc(l + 0.099) calc(c * 1.309) calc(h + 0.8)
         );
-        --ui-logon-face: radial-gradient(
-            circle 180px at 7% 10%,
-            #94b3ef 0%,
-            #7d9fe8 40%,
-            #6487df 75%,
-            #5a7edc 100%
-        );
-        --ui-logon-rule-top: linear-gradient(
-            90deg,
-            rgb(140 170 230 / 0) 0%,
-            #b8cdf6 30%,
-            #ffffff 50%,
-            #b8cdf6 70%,
-            rgb(140 170 230 / 0) 100%
-        );
-        --ui-logon-rule-bottom: linear-gradient(
-            90deg,
-            rgb(245 160 60 / 0) 0%,
-            #f5a83c 30%,
-            #ffd9a0 50%,
-            #f5a83c 70%,
-            rgb(245 160 60 / 0) 100%
-        );
-        --ui-logon-divider: linear-gradient(
-            180deg,
-            rgb(255 255 255 / 0) 0%,
-            rgb(255 255 255 / 0.75) 50%,
-            rgb(255 255 255 / 0) 100%
-        );
-        --ui-logon-text: #ffffff;
-        --ui-logon-text-muted: #dbe6ff;
-        --ui-logon-tile-hover: linear-gradient(
-            90deg,
-            rgb(0 48 156 / 0.35) 0%,
-            rgb(0 48 156 / 0) 100%
-        );
-        --ui-logon-tile-selected: linear-gradient(
-            90deg,
-            #00309c 0%,
-            rgb(0 48 156 / 0.85) 55%,
-            rgb(0 48 156 / 0) 100%
-        );
-        --ui-logon-picture-edge: #ffffff;
 
         --ui-series-1: #2f6fd6;
         --ui-series-2: #e8742a;
@@ -353,303 +629,115 @@
         --ui-series-8: #d8453a;
         --ui-series-other: #8c897d;
 
-        --ui-tone-neutral: #316ac5;
+        --ui-tone-neutral: var(--ui-p-neutral);
         --ui-tone-neutral-text: #ffffff;
-        --ui-tone-go: #2a7d23;
+        --ui-tone-go: var(--ui-p-go);
         --ui-tone-go-text: #ffffff;
-        --ui-tone-caution: #f0a030;
+        --ui-tone-caution: var(--ui-p-caution);
         --ui-tone-caution-text: #000000;
-        --ui-tone-danger: #c4402a;
+        --ui-tone-danger: var(--ui-p-danger);
         --ui-tone-danger-text: #ffffff;
-        --ui-tone-neutral-ink: #215dc6;
-        --ui-tone-go-ink: #1f6b1a;
-        --ui-tone-caution-ink: #8a5a00;
-        --ui-tone-danger-ink: #b0281a;
+        --ui-tone-neutral-ink: oklch(
+            from var(--ui-p-neutral) calc(var(--ui-p-ink-l) + 0.003)
+                calc(c * 1.137) calc(h + 1.3)
+        );
+        --ui-tone-go-ink: oklch(
+            from var(--ui-p-go) calc(var(--ui-p-ink-l) - 0.036) calc(c * 0.917)
+                calc(h + 0.2)
+        );
+        --ui-tone-caution-ink: oklch(
+            from var(--ui-p-caution) calc(var(--ui-p-ink-l) + 0.008)
+                calc(c * 0.714) calc(h + 3.4)
+        );
+        --ui-tone-danger-ink: oklch(
+            from var(--ui-p-danger) calc(var(--ui-p-ink-l) - 0.003)
+                calc(c * 1.014) calc(h - 1.8)
+        );
         --ui-tone-gloss: linear-gradient(
             180deg,
-            rgb(255 255 255 / 0.4) 0%,
-            rgb(255 255 255 / 0.12) 30%,
+            rgb(255 255 255 / calc(0.4 * var(--ui-p-gloss))) 0%,
+            rgb(255 255 255 / calc(0.12 * var(--ui-p-gloss))) 30%,
             rgb(255 255 255 / 0) 50%,
-            rgb(0 0 0 / 0.08) 100%
+            rgb(0 0 0 / calc(0.08 * var(--ui-p-shadow))) 100%
         );
         --ui-tone-gloss-hover: linear-gradient(
             180deg,
-            rgb(255 255 255 / 0.5) 0%,
-            rgb(255 255 255 / 0.2) 35%,
-            rgb(255 255 255 / 0.06) 100%
+            rgb(255 255 255 / calc(0.5 * var(--ui-p-gloss))) 0%,
+            rgb(255 255 255 / calc(0.2 * var(--ui-p-gloss))) 35%,
+            rgb(255 255 255 / calc(0.06 * var(--ui-p-gloss))) 100%
         );
         --ui-tone-gloss-active: linear-gradient(
             180deg,
-            rgb(0 0 0 / 0.22) 0%,
-            rgb(0 0 0 / 0.08) 100%
+            rgb(0 0 0 / calc(0.22 * var(--ui-p-shadow))) 0%,
+            rgb(0 0 0 / calc(0.08 * var(--ui-p-shadow))) 100%
         );
 
-        --ui-glass-alpha-regular: 0.8;
+        --ui-glass-alpha-regular: var(--ui-p-glass-alpha);
         --ui-glass-alpha-clear: 0.55;
-        --ui-glass-tint-regular: rgb(
-            238 243 252 /
-            var(--ui-glass-alpha-regular)
+        --ui-glass-tint-regular: color-mix(
+            in oklab,
+            color-mix(in oklab, var(--ui-p-chrome-1) 38%, var(--ui-p-content))
+                calc(var(--ui-glass-alpha-regular) * 100%),
+            transparent
         );
-        --ui-glass-tint-clear: rgb(22 42 190 / var(--ui-glass-alpha-clear));
+        --ui-glass-tint-clear: oklch(
+            from var(--ui-p-chrome-4) calc(l - 0.074) calc(c * 0.995)
+                calc(h + 3.6) /
+            var(--ui-glass-alpha-clear)
+        );
         --ui-glass-blur-regular: blur(20px) saturate(1.4);
         --ui-glass-blur-clear: blur(14px) saturate(1.2);
         --ui-glass-blur-canvas: blur(6px) saturate(1.1);
-        --ui-glass-rim: inset 1px 1px 0 rgb(255 255 255 / 0.6);
-        --ui-glass-edge: rgb(16 36 150 / 0.45);
-        --ui-glass-shadow: 0 10px 28px -8px rgb(8 24 96 / 0.45);
+        --ui-glass-rim: inset 1px 1px 0
+            rgb(255 255 255 / calc(0.6 * var(--ui-p-gloss) * var(--ui-p-gloss)));
+        --ui-glass-edge: oklch(
+            from var(--ui-p-chrome-5) calc(l + 0.03) c calc(h + 2.4) /
+            calc(0.45 * var(--ui-p-shadow))
+        );
+        --ui-glass-shadow: 0 10px 28px -8px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.056) calc(c * 0.698)
+                    calc(h + 2.3) /
+                calc(0.45 * var(--ui-p-shadow))
+            );
 
-        --ui-shadow-control: 0 1px 1px rgb(0 0 0 / 0.12);
+        --ui-shadow-control: 0 1px 1px
+            rgb(0 0 0 / calc(0.12 * var(--ui-p-shadow) * var(--ui-p-shadow)));
         --ui-shadow-window:
-            0 2px 6px rgb(0 16 64 / 0.25), 0 14px 36px -10px rgb(0 16 64 / 0.5);
+            0 2px 6px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.114) calc(c * 0.517)
+                    calc(h - 1.8) /
+                calc(0.25 * var(--ui-p-shadow))
+            ), 0 14px 36px -10px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.114) calc(c * 0.517)
+                    calc(h - 1.8) /
+                calc(0.5 * var(--ui-p-shadow))
+            );
         --ui-shadow-window-inactive:
-            0 1px 3px rgb(0 16 64 / 0.2), 0 8px 20px -10px rgb(0 16 64 / 0.3);
-        --ui-shadow-float: 0 18px 48px -12px rgb(0 0 0 / 0.55);
+            0 1px 3px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.114) calc(c * 0.517)
+                    calc(h - 1.8) /
+                calc(0.2 * var(--ui-p-shadow))
+            ), 0 8px 20px -10px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.114) calc(c * 0.517)
+                    calc(h - 1.8) /
+                calc(0.3 * var(--ui-p-shadow))
+            );
+        --ui-shadow-float: 0 18px 48px -12px
+            rgb(0 0 0 / calc(0.55 * var(--ui-p-shadow)));
     }
 
-    [data-ui-scheme="noir"] {
-        --ui-color-scheme: dark;
+    [data-ui-scheme="silver"],
+    [data-ui-scheme="silver"] [data-ui-skin] {
+        --ui-chrome-text-shadow: 1px 1px 0 rgb(255 255 255 / 0.55);
+    }
 
-        --ui-face: #2b2d34;
-        --ui-face-lite: #33363f;
-        --ui-face-edge: #4a4e5a;
-        --ui-field: #1d1f24;
-        --ui-field-edge: #56688c;
-        --ui-content: #202227;
-
-        --ui-text: #ececec;
-        --ui-text-muted: #a3a8b4;
-        --ui-text-disabled: #6b6e78;
-        --ui-text-on-chrome: #ffffff;
-        --ui-link: #8ab4ff;
-        --ui-link-hover: #b5cfff;
-
-        --ui-select: #3a63b8;
-        --ui-select-text: #ffffff;
-        --ui-focus: #6ea8ff;
-        --ui-select-inactive: #3a3d46;
-        --ui-select-inactive-text: #ececec;
-        --ui-focus-on-chrome: #ffffff;
-        --ui-text-error: var(--ui-tone-danger-ink);
-
-        --ui-titlebar: linear-gradient(
-            180deg,
-            #6c7894 0%,
-            #3b4560 6%,
-            #1f2533 25%,
-            #181c27 80%,
-            #0b0d13 100%
-        );
-        --ui-titlebar-inactive: linear-gradient(
-            180deg,
-            #6a6e78 0%,
-            #575b65 6%,
-            #44474f 25%,
-            #4a4d55 80%,
-            #3a3c43 100%
-        );
-        --ui-titlebar-text: #ffffff;
-        --ui-frame: linear-gradient(
-            180deg,
-            #36456a 0%,
-            #29344f 70%,
-            #1a2131 100%
-        );
-        --ui-frame-inactive: linear-gradient(
-            180deg,
-            #50535c 0%,
-            #45484f 70%,
-            #393b41 100%
-        );
-        --ui-frame-edge: #04050a;
-        --ui-frame-edge-inactive: #26272c;
-        --ui-chrome-gloss:
-            inset 0 1px 0 rgb(170 195 255 / 0.28), inset 1px 0 0
-            rgb(170 195 255 / 0.12);
-        --ui-chrome-press: inset 1px 1px 3px rgb(0 0 0 / 0.75);
-        --ui-chrome-glow: 0 0 6px rgb(140 175 255 / 0.4);
-        --ui-chrome-edge: rgb(0 0 0 / 0.65);
-        --ui-chrome-text-shadow: 1px 1px 1px rgb(0 0 0 / 0.85);
-        --ui-taskbar-button: linear-gradient(
-            180deg,
-            #56627e 0%,
-            #3a4359 14%,
-            #30384b 60%,
-            #2b3243 100%
-        );
-        --ui-taskbar-button-hover: linear-gradient(
-            180deg,
-            #69779a 0%,
-            #465170 14%,
-            #3a4459 60%,
-            #343d50 100%
-        );
-        --ui-taskbar-button-active: linear-gradient(
-            180deg,
-            #0f1118 0%,
-            #161a24 15%,
-            #1b202c 100%
-        );
-        --ui-tray:
-            linear-gradient(
-                90deg,
-                rgb(96 114 152 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0
-                    2px,
-                transparent 2px
-            ),
-            linear-gradient(
-                180deg,
-                rgb(40 48 66 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0 1px,
-                rgb(62 74 100 / calc(var(--ui-glass-alpha-regular) * 1.15)) 1px
-                    2px,
-                rgb(48 58 80 / calc(var(--ui-glass-alpha-regular) * 1.15)) 2px
-                    3px,
-                rgb(36 43 61 / calc(var(--ui-glass-alpha-regular) * 1.15)) 45%,
-                rgb(33 40 56 / calc(var(--ui-glass-alpha-regular) * 1.15)) 58%,
-                rgb(40 48 66 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                    calc(100% - 3px) calc(100% - 2px),
-                rgb(24 28 38 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                    calc(100% - 2px) calc(100% - 1px),
-                rgb(12 14 19 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                    calc(100% - 1px)
-            );
-        --ui-taskbar: linear-gradient(
-            180deg,
-            rgb(44 50 66 / calc(var(--ui-glass-alpha-regular) * 1.15)) 0 1px,
-            rgb(70 80 106 / calc(var(--ui-glass-alpha-regular) * 1.15)) 1px 2px,
-            rgb(82 94 122 / calc(var(--ui-glass-alpha-regular) * 1.15)) 2px 3px,
-            rgb(56 64 84 / calc(var(--ui-glass-alpha-regular) * 1.15)) 3px 4px,
-            rgb(40 46 61 / calc(var(--ui-glass-alpha-regular) * 1.15)) 4px 5px,
-            rgb(31 36 48 / calc(var(--ui-glass-alpha-regular) * 1.15)) 5px 6px,
-            rgb(27 31 42 / calc(var(--ui-glass-alpha-regular) * 1.15)) 8px,
-            rgb(29 34 46 / calc(var(--ui-glass-alpha-regular) * 1.15)) 45%,
-            rgb(32 37 50 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                calc(100% - 3px),
-            rgb(26 30 40 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                calc(100% - 3px) calc(100% - 2px),
-            rgb(17 19 26 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                calc(100% - 2px) calc(100% - 1px),
-            rgb(9 10 14 / calc(var(--ui-glass-alpha-regular) * 1.15))
-                calc(100% - 1px)
-        );
-        --ui-start: linear-gradient(
-            180deg,
-            #55a04c 0%,
-            #2f8a24 50%,
-            #1f5e19 100%
-        );
-        --ui-start-menu-header: linear-gradient(
-            180deg,
-            rgb(40 47 66 / var(--ui-glass-alpha-regular)) 0%,
-            rgb(100 114 148 / var(--ui-glass-alpha-regular)) 2%,
-            rgb(40 47 66 / var(--ui-glass-alpha-regular)) 8%,
-            rgb(58 68 94 / var(--ui-glass-alpha-regular)) 100%
-        );
-        --ui-start-menu-footer: linear-gradient(
-            180deg,
-            rgb(52 60 82 / var(--ui-glass-alpha-regular)) 0%,
-            rgb(32 38 54 / var(--ui-glass-alpha-regular)) 100%
-        );
-        --ui-start-menu-places: rgb(44 52 72 / var(--ui-glass-alpha-regular));
-        --ui-start-menu-places-text: #c8d5f0;
-        --ui-close: radial-gradient(
-            circle at 85% 85%,
-            #b8432a 50%,
-            #c4502f 70%,
-            #d98e7a 100%
-        );
-        --ui-control: linear-gradient(
-            180deg,
-            #4d515b 0%,
-            #3c3f47 86%,
-            #30323a 100%
-        );
-        --ui-control-hover: linear-gradient(
-            180deg,
-            #575c67 0%,
-            #464a53 86%,
-            #383b43 100%
-        );
-        --ui-control-active: linear-gradient(
-            180deg,
-            #24262b 0%,
-            #303238 8%,
-            #34363d 94%,
-            #3f424a 100%
-        );
-        --ui-control-edge: #0f1116;
-        --ui-control-hot: #e8a33a;
-        --ui-taskpane: linear-gradient(180deg, #34373f 0%, #141519 100%);
-        --ui-taskpane-section: linear-gradient(90deg, #3c404b 0%, #2b2d34 100%);
-        --ui-taskpane-body: #283044;
-        --ui-taskpane-body-special: #252a35;
-        --ui-group-title: #8fb4ff;
-        --ui-combo-button: linear-gradient(
-            180deg,
-            #4b5569 0%,
-            #3d4558 50%,
-            #343b4c 100%
-        );
-        --ui-combo-button-edge: #15181f;
-        --ui-combo-arrow: #c8d5f0;
-        --ui-check-mark: #6ccf5c;
-        --ui-progress-chunk: linear-gradient(
-            180deg,
-            #7fc47a 0%,
-            #4ea84a 20%,
-            #2f8a2b 55%,
-            #3c9838 80%,
-            #64b060 100%
-        );
-        --ui-logon-band: #121419;
-        --ui-logon-band-bottom: linear-gradient(
-            90deg,
-            #2a2540 0%,
-            #121419 100%
-        );
-        --ui-logon-face: radial-gradient(
-            circle 180px at 7% 10%,
-            #3e4a66 0%,
-            #2f3749 40%,
-            #232733 75%,
-            #1e222c 100%
-        );
-        --ui-logon-rule-top: linear-gradient(
-            90deg,
-            rgb(90 120 190 / 0) 0%,
-            #5a78be 30%,
-            #a9c0f0 50%,
-            #5a78be 70%,
-            rgb(90 120 190 / 0) 100%
-        );
-        --ui-logon-rule-bottom: linear-gradient(
-            90deg,
-            rgb(232 163 58 / 0) 0%,
-            #b37a2a 30%,
-            #e8a33a 50%,
-            #b37a2a 70%,
-            rgb(232 163 58 / 0) 100%
-        );
-        --ui-logon-divider: linear-gradient(
-            180deg,
-            rgb(169 192 240 / 0) 0%,
-            rgb(169 192 240 / 0.55) 50%,
-            rgb(169 192 240 / 0) 100%
-        );
-        --ui-logon-text: #ffffff;
-        --ui-logon-text-muted: #b9c4dc;
-        --ui-logon-tile-hover: linear-gradient(
-            90deg,
-            rgb(80 110 180 / 0.3) 0%,
-            rgb(80 110 180 / 0) 100%
-        );
-        --ui-logon-tile-selected: linear-gradient(
-            90deg,
-            #2c3d66 0%,
-            rgb(44 61 102 / 0.85) 55%,
-            rgb(44 61 102 / 0) 100%
-        );
-        --ui-logon-picture-edge: #d8deea;
-
+    [data-ui-scheme="noir"],
+    [data-ui-scheme="noir"] [data-ui-skin] {
         --ui-series-1: #4a82e8;
         --ui-series-2: #d96a24;
         --ui-series-3: #14a08a;
@@ -659,55 +747,6 @@
         --ui-series-7: #8a78e6;
         --ui-series-8: #e05a4e;
         --ui-series-other: #7d818c;
-
-        --ui-tone-neutral: #3a63b8;
-        --ui-tone-neutral-text: #ffffff;
-        --ui-tone-go: #2a7d23;
-        --ui-tone-go-text: #ffffff;
-        --ui-tone-caution: #e0a030;
-        --ui-tone-caution-text: #000000;
-        --ui-tone-danger: #c4402a;
-        --ui-tone-danger-text: #ffffff;
-        --ui-tone-neutral-ink: #8ab4ff;
-        --ui-tone-go-ink: #7fd46f;
-        --ui-tone-caution-ink: #f0b44a;
-        --ui-tone-danger-ink: #ff8a7a;
-        --ui-tone-gloss: linear-gradient(
-            180deg,
-            rgb(255 255 255 / 0.26) 0%,
-            rgb(255 255 255 / 0.08) 30%,
-            rgb(255 255 255 / 0) 50%,
-            rgb(0 0 0 / 0.12) 100%
-        );
-        --ui-tone-gloss-hover: linear-gradient(
-            180deg,
-            rgb(255 255 255 / 0.36) 0%,
-            rgb(255 255 255 / 0.14) 35%,
-            rgb(255 255 255 / 0.04) 100%
-        );
-        --ui-tone-gloss-active: linear-gradient(
-            180deg,
-            rgb(0 0 0 / 0.35) 0%,
-            rgb(0 0 0 / 0.15) 100%
-        );
-
-        --ui-glass-alpha-regular: 0.82;
-        --ui-glass-alpha-clear: 0.55;
-        --ui-glass-tint-regular: rgb(28 33 46 / var(--ui-glass-alpha-regular));
-        --ui-glass-tint-clear: rgb(36 52 92 / var(--ui-glass-alpha-clear));
-        --ui-glass-blur-regular: blur(20px) saturate(1.4);
-        --ui-glass-blur-clear: blur(14px) saturate(1.2);
-        --ui-glass-blur-canvas: blur(6px) saturate(1.1);
-        --ui-glass-rim: inset 1px 1px 0 rgb(170 195 255 / 0.22);
-        --ui-glass-edge: rgb(0 0 0 / 0.6);
-        --ui-glass-shadow: 0 10px 28px -8px rgb(0 0 0 / 0.65);
-
-        --ui-shadow-control: 0 1px 1px rgb(0 0 0 / 0.4);
-        --ui-shadow-window:
-            0 2px 6px rgb(0 0 0 / 0.45), 0 14px 36px -10px rgb(0 0 0 / 0.7);
-        --ui-shadow-window-inactive:
-            0 1px 3px rgb(0 0 0 / 0.35), 0 8px 20px -10px rgb(0 0 0 / 0.5);
-        --ui-shadow-float: 0 18px 48px -12px rgb(0 0 0 / 0.75);
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -731,7 +770,8 @@
     /* biome-ignore lint/correctness/noUnknownMediaFeatureName: prefers-reduced-transparency is Media Queries 5 */
     @media (prefers-reduced-transparency: reduce) {
         :root,
-        [data-ui-scheme] {
+        [data-ui-scheme],
+        [data-ui-skin] {
             --ui-glass-alpha-regular: 1;
             --ui-glass-alpha-clear: 1;
             --ui-glass-blur-regular: none;
@@ -745,7 +785,8 @@
             (-webkit-backdrop-filter: blur(1px))
         ) {
         :root,
-        [data-ui-scheme] {
+        [data-ui-scheme],
+        [data-ui-skin] {
             --ui-glass-alpha-regular: 1;
             --ui-glass-alpha-clear: 1;
             --ui-glass-blur-regular: none;
@@ -755,7 +796,8 @@
     }
 
     [data-ui-reduce-transparency],
-    [data-ui-reduce-transparency] [data-ui-scheme] {
+    [data-ui-reduce-transparency] [data-ui-scheme],
+    [data-ui-reduce-transparency] [data-ui-skin] {
         --ui-glass-alpha-regular: 1;
         --ui-glass-alpha-clear: 1;
         --ui-glass-blur-regular: none;
@@ -765,7 +807,8 @@
 
     @media (prefers-contrast: more) {
         :root,
-        [data-ui-scheme] {
+        [data-ui-scheme],
+        [data-ui-skin] {
             --ui-glass-alpha-regular: 1;
             --ui-glass-alpha-clear: 1;
             --ui-glass-blur-regular: none;
@@ -783,7 +826,8 @@
     }
 
     [data-ui-contrast="more"],
-    [data-ui-contrast="more"] [data-ui-scheme] {
+    [data-ui-contrast="more"] [data-ui-scheme],
+    [data-ui-contrast="more"] [data-ui-skin] {
         --ui-glass-alpha-regular: 1;
         --ui-glass-alpha-clear: 1;
         --ui-glass-blur-regular: none;

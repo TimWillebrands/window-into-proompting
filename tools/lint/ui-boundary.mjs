@@ -26,7 +26,13 @@ export const RULES = {
         'Literal duration or easing outside the kit. Motion comes only from --ui-dur-* and --ui-ease-* through parts.',
     'kit-raw-values':
         'Raw value in a kit part. Parts read tokens only; values live in src/tokens.css (fonts in base.css, skins in skins/).',
+    'skin-outside-skins':
+        'Skin styling outside frontend/ui/skins/. A Skin lives in its own folder there and is opted into with Window skin="name" (a program entry\'s skin); no [data-ui-skin="…"] selectors or data-ui-skin attributes anywhere else.',
+    'layout-soup':
+        'Layout soup: a className with more than 6 utilities, or an arbitrary grid template or calc() in one. Use WindowLayout, Pane or Stack from @partytown/ui; Tailwind is for one-offs.',
 };
+
+export const SOUP_LIMIT = 6;
 
 const SKIP_ALL = [
     /\.gen\.(ts|tsx|mts)$/,
@@ -58,7 +64,11 @@ export const EXEMPTIONS = {
         ...KIT_RAW_ALLOWED,
         /^frontend\/ui\/skins\//,
     ],
+    'skin-outside-skins (where skins live)': [/^frontend\/ui\/skins\//],
 };
+
+const SKINS = /^frontend\/ui\/skins\//;
+const SKIN_SELECTOR = /\[\s*data-ui-skin\s*[~|^$*]?=[^\]]*\]/g;
 
 const APP = /^frontend\/src\//;
 const KIT = /^frontend\/ui\//;
@@ -100,6 +110,9 @@ const COLOUR_PROPS =
 const VISUAL_STYLE =
     /^(?:color|background\w*|border\w*|outline\w*|boxShadow|textShadow|font\w*|lineHeight|letterSpacing|textTransform|textDecoration\w*|transition\w*|animation\w*|filter|backdropFilter|WebkitBackdropFilter|fill|stroke|accentColor|caretColor|mixBlendMode|opacity)$/;
 const ICON_NAME = /^(?:icon\w*|\w+Icon)$/;
+const CLASS_ATTR = /^(?:className|\w+ClassName)$/;
+const ARBITRARY_TEMPLATE =
+    /(?:^|:)!?grid-(?:cols|rows)-\[|\[grid-template[\w-]*:|calc\(/;
 const ICON_HOLDER = /icon|button|btn/i;
 
 const kebab = (name) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
@@ -231,6 +244,8 @@ const scanCss = (file, text, on, report) => {
             for (const h of hits) report(rule, h.text, at + offset + h.index);
         };
         if (terminator === '{') {
+            if (on('skin-outside-skins'))
+                add('skin-outside-skins', matchesAll(SKIN_SELECTOR, body));
             if (on('dark-variant')) {
                 add('dark-variant', matchesAll(/\.dark(?![\w-])/g, body));
                 add(
@@ -475,6 +490,27 @@ const scanScript = (file, text, on, report) => {
         }
     };
 
+    const classStrings = (e) => {
+        e = unwrap(e);
+        if (!e) return [];
+        if (t.isJsxExpression(e)) return classStrings(e.expression);
+        if (t.isStringLiteral(e) || t.isNoSubstitutionTemplateLiteral(e))
+            return [{ text: e.text, node: e }];
+        if (t.isTemplateExpression(e))
+            return [
+                { text: stringOf(e), node: e },
+                ...e.templateSpans.flatMap((s) => classStrings(s.expression)),
+            ];
+        if (t.isConditionalExpression(e))
+            return [...classStrings(e.whenTrue), ...classStrings(e.whenFalse)];
+        if (t.isBinaryExpression(e))
+            return [...classStrings(e.left), ...classStrings(e.right)];
+        if (t.isCallExpression(e)) return e.arguments.flatMap(classStrings);
+        if (t.isArrayLiteralExpression(e))
+            return e.elements.flatMap(classStrings);
+        return [];
+    };
+
     const checkImport = (specNode) => {
         if (!specNode || !on('deep-import')) return;
         const s = stringOf(specNode);
@@ -554,6 +590,21 @@ const scanScript = (file, text, on, report) => {
                 if (s != null && hasEmoji(s))
                     report('emoji-icon', `${name}="${s}"`, node.getStart(sf));
             }
+            if (
+                name === 'data-ui-skin' &&
+                on('skin-outside-skins') &&
+                APP.test(file)
+            )
+                report('skin-outside-skins', name, node.getStart(sf));
+            if (name && CLASS_ATTR.test(name) && on('layout-soup') && expr)
+                for (const c of classStrings(expr)) {
+                    const utilities = c.text.split(/\s+/).filter(Boolean);
+                    if (
+                        utilities.length > SOUP_LIMIT ||
+                        utilities.some((u) => ARBITRARY_TEMPLATE.test(u))
+                    )
+                        report('layout-soup', c.text, c.node.getStart(sf));
+                }
             if (name && COLOUR_PROPS.test(kebab(name))) {
                 const s = stringOf(expr);
                 const rule = kitRaw ? 'kit-raw-values' : 'raw-colour';
@@ -627,6 +678,7 @@ export const rulesFor = (file) => {
             'dark-variant',
             'font-literal',
             'motion-literal',
+            'skin-outside-skins',
         ])
             rules.add(r);
         if (RENDERER_DATA.some((r) => r.test(file))) {
@@ -634,11 +686,14 @@ export const rulesFor = (file) => {
             rules.delete('font-literal');
             rules.delete('motion-literal');
         }
-        if (!/\.(tsx|jsx)$/.test(file)) rules.delete('visual-inline-style');
+        if (/\.(tsx|jsx)$/.test(file)) rules.add('layout-soup');
+        else rules.delete('visual-inline-style');
         return rules;
     }
-    if (/^frontend\//.test(file) && !/^frontend\/node_modules\//.test(file))
+    if (/^frontend\//.test(file) && !/^frontend\/node_modules\//.test(file)) {
         rules.add('deep-import');
+        if (!SKINS.test(file)) rules.add('skin-outside-skins');
+    }
     if (KIT_SRC.test(file) && !KIT_RAW_ALLOWED.some((r) => r.test(file)))
         rules.add('kit-raw-values');
     return rules;
@@ -717,6 +772,21 @@ export const compare = (violations, baseline) => {
     return { fresh, stale };
 };
 
+export const rebaseline = (baseline, violations, rules) => {
+    const only = new Set(rules);
+    const kept = {};
+    for (const [file, byRule] of Object.entries(baseline))
+        for (const [rule, prints] of Object.entries(byRule))
+            if (!only.has(rule)) {
+                kept[file] ??= {};
+                kept[file][rule] = prints;
+            }
+    const fresh = tally(violations.filter((v) => only.has(v.rule)));
+    for (const [file, byRule] of Object.entries(fresh))
+        kept[file] = { ...kept[file], ...byRule };
+    return sortDeep(kept);
+};
+
 const listFiles = (top) =>
     execFileSync(
         'git',
@@ -730,13 +800,15 @@ const listFiles = (top) =>
         .split('\n')
         .filter((f) => f && SCANNED.test(f) && rulesFor(f).size);
 
-const USAGE = `Usage: node tools/lint/ui-boundary.mjs [--update-baseline] [--all]
+const USAGE = `Usage: node tools/lint/ui-boundary.mjs [--update-baseline[=rule,…]] [--all]
 
 Checks the @partytown/ui boundary (see ${SKILL}) across frontend/.
 Known violations live in tools/lint/ui-boundary.baseline.json; new ones fail,
 and fixed ones fail as stale until --update-baseline rewrites the file.
 
   --update-baseline   record the current violations as the baseline
+  --update-baseline=layout-soup
+                      rewrite only the named rules' entries, keep the rest
   --all               also print baselined violations
   --help              this text
 
@@ -775,6 +847,30 @@ const main = () => {
 
     const counts = Object.fromEntries(Object.keys(RULES).map((r) => [r, 0]));
     for (const v of violations) counts[v.rule]++;
+
+    const partial = args.find((a) => a.startsWith('--update-baseline='));
+    if (partial) {
+        const rules = partial.slice('--update-baseline='.length).split(',');
+        const unknown = rules.filter((r) => !(r in RULES));
+        if (unknown.length) {
+            console.error(`ui-boundary: unknown rule ${unknown.join(', ')}`);
+            process.exit(2);
+        }
+        let baseline = {};
+        try {
+            baseline = JSON.parse(readFileSync(BASELINE, 'utf8'));
+        } catch {}
+        writeFileSync(
+            BASELINE,
+            `${JSON.stringify(rebaseline(baseline, violations, rules), null, 4)}\n`,
+        );
+        console.log(
+            `ui-boundary: ${rules.join(', ')} entries written to ${path.relative(process.cwd(), BASELINE)}`,
+        );
+        for (const rule of rules)
+            console.log(`  ${rule.padEnd(20)} ${counts[rule]}`);
+        return;
+    }
 
     if (args.includes('--update-baseline')) {
         writeFileSync(

@@ -11,6 +11,7 @@ import {
 } from '../../../story-kit/story-kit';
 import { Icon } from '../../icons';
 import { StatusBar, StatusBarField } from '../../surfaces/StatusBar/StatusBar';
+import { WindowLayout } from '../../surfaces/WindowLayout/WindowLayout';
 import { MenuBar } from '../MenuBar/MenuBar';
 import { Window } from './Window';
 
@@ -67,20 +68,36 @@ export const Inactive: Story = { args: { active: false } };
 
 export const WithMenuAndStatusBar: Story = {
     args: {
-        menuBar: <MenuBar menus={menus} />,
-        statusBar: <span>Ln 1, Col 1</span>,
+        children: (
+            <WindowLayout
+                menuBar={<MenuBar menus={menus} />}
+                statusBar={
+                    <StatusBar>
+                        <StatusBarField grow>Ln 1, Col 1</StatusBarField>
+                    </StatusBar>
+                }
+            >
+                {body}
+            </WindowLayout>
+        ),
     },
 };
 
 export const WithStatusBarFields: Story = {
     args: {
-        statusBar: (
-            <StatusBar grip>
-                <StatusBarField grow>
-                    After you sign in, the personas may message you.
-                </StatusBarField>
-                <StatusBarField>3 online</StatusBarField>
-            </StatusBar>
+        children: (
+            <WindowLayout
+                statusBar={
+                    <StatusBar grip>
+                        <StatusBarField grow>
+                            After you sign in, the personas may message you.
+                        </StatusBarField>
+                        <StatusBarField>3 online</StatusBarField>
+                    </StatusBar>
+                }
+            >
+                {body}
+            </WindowLayout>
         ),
     },
 };
@@ -186,8 +203,12 @@ export const CaptionsCloseUp: Story = {
     ),
 };
 
-export const SkinHook: Story = {
-    args: { skin: 'example', title: 'Skinned window (hook only)' },
+export const Skinned: Story = {
+    args: {
+        skin: 'msn',
+        title: 'Messenger',
+        icon: <Icon name="messenger" size={32} />,
+    },
 };
 
 export const Noir: Story = { ...noir };

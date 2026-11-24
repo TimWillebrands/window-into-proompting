@@ -9,7 +9,15 @@
         min-width: 0;
         padding: var(--ui-inset);
         overflow: auto;
-        background: var(--ui-taskpane);
+        background: linear-gradient(
+            180deg,
+            color-mix(in oklab, var(--ui-chrome), var(--ui-chrome-tint)) 0%,
+            oklch(
+                    from var(--ui-chrome) calc(l + 0.074) calc(c * 0.735)
+                        calc(h + 10.2)
+                )
+                100%
+        );
         color: var(--ui-text);
         font-family: var(--ui-font-ui);
         font-size: var(--ui-text-chrome);
@@ -27,7 +35,15 @@
         min-height: 25px;
         margin: 0;
         border-radius: var(--ui-radius-inner) var(--ui-radius-inner) 0 0;
-        background: var(--ui-taskpane-section);
+        background: linear-gradient(
+            90deg,
+            oklch(from var(--ui-chrome-tint) calc(l + 0.096) 0 h) 0%,
+            oklch(
+                    from var(--ui-chrome-tint) calc(l - 0.036) calc(c * 1.516)
+                        calc(h + 0.3)
+                )
+                100%
+        );
         font: inherit;
         font-weight: 700;
     }
@@ -35,8 +51,8 @@
     .ui-taskpane-section[data-special] .ui-taskpane-heading {
         background: linear-gradient(
             90deg,
-            oklch(from var(--ui-tone-neutral) calc(l - 0.06) c h) 0%,
-            oklch(from var(--ui-tone-neutral) calc(l + 0.04) c h) 100%
+            var(--ui-chrome-deep) 0%,
+            var(--ui-chrome) 100%
         );
     }
 
@@ -119,13 +135,12 @@
         width: 17px;
         height: 17px;
         border: 1px solid
-            color-mix(in oklab, var(--ui-tone-neutral) 35%, var(--ui-content));
+            color-mix(in oklab, var(--ui-chrome) 35%, var(--ui-content));
         border-radius: 50%;
         background: linear-gradient(
             180deg,
             var(--ui-content) 0%,
-            color-mix(in oklab, var(--ui-tone-neutral) 15%, var(--ui-content))
-                100%
+            color-mix(in oklab, var(--ui-chrome) 15%, var(--ui-content)) 100%
         );
         box-shadow: var(--ui-shadow-control);
     }
@@ -157,11 +172,14 @@
         padding: var(--ui-space-5);
         border: 1px solid var(--ui-content);
         border-block-start: 0;
-        background: var(--ui-taskpane-body);
+        background: var(--ui-chrome-tint);
     }
 
     .ui-taskpane-section[data-special] .ui-taskpane-body {
-        background: var(--ui-taskpane-body-special);
+        background: oklch(
+            from var(--ui-chrome-tint) calc(l + 0.06) calc(c * 0.485)
+                calc(h + 1.9)
+        );
     }
 
     .ui-taskpane-body[hidden] {

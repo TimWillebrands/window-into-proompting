@@ -2,22 +2,31 @@ export type Rgba = [number, number, number, number];
 
 export type Stop = { color: Rgba; at: number };
 
-const colorPattern = /rgba?\(([^)]+)\)/g;
+const colorPattern =
+    /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^()]*\)/g;
 
 const positionPattern = /calc\(100% - ([\d.]+)px\)|(-?[\d.]+)(%|px)/g;
 
-const parseChannels = (body: string): Rgba => {
-    const parts = body
-        .replace('/', ' ')
-        .split(/[\s,]+/)
-        .filter(Boolean)
-        .map(Number);
-    return [parts[0], parts[1], parts[2], parts[3] ?? 1];
+let probe: CanvasRenderingContext2D | null | undefined;
+
+const toRgba = (value: string): Rgba | undefined => {
+    if (probe === undefined)
+        probe = document
+            .createElement('canvas')
+            .getContext('2d', { willReadFrequently: true });
+    if (!probe) return undefined;
+    probe.canvas.width = probe.canvas.height = 1;
+    probe.clearRect(0, 0, 1, 1);
+    probe.fillStyle = '#000';
+    probe.fillStyle = value;
+    probe.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = probe.getImageData(0, 0, 1, 1).data;
+    return [r, g, b, a / 255];
 };
 
 export const parseColor = (value: string): Rgba | undefined => {
-    const match = /rgba?\(([^)]+)\)/.exec(value);
-    return match ? parseChannels(match[1]) : undefined;
+    const match = value.match(colorPattern);
+    return match ? toRgba(match[0]) : undefined;
 };
 
 const positionsIn = (segment: string, height: number) =>
@@ -32,7 +41,7 @@ export const parseStops = (image: string, height = 100): Stop[] => {
     const found = colors.flatMap((m, i) => {
         const from = (m.index ?? 0) + m[0].length;
         const to = colors[i + 1]?.index ?? layer.length;
-        const color = parseChannels(m[1]);
+        const color = toRgba(m[0]) ?? [0, 0, 0, 0];
         const at = positionsIn(layer.slice(from, to), Math.max(1, height));
         return at.length > 0
             ? at.map((position) => ({ color, at: position }))

@@ -11,7 +11,7 @@
         border: 0;
         border-radius: var(--ui-radius-control);
         background: transparent;
-        color: var(--ui-text-on-chrome);
+        color: var(--ui-desktop-text);
         font-family: var(--ui-font-ui);
         font-size: var(--ui-text-chrome);
         line-height: var(--ui-leading-chrome);
@@ -86,7 +86,7 @@
 
     .ui-desktop-icon:focus-visible,
     .ui-desktop-icon[data-ui-preview~="focus"] {
-        outline: 2px solid var(--ui-text-on-chrome);
+        outline: 2px solid var(--ui-desktop-text);
         outline-offset: 0;
         box-shadow: 0 0 0 4px var(--ui-focus);
     }

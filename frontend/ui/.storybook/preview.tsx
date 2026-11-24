@@ -78,6 +78,8 @@ const preview: Preview = {
                 icon: 'paintbrush',
                 items: [
                     { value: 'luna-blue', title: 'Luna Blue' },
+                    { value: 'olive-green', title: 'Olive Green' },
+                    { value: 'silver', title: 'Silver' },
                     { value: 'noir', title: 'Noir' },
                 ],
                 dynamicTitle: true,

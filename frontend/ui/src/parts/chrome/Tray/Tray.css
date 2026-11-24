@@ -7,7 +7,74 @@
         margin-inline-start: auto;
         padding: 0 var(--ui-space-5) 0 var(--ui-space-4);
         border-inline-start: 1px solid var(--ui-chrome-edge);
-        background: var(--ui-tray);
+        background:
+            linear-gradient(
+                90deg,
+                oklch(
+                        from var(--ui-chrome-sheen) calc(l + 0.109)
+                            calc(c * 0.856) calc(h - 35.8) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    0 2px,
+                transparent 2px
+            ),
+            linear-gradient(
+                180deg,
+                oklch(
+                        from var(--ui-chrome) calc(l - 0.06) calc(c * 0.836)
+                            calc(h - 4.1) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    0 1px,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.001) calc(c * 0.807)
+                            calc(h - 8.4) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    1px 2px,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.023) calc(c * 0.799)
+                            calc(h - 10) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    2px 3px,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.028) calc(c * 0.794)
+                            calc(h - 10.6) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    45%,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.012) calc(c * 0.811)
+                            calc(h - 9.2) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    58%,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.035) calc(c * 0.803)
+                            calc(h - 10.8) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    calc(100% - 5px),
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.082) calc(c * 0.769)
+                            calc(h - 15.7) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    calc(100% - 3px) calc(100% - 2px),
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.034) calc(c * 0.787)
+                            calc(h - 10.9) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    calc(100% - 2px) calc(100% - 1px),
+                oklch(
+                        from var(--ui-chrome-shade) calc(l + 0.118)
+                            calc(c * 0.911) calc(h - 2.4) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    calc(100% - 1px)
+            );
         color: var(--ui-text-on-chrome);
         font-family: var(--ui-font-ui);
         font-size: var(--ui-text-chrome);

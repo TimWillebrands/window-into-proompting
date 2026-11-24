@@ -6,6 +6,7 @@
 @import "./MenuBar/MenuBar.css";
 @import "./ContextMenu/ContextMenu.css";
 @import "./Taskbar/Taskbar.css";
+@import "./Desktop/Desktop.css";
 @import "./StartButton/StartButton.css";
 @import "./StartMenu/StartMenu.css";
 @import "./Tray/Tray.css";

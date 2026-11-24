@@ -81,7 +81,7 @@ export const SideBySide: StoryObj = {
     render: () => (
         <Page
             title="Schemes"
-            intro="One mock window, built only from tokens, in both schemes. A new scheme is one token block; if it needs a part change, a token isn't semantic enough."
+            intro="One mock window, built only from tokens, in every scheme. A new scheme is one block of primitives; if it needs a part change, a token isn't semantic enough."
         >
             <SchemePair className="ui-sg-scheme ui-sg-busy">
                 {() => <MiniWindow />}

@@ -41,6 +41,33 @@
         font-weight: 700;
     }
 
+    .ui-groupbox[data-fill] {
+        display: flex;
+        flex: 1 1 0%;
+        flex-direction: column;
+        box-sizing: border-box;
+        min-height: 0;
+    }
+
+    .ui-groupbox[data-fill] > * {
+        flex: none;
+    }
+
+    .ui-groupbox[data-fill]
+        > :is(
+            .ui-listview,
+            .ui-chatlog,
+            .ui-sunken-field,
+            .ui-pane,
+            .ui-treeview,
+            .ui-console,
+            .ui-tabs,
+            .ui-item-picker
+        ) {
+        flex: 1 1 0%;
+        min-height: 0;
+    }
+
     .ui-groupbox:disabled .ui-groupbox-title {
         color: var(--ui-text-disabled);
     }

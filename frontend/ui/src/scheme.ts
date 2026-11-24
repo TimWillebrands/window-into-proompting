@@ -1,10 +1,10 @@
-export const schemes = ['luna-blue', 'noir'] as const;
+export const schemes = ['luna-blue', 'olive-green', 'silver', 'noir'] as const;
 
 export type Scheme = (typeof schemes)[number];
 
 export const defaultScheme: Scheme = 'luna-blue';
 
-const isScheme = (value: string | null | undefined): value is Scheme =>
+export const isScheme = (value: string | null | undefined): value is Scheme =>
     schemes.some((scheme) => scheme === value);
 
 const rootOf = (root?: HTMLElement) =>

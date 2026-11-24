@@ -7,6 +7,7 @@ import {
     reducedMotion,
 } from '../../../story-kit/story-kit';
 import { Icon } from '../../icons';
+import { WindowLayout } from '../../surfaces/WindowLayout/WindowLayout';
 import type { MenuEntry } from '../ContextMenu/menu';
 import { Window } from '../Window/Window';
 import { MenuBar } from './MenuBar';
@@ -56,12 +57,13 @@ const meta = {
                     title="Untitled - Notepad"
                     icon={<Icon name="notepad" />}
                     className="ui-story-window"
-                    menuBar={<Story />}
                     onClose={fn()}
                 >
-                    <div className="ui-story-body">
-                        Click a menu, or focus it and use the arrow keys.
-                    </div>
+                    <WindowLayout menuBar={<Story />}>
+                        <div className="ui-story-body">
+                            Click a menu, or focus it and use the arrow keys.
+                        </div>
+                    </WindowLayout>
                 </Window>
             </Desk>
         ),

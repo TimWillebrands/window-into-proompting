@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { CSSProperties } from 'react';
 import { Window } from '../parts/chrome';
 import { Icon } from '../parts/icons';
+import { StatusBar, StatusBarField, WindowLayout } from '../parts/surfaces';
 import { type Scheme, schemes } from '../scheme';
 import { Page, Section, schemeNames } from './Showcase';
 
@@ -76,12 +77,19 @@ function Sample({
                 onMinimise={() => undefined}
                 onMaximise={() => undefined}
                 onClose={() => undefined}
-                statusBar={<span>Ln 1, Col 1</span>}
                 aria-label={`${schemeNames[scheme]}, ${variant.title}, ${active ? 'active' : 'inactive'}`}
             >
-                <p className="ui-sg-frame-text">
-                    The body is the XP face. The frame is Luna.
-                </p>
+                <WindowLayout
+                    statusBar={
+                        <StatusBar>
+                            <StatusBarField grow>Ln 1, Col 1</StatusBarField>
+                        </StatusBar>
+                    }
+                >
+                    <p className="ui-sg-frame-text">
+                        The body is the XP face. The frame is Luna.
+                    </p>
+                </WindowLayout>
             </Window>
         </div>
     );

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { compare, rulesFor, scan } from './ui-boundary.mjs';
+import { compare, rebaseline, rulesFor, scan } from './ui-boundary.mjs';
 
 const APP_TSX = 'frontend/src/apps/demo/Demo.tsx';
 const APP_TS = 'frontend/src/apps/demo/demo.ts';
@@ -280,6 +280,103 @@ describe('kit-raw-values', () => {
     });
 });
 
+describe('skin-outside-skins', () => {
+    test('flags a named skin selector outside frontend/ui/skins/', () => {
+        const text = `.ui-window[data-ui-skin="msn"] .ui-window-titlebar { padding: 0; }
+            [data-ui-skin~='msn'] { --ui-face: var(--ui-content); }`;
+        for (const file of [APP_CSS, PART_CSS, 'frontend/src/styles.css'])
+            assert.deepEqual(
+                hits(file, text, 'skin-outside-skins'),
+                ['[data-ui-skin="msn"]', "[data-ui-skin~='msn']"],
+                file,
+            );
+    });
+
+    test('lets a skin style itself and a part keep the bare hook', () => {
+        assert.deepEqual(
+            hits(
+                'frontend/ui/skins/msn/msn.css',
+                `.ui-window[data-ui-skin="msn"] { --ui-face: #edf3fc; }`,
+                'skin-outside-skins',
+            ),
+            [],
+        );
+        assert.deepEqual(
+            hits(
+                PART_CSS,
+                `.ui-window[data-ui-skin] { isolation: isolate; }`,
+                'skin-outside-skins',
+            ),
+            [],
+        );
+    });
+
+    test('flags a data-ui-skin attribute in app TSX, not the kit', () => {
+        const text = `<section data-ui-skin="msn" />`;
+        assert.deepEqual(hits(APP_TSX, text, 'skin-outside-skins'), [
+            'data-ui-skin',
+        ]);
+        assert.deepEqual(hits(PART_TSX, text, 'skin-outside-skins'), []);
+        assert.deepEqual(
+            hits(APP_TSX, `<Window skin="msn" />`, 'skin-outside-skins'),
+            [],
+        );
+    });
+});
+
+describe('layout-soup', () => {
+    test('flags a className with more than 6 utilities and allows 6', () => {
+        const text = `<>
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3" />
+            <div className="flex min-w-0 flex-1 items-center gap-2 p-2" />
+        </>`;
+        assert.deepEqual(hits(APP_TSX, text, 'layout-soup'), [
+            'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3',
+        ]);
+    });
+
+    test('flags arbitrary grid templates and calc() however short', () => {
+        const text = `<>
+            <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-3" />
+            <div className="grid md:grid-rows-[auto_1fr]" />
+            <div className="max-w-[calc(100%-80px)]" />
+            <div className="grid grid-cols-2 w-[220px]" />
+        </>`;
+        assert.deepEqual(hits(APP_TSX, text, 'layout-soup'), [
+            'grid grid-cols-[128px_minmax(0,1fr)] gap-3',
+            'grid md:grid-rows-[auto_1fr]',
+            'max-w-[calc(100%-80px)]',
+        ]);
+    });
+
+    test('reads each branch of a conditional or call on its own, and part class props', () => {
+        const text = `<>
+            <div className={open ? 'flex flex-col gap-2 p-2 min-h-0 flex-1 overflow-auto' : 'hidden'} />
+            <div className={cn('flex gap-2', wide && 'grid grid-cols-[1fr_2fr]')} />
+            <Window bodyClassName={\`flex flex-col gap-1 p-1 min-h-0 flex-1 \${x} overflow-auto\`} />
+        </>`;
+        assert.deepEqual(hits(APP_TSX, text, 'layout-soup'), [
+            'flex flex-col gap-2 p-2 min-h-0 flex-1 overflow-auto',
+            'grid grid-cols-[1fr_2fr]',
+            'flex flex-col gap-1 p-1 min-h-0 flex-1 overflow-auto',
+        ]);
+    });
+
+    test('only in app TSX: not in strings elsewhere, kit parts or CSS', () => {
+        const soup = 'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3';
+        assert.deepEqual(
+            hits(APP_TSX, `const c = '${soup}';`, 'layout-soup'),
+            [],
+        );
+        assert.deepEqual(
+            hits(PART_TSX, `<div className="${soup}" />`, 'layout-soup'),
+            [],
+        );
+        assert.equal(rulesFor(APP_CSS).has('layout-soup'), false);
+        assert.equal(rulesFor(APP_TS).has('layout-soup'), false);
+    });
+});
+
 describe('baseline', () => {
     const v = (fingerprint, line = 1) => ({
         file: APP_CSS,
@@ -330,5 +427,28 @@ describe('baseline', () => {
                 count: 1,
             },
         ]);
+    });
+
+    test('a partial rebaseline rewrites only the named rules', () => {
+        const other = 'frontend/src/apps/demo/Other.tsx';
+        const baseline = {
+            [APP_CSS]: { 'raw-colour': { '#fff': 2 } },
+            [APP_TSX]: {
+                'layout-soup': { 'old soup': 1 },
+                'raw-colour': { '#000': 1 },
+            },
+            [other]: { 'layout-soup': { gone: 1 } },
+        };
+        const violations = [
+            { file: APP_TSX, rule: 'layout-soup', fingerprint: 'new soup' },
+            { file: APP_TSX, rule: 'raw-colour', fingerprint: '#123' },
+        ];
+        assert.deepEqual(rebaseline(baseline, violations, ['layout-soup']), {
+            [APP_CSS]: { 'raw-colour': { '#fff': 2 } },
+            [APP_TSX]: {
+                'layout-soup': { 'new soup': 1 },
+                'raw-colour': { '#000': 1 },
+            },
+        });
     });
 });

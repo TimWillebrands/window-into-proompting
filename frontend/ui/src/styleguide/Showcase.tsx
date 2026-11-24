@@ -4,6 +4,8 @@ import './styleguide.css';
 
 export const schemeNames: Record<Scheme, string> = {
     'luna-blue': 'Luna Blue',
+    'olive-green': 'Olive Green',
+    silver: 'Silver',
     noir: 'Noir',
 };
 

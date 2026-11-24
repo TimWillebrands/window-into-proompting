@@ -23,10 +23,15 @@ export const canMorph = () =>
     typeof document !== 'undefined' &&
     typeof document.startViewTransition === 'function';
 
-export function morph({ from, to, update, name = 'ui-morph' }: MorphOptions) {
+export function morph({
+    from,
+    to,
+    update,
+    name = 'ui-morph',
+}: MorphOptions): Promise<void> {
     if (!canMorph() || !(from instanceof HTMLElement)) {
         update();
-        return;
+        return Promise.resolve();
     }
     let target: Target = null;
     markMorphed(from);
@@ -42,7 +47,9 @@ export function morph({ from, to, update, name = 'ui-morph' }: MorphOptions) {
         setName(target, '');
         setName(from, '');
     };
+    transition.ready.catch(() => {});
     transition.finished.then(done, done);
+    return transition.updateCallbackDone.catch(() => {});
 }
 
 const byData = (attribute: string, value: string): Target =>
@@ -55,21 +62,3 @@ export const windowElement = (windowId: string) =>
 
 export const taskbarButtonElement = (taskId: string) =>
     byData('data-ui-task-id', taskId);
-
-export function minimiseWithTransition(windowId: string, update: () => void) {
-    morph({
-        from: windowElement(windowId),
-        to: () => taskbarButtonElement(windowId),
-        update,
-        name: 'ui-window-morph',
-    });
-}
-
-export function restoreWithTransition(windowId: string, update: () => void) {
-    morph({
-        from: taskbarButtonElement(windowId),
-        to: () => windowElement(windowId),
-        update,
-        name: 'ui-window-morph',
-    });
-}

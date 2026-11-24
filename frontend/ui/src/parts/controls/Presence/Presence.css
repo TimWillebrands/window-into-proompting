@@ -30,7 +30,7 @@
         border-radius: var(--ui-radius-pill);
         background: radial-gradient(
             circle at 35% 30%,
-            color-mix(in oklab, currentColor 40%, var(--ui-text-on-chrome)) 0%,
+            color-mix(in oklab, currentColor 40%, var(--ui-glint)) 0%,
             currentColor 65%
         );
         box-shadow: inset 0 0 0 1px
@@ -53,13 +53,13 @@
     }
 
     .ui-presence-buddy-fill {
-        fill: color-mix(in oklab, currentColor 85%, var(--ui-text-on-chrome));
+        fill: color-mix(in oklab, currentColor 85%, var(--ui-glint));
         stroke: color-mix(in oklab, currentColor 75%, var(--ui-control-edge));
         stroke-width: 0.7;
     }
 
     .ui-presence-buddy-shine {
-        fill: var(--ui-text-on-chrome);
+        fill: var(--ui-glint);
         opacity: 0.65;
     }
 

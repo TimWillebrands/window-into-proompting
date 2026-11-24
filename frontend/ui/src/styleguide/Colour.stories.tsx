@@ -7,6 +7,8 @@ import {
     type ContrastPair,
     colourGroups,
     contrastPairs,
+    primitiveNumbers,
+    primitiveTokens,
     seriesTokens,
 } from './token-list';
 
@@ -16,6 +18,47 @@ const meta: Meta = {
 };
 
 export default meta;
+
+function PrimitiveValue({ token }: { token: string }) {
+    const ref = useRef<HTMLElement>(null);
+    const [value, setValue] = useState('');
+    useLayoutEffect(() => {
+        if (ref.current)
+            setValue(
+                getComputedStyle(ref.current).getPropertyValue(token).trim(),
+            );
+    }, [token]);
+    return (
+        <code ref={ref} className="ui-sg-label">
+            {token} {value}
+        </code>
+    );
+}
+
+function PrimitiveGrid() {
+    return (
+        <SchemePair>
+            {() => (
+                <div className="ui-sg-section">
+                    <div className="ui-sg-swatches">
+                        {primitiveTokens.map((token) => (
+                            <div key={token} className="ui-sg-swatch">
+                                <div
+                                    className="ui-sg-chip"
+                                    style={{ background: `var(${token})` }}
+                                />
+                                <TokenName name={token} />
+                            </div>
+                        ))}
+                    </div>
+                    {primitiveNumbers.map((token) => (
+                        <PrimitiveValue key={token} token={token} />
+                    ))}
+                </div>
+            )}
+        </SchemePair>
+    );
+}
 
 function SwatchGrid() {
     return (
@@ -87,10 +130,18 @@ function PairRow({
                 <span {...attributes}>
                     <span
                         ref={sample}
-                        className="ui-sg-sample"
+                        className={
+                            pair.surfaceClass
+                                ? `ui-sg-sample ${pair.surfaceClass}`
+                                : 'ui-sg-sample'
+                        }
                         style={{
-                            background: `var(${pair.surface})`,
-                            color: `var(${pair.text})`,
+                            background: pair.surfaceClass
+                                ? undefined
+                                : `var(${pair.surface})`,
+                            color: pair.text.startsWith('--')
+                                ? `var(${pair.text})`
+                                : undefined,
                         }}
                     >
                         Aa Text
@@ -156,9 +207,20 @@ export const Swatches: StoryObj = {
     render: () => (
         <Page
             title="Colour"
-            intro="Every colour token, grouped as in the token contract, in both schemes. Gradients are tokens too."
+            intro="Every semantic colour token, grouped as in the token contract, in every scheme. Gradients are tokens too. Each is defined once in tokens.css from the primitives below."
         >
             <SwatchGrid />
+        </Page>
+    ),
+};
+
+export const Primitives: StoryObj = {
+    render: () => (
+        <Page
+            title="Primitives"
+            intro="A scheme is one block of these --ui-p-* primitives. Parts never read them; every semantic token derives from them."
+        >
+            <PrimitiveGrid />
         </Page>
     ),
 };
@@ -212,7 +274,7 @@ export const Series: StoryObj = {
     render: () => (
         <Page
             title="Series"
-            intro="A categorical palette for data: provider shares, person colours, graph node kinds. Apps pass these as data colours through a part's colour prop or a --ui-* custom property, in fixed order, never cycled; a ninth category folds into --ui-series-other. Validated for colour-vision deficiency on adjacent pairs in both schemes; only the first three stay apart when every pair can touch (scatter, graphs), so beyond three, label the marks. Identity is never colour alone: keep a legend or labels."
+            intro="A categorical palette for data: provider shares, person colours, graph node kinds. Apps pass these as data colours through a part's colour prop or a --ui-* custom property, in fixed order, never cycled; a ninth category folds into --ui-series-other. Validated for colour-vision deficiency on adjacent pairs in the light palette (Luna Blue, Olive Green, Silver) and Noir's dark one; only the first three stay apart when every pair can touch (scatter, graphs), so beyond three, label the marks. Identity is never colour alone: keep a legend or labels."
         >
             <SchemePair>
                 {() => (

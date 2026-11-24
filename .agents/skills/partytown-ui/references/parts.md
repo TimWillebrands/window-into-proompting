@@ -8,7 +8,7 @@ group is a kit detail. Every part below is built.
 
 | Part | What | Material |
 | --- | --- | --- |
-| `Window` | An app window: frame, title bar, caption buttons, optional menu bar, status bar, body. Takes `skin` | Glass frame (clear), Luna title bar, XP face body |
+| `Window` | An app window: frame, title bar, caption buttons, body (lay the body out with `WindowLayout`). `useTitleBarAccessory(node)` from inside puts a control in its title bar. `skin` swaps Luna for a Skin (see below) | Glass frame (clear), Luna title bar, XP face body |
 | `Dialog` | A modal Window with a button row (OK/Cancel), always centred over its owner | Same as Window |
 | `Taskbar` / `TaskbarButton` | The bottom bar: Start button, window buttons (with XP's window menu), tray | Glass (clear) over Luna blue |
 | `StartButton` | The green pill | Luna |
@@ -18,11 +18,24 @@ group is a kit detail. Every part below is built.
 | `MenuBar` | File / Edit / View … inside a Window | XP face |
 | `Balloon` | A pointer balloon tied to an anchor (tray, field), with a title and close | Glass (regular) |
 | `Tooltip` | Small hover hint | Glass (regular) |
-| `HudPanel` | A small panel floating over a canvas, anchored to an edge or corner, with an optional title and close. A Toolbar inside it is bare | Glass (regular, canvas blur) |
+| `HudPanel` | A small panel floating over a canvas, anchored to an edge or corner, with an optional title and close. A Toolbar inside it is bare. A `top` or `bottom` panel keeps a gutter clear on both sides for corner panels (a zoom toolbar), so a long title ends in an ellipsis instead of running under them | Glass (regular, canvas blur) |
+| `Desktop` | The desktop as a controlled window manager: renders `state` with a `programs` registry, the `Taskbar` with a button per window (window menu included), the `StartButton`; focus on press, drag by the title bar, resize from edges and corners, snap to the left or right half or maximise against the edges, double-click to maximise, minimise and restore as a morph to and from the taskbar. A minimised window stays mounted, hidden and inert, so it keeps its state and doesn't replay its entry; `useWindowMinimised()` tells a program it's minimised. A program's `skin` reaches its `Window`, with the Skin's `minSize` and `maximise`. Slots: `wallpaper`, `icons`, `startMenu`, `tray`, `start`, overlays as children. Reports every change through `onAction` | Glass snap preview (clear); otherwise its parts' |
+| `WindowManager` | Not drawn: `windowReducer`, `windowActions`, `emptyDesktop` and the serialisable `WindowManagerState` (windows by id with bounds, `zIndex`, `minimized`, `maximized`, `restoreBounds`, opaque `props`; `order`, `focusedId`, `zCounter`, `startMenuOpen`). New windows cascade 24px from the last one, inside the desktop. `launchProgram(program)` makes the open action | none |
 | `DesktopIcon` | 48px icon plus label on the desktop, selectable | Luna |
 | `LogonScreen` / `LogonTile` / `LogonAction` | XP's Welcome screen: a display `title` and `hint` left of a faint divider, a column of tiles right (framed `picture`, `name`, `subtitle`; `selected` shows its children, `footer` always shows; `dimmed`), `footerStart` (a `LogonAction` like "Turn off") and `footerEnd`. Stacks below 640px | Luna |
 
-`morph()`, `minimiseWithTransition()` and `restoreWithTransition()` are the kit's View Transitions.
+`morph()` is the kit's View Transition; `Desktop` uses it for minimise and restore, so apps never call it for windows.
+
+## Skins
+
+A Skin replaces Luna chrome for one program's windows (`Window skin`, a program's `skin`). Each is a folder in
+`frontend/ui/skins/<name>/` with a manifest, CSS and its stories (`<Name>.stories.tsx`, titled `Skins/<Name>`);
+`skins` and the `SkinName` type are exported. The semantic tokens are re-derived on every skinned window, so a Skin
+sets primitives (`--ui-p-*`) where the derivation gives its look and overrides semantic tokens only where it differs.
+
+| Skin | What | Schemes |
+| --- | --- | --- |
+| `msn` | Messenger 6/7: a soft blue-to-white frame with rounded corners, a tall glossy blue title bar with a 32px icon, a gloss and a swoosh, round pale-blue caption buttons (Close stays red), pale blue bands and status bar, white lists, rounded picture frames, a big glossy Send (`CommandButton size="large"`). Used by Messenger's contact list and conversations | One look in the light schemes; a dark navy variant in Noir |
 
 ## Controls (things you operate or read as atoms, all XP face)
 
@@ -69,12 +82,17 @@ group is a kit detail. Every part below is built.
 
 | Part | What |
 | --- | --- |
-| `GroupBox` | Rounded frame with a blue title. `current` marks the one that is yours or active |
+| `GroupBox` | Rounded frame with a blue title. `current` marks the one that is yours or active. `fill` grows it to fill a flex parent, and its scrolling part (a `ListView`, `ChatLog`, `SunkenField`, `Pane`, `TreeView`, `Console`, `Tabs` or `ItemPicker`) takes the rest of its height and scrolls; other children keep their height |
 | `TaskPane` / `TaskPaneSection` / `TaskPaneLink` | The blue sidebar with collapsible sections, links and details. `special` for the dark-headed first section; a title wraps in narrow panes; `aside` puts a count in its heading |
 | `SunkenField` | XP's white sunken field for content that isn't a ListView: a page to read, a list of `ContactRow`s, a log. `text="chrome|reading"` |
 | `StatusBar` / `StatusBarField` | Window footer fields. Put it at the bottom of the whole window, so a `grow` field reaches the right edge |
-| `PageHeader` | A page's title band across the top of an app: icon, title, description and an aside |
+| `PageHeader` | A page's title band across the top of an app: icon, title, description and an aside. Below 520px of window width the description is dropped |
 | `Expander` | A collapsible group inside content, with a title and a count, like Messenger's contact groups |
+| `WindowLayout` | A window body's anatomy as slots: menu bar, toolbar bands, address bar, task pane (a `nav`; `taskPaneWidth` `regular`, `wide` or a CSS length), content (the one scroll container, `scroll="content|both|none"`), details pane (`detailsPlacement` `end` or `bottom`, `detailsWidth` `regular`, `wide` or a CSS length), footer, status bar. Below `narrowBelow` (520, 640, 820 or 1000px of window width; 520 by default) the task pane stacks above the content or hides (`taskPaneNarrow="hide"`); below `detailsNarrowBelow` (the same by default) the details pane goes under the content or hides (`detailsNarrow="hide"`). CSS container queries, so an app never measures its window |
+| `Pane` | A region that scrolls inside flex and grid parents: grows, shrinks to zero, `surface="plain|sunken"`, `pad`, `text`, `scroll="y|both"` |
+| `Stack` / `Stack.Item` | A flex row or column on the space scale (`gap`, `rowGap`, `pad`: `xxs` to `xl`), with `align`, `justify`, `wrap`, `grow`, `inline` and `as`. `as` is typed: `as="form"` takes `noValidate` and `onSubmit`, `as="label"` `htmlFor`, `as="dl"` holds `dt`/`dd` (`Stack.Item as="dt"`). `Stack.Item` `grow` takes the rest, `truncate` ends in an ellipsis |
+| `Columns` / `Columns.Column` | Fluid columns side by side inside content: each `Column` has a `weight` (its share of the width), an optional `minWidth` and its own `gap`; `Columns` has `gap`, `pad` and `grow`. Below `narrowBelow` (360, 520, 640 or 820px of its own width) they `stack` (sharing the height by weight) or show `one`: the column at index `show`, with the app's `switcher` (a `Toolbar`) above it, shown only then. A column is a flex column, so a `Pane` or a `GroupBox fill` in it fills it |
+| `Tiles` | A grid of arbitrary children that fills its width with as many columns as fit, each at least `minWidth` (`--ui-tile-width` by default) and sharing the rest; `gap` on the space scale. For cards of mixed content; a list of items is a `ListView` |
 
 ## Removed and merged
 
@@ -91,5 +109,6 @@ group is a kit detail. Every part below is built.
 
 ## Not parts
 
-Layout belongs to apps (Tailwind layout utilities). 3D scenes, Figures and canvases are domain, not kit. Glass is
-not a part.
+Layout belongs to apps, through `WindowLayout`, `Pane`, `Stack`, `Columns` and `Tiles`; Tailwind layout utilities
+only for one-offs. A fixed side pane is `WindowLayout`'s `taskPane` or `detailsPane`, never `Columns`. 3D scenes,
+Figures and canvases are domain, not kit. Glass is not a part.

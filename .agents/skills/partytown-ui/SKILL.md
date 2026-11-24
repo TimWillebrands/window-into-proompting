@@ -30,6 +30,36 @@ skill names tokens and never repeats their values.
 - If the part you need doesn't exist, **add it to the kit** (with stories). Don't style it in the app. If you can't
   add it now, use the nearest part and leave the gap visible, not hand-styled.
 
+## Layout
+
+Apps do layout, but they don't hand-roll it. Reach for these in order:
+
+1. **`WindowLayout`** is a window body: XP's program anatomy as slots that fill it. `menuBar`, `toolbar` (an array
+   gives one band each), `addressBar`, `taskPane` (left, a `nav`; `taskPaneWidth="regular|wide"` or a length),
+   the content (`children`, named by `contentLabel`), `detailsPane` (`detailsPlacement="end|bottom"`, `detailsWidth`),
+   `footer` (a composer) and `statusBar`. Below `narrowBelow` (520 by default) the task pane stacks above the content
+   or hides (`taskPaneNarrow="hide"`); below `detailsNarrowBelow` the details pane goes under it or hides
+   (`detailsNarrow="hide"`). Never measure the window yourself. The content is the only thing that scrolls:
+   `scroll="content"` (default), `both` for wide content, `none` when the content scrolls itself (a `ListView`,
+   `ChatLog`, `Tabs` or `Pane`). Everything in it has a zero minimum size, so nothing props the window open.
+2. **`Pane`** is any other region that scrolls. It grows in a flex parent, shrinks to zero and scrolls (`surface`,
+   `pad`, `text`). It replaces `flex-1 min-h-0 overflow-y-auto`. A `GroupBox` with `fill` does the same for a titled
+   box: it fills its parent and its list or log scrolls.
+3. **`Stack`** is a row or a column: `direction`, `gap`, `rowGap`, `pad`, `align`, `justify`, `wrap`, `grow`,
+   `inline`, `as` (typed per element: `as="form"` takes `noValidate`, `as="dl"` works). `Stack.Item` with `grow`
+   takes the rest of the row; with `truncate` it ends in an ellipsis. A zero minimum width is built in. Spaces are
+   steps: `xxs`, `xs`, `sm`, `md`, `lg`, `xl` are `--ui-space-1` to `6`, which are Tailwind's `0.5`, `1`, `1.5`, `2`,
+   `3`, `4` (so `gap-2` is `gap="md"`).
+4. **`Columns`** is fluid columns inside content (a fitting room beside a catalogue): `Columns.Column` with a `weight`
+   and a `minWidth`; below `narrowBelow` they stack, or with `narrow="one"` show the column `show` under the app's
+   `switcher`. **`Tiles`** is a grid of cards that fits as many columns as `minWidth` allows. Neither is a side pane:
+   that's `WindowLayout`.
+5. Tailwind layout utilities are for one-offs: a width, a margin, `self-center`. The `layout-soup` lint fails a
+   className with more than 6 utilities, an arbitrary grid template or `calc()`. No `flex-[n]` weights or container
+   query classes: that's `Columns`, `Tiles` or a `WindowLayout` breakpoint.
+
+The Control Panel (`frontend/src/apps/config-panel/`) and the Board (`frontend/src/apps/board/`) are the reference.
+
 ## The materials
 
 | Material | What | Where |
@@ -63,12 +93,19 @@ Parts take `tone="neutral|go|caution|danger"`. Don't pick colours for emphasis; 
 
 ## Schemes and dark mode
 
-- Schemes set the semantic tokens: **Luna Blue** (default, the reference) and **Noir** (dark, after Royale Noir:
-  graphite chrome with a blue sheen, charcoal face, smoky glass, the severity code unchanged).
-- The scheme is `data-ui-scheme` on the root. Dark mode is **only** a scheme. Parts read tokens and get dark mode
-  for free. Never write `dark:` or `.dark .x`.
-- A new scheme (Olive, Silver) must be one token block with no part changes. If it needs a part change, a token
-  isn't semantic enough. Fix the token.
+- Four schemes, as in XP plus a dark one: **Luna Blue** (default, the reference), **Olive Green** (Homestead: olive
+  chrome, a greener beige face), **Silver** (Metallic: silver chrome with dark chrome text, a slate-blue selection,
+  the green Start button) and **Noir** (dark, after Royale Noir: graphite chrome with a blue sheen, charcoal face,
+  smoky glass). The severity code and the blue Welcome screen are the same in every light scheme.
+- A scheme is **one block of primitives** (`--ui-p-*`). Every semantic token is defined once from them, for all
+  schemes. Parts and apps read semantic tokens only, never a primitive.
+- The scheme is `data-ui-scheme` on the root (`setScheme`; the app's choice lives in `theme-store`, set from Display
+  Properties). Dark mode is **only** a scheme. Parts read tokens and get every scheme for free. Never write `dark:`,
+  `.dark .x` or `[data-ui-scheme=…]` in a part.
+- A new scheme must be one primitives block with no part changes. If it needs a part change or a per-scheme
+  override, a token isn't derived well enough. Fix the derivation. The few allowed overrides are listed in
+  [references/tokens.md](references/tokens.md).
+- Check visual work in **Luna Blue and Noir** at least; anything touching chrome colour in all four.
 
 ## Type
 
@@ -116,6 +153,20 @@ Parts take `tone="neutral|go|caution|danger"`. Don't pick colours for emphasis; 
 - **No emoji as chrome.** `icon="🏠"` is wrong; `<Icon name="home" />` is right. Emoji in content (what someone wrote,
   a Thing's glyph) is fine and renders in the kit's emoji font.
 
+## Desktop and programs
+
+The kit is a small OS. `Desktop` draws the windows, the taskbar and its buttons, the Start button, and handles focus,
+stacking, drag, resize, snapping, minimise and maximise; `windowReducer` is its pure state, which the app keeps (and
+persists) and feeds back through `state` and `onAction`. An app is a **program** in the registry (`id`, `title`,
+`icon`, `render`, `defaultBounds`, `minSize`, `singleton`), opened with `launchProgram`. Programs never position,
+stack or animate windows themselves and never call the transition helpers; they render their body (a `WindowLayout`)
+and may put something in their title bar with `useTitleBarAccessory`. The app supplies only its domain bits through
+the slots: `wallpaper`, `icons`, `startMenu`, `tray`.
+
+A minimised window stays mounted (hidden and inert), so it keeps its state and comes back without replaying its
+entry. A program that runs a render loop or polls (a 3D scene, a canvas, a live feed) pauses while
+`useWindowMinimised()` is true: `frameloop="never"`, no `requestAnimationFrame`, `refetchInterval: false`.
+
 ## Vocabulary
 
 Use XP part names. When you reach for a web word, translate it:
@@ -139,17 +190,39 @@ Use XP part names. When you reach for a web word, translate it:
 | bordered scroll box, well | `SunkenField`, or `ListView` for items |
 | caption, helper text, label text | `Text` (`tone="muted"` for help) |
 | alert, callout, banner in a pane | `StatusText`, `variant="bar"` across a pane |
+| app shell, page layout, Explorer window | `WindowLayout` |
+| scroll area, scroll container | `Pane` |
+| flex row or column, HStack, VStack | `Stack` (`Stack.Item` to grow or truncate) |
+| two-column layout, split view (inside content) | `Columns` |
+| card grid, auto-fill grid | `Tiles` |
 
 The full inventory and the status of each part is in [references/parts.md](references/parts.md). A web pattern with
 no XP equivalent gets a new part with an XP-style name, decided in the kit, or isn't used.
 
 ## Skins
 
-An app with a strong identity (Winamp-like, a media player) may replace Luna chrome with a **Skin**: `<Window
-skin="name">`, built in `frontend/ui/skins/<name>/`. That's the only place raw values and bitmaps are allowed. A Skin
-may break Luna's colours, shapes and fonts. It must keep focus rings, Reduce Motion and Reduce Transparency, minimum
-hit targets, window behaviour (drag, minimise to the taskbar, close), and a Luna taskbar button. Skins are
-designer-made per app, never improvised to get around the rules.
+An app with a strong identity (Messenger, a media player) may replace Luna chrome for its windows with a **Skin**,
+designer-made per app, never improvised to get around the rules. A Skin is a folder in `frontend/ui/skins/<name>/`,
+the only place raw values and bitmaps are allowed (the boundary lint forbids `[data-ui-skin="…"]` anywhere else):
+
+- `<name>.ts`: the manifest, `defineSkin({ name, label, titleBar: 'standard' | 'tall', maximise, minSize?, regions? })`.
+  Register it in `skins/index.ts`, which gives the `SkinName` type, and import its CSS from `skins/index.css`.
+- `<name>.css`, in `@layer ui`, every selector under `.ui-window[data-ui-skin="<name>"]`. The main lever is
+  **tokens**: the semantic tokens are re-derived on a skinned window, so set primitives first (`--ui-p-face`,
+  `--ui-p-ink`, `--ui-p-select`, `--ui-p-chrome-1` to `5`…) and override a semantic token (`--ui-control*`,
+  `--ui-titlebar`, `--ui-frame`, `--ui-radius-window`…) only where the Skin genuinely differs from the derivation.
+  Every part inside keeps working with the new values. Then reshape the
+  frame, title bar and captions with selectors, and paint `regions` (aria-hidden spans, `data-region`, under the title
+  bar's text or the frame's content) for decoration.
+- A Skin decides how it follows the scheme: it may keep one look in the light schemes, but Noir gets a dark variant
+  (`[data-ui-scheme="noir"] .ui-window[data-ui-skin="<name>"]`), and it re-applies Increase Contrast's edges, since
+  its own tokens override the scheme's.
+
+Opt in with `<Window skin="name">`, or `skin` on a program entry, which `Desktop` passes on (its `minSize` and
+`maximise` too). A Skin must keep focus rings, Reduce Motion and Reduce Transparency, hit targets of at least 24px,
+window behaviour (drag by the title bar, minimise to the taskbar, close, snap, maximise unless the manifest says no)
+and a Luna taskbar button. Stories go next to it (`skins/<name>/<Name>.stories.tsx`, titled `Skins/<Name>`), in all
+four schemes. MSN (`msn`) is the reference.
 
 ## Departures from XP
 
@@ -163,7 +236,8 @@ fine and any other difference is a bug. A new departure needs a register entry i
 - [ ] No hex or rgb literals, `dark:`, emoji icons or deep `@partytown/ui/...` imports outside the kit.
 - [ ] Glass appears only on floating chrome; content is opaque.
 - [ ] Reading text uses the reading size. Nothing tiny.
-- [ ] Checked in **Luna Blue and Noir**, with **Reduce Motion** and **Reduce Transparency** on.
+- [ ] Checked in **Luna Blue and Noir** (all four schemes for chrome colour), with **Reduce Motion** and
+      **Reduce Transparency** on.
 - [ ] Keyboard: every control is reachable and has a visible focus ring.
 - [ ] Any new part has stories for every state (default, hover, focus, active, disabled, Noir, reduced) and
       `run-story-tests` passes.

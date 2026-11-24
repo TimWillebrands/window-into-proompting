@@ -6,7 +6,7 @@
         margin: 0;
         padding: var(--ui-space-1) var(--ui-space-3);
         border: 1px solid var(--ui-field-edge);
-        border-radius: var(--ui-radius-inner);
+        border-radius: var(--ui-radius-control-inner);
         background: var(--ui-field);
         color: var(--ui-text);
         font-family: var(--ui-font-ui);

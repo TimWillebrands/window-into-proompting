@@ -83,9 +83,9 @@
     }
 
     .ui-balloon-close:is(:hover, [data-ui-preview~="hover"]) {
-        border-color: var(--ui-titlebar-text);
+        border-color: var(--ui-tone-danger-text);
         background: var(--ui-close);
-        color: var(--ui-titlebar-text);
+        color: var(--ui-tone-danger-text);
     }
 
     .ui-balloon-close:active {

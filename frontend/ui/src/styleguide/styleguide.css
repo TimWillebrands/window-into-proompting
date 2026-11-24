@@ -586,7 +586,11 @@
         gap: var(--ui-space-4);
         align-content: start;
         padding: var(--ui-space-4);
-        background: var(--ui-taskpane);
+        background: linear-gradient(
+            180deg,
+            var(--ui-chrome-sheen) 0%,
+            var(--ui-chrome-deep) 100%
+        );
     }
 
     .ui-sg-mock-pane-section {
@@ -598,7 +602,7 @@
     .ui-sg-mock-pane-section > strong {
         display: block;
         padding: var(--ui-space-2) var(--ui-space-4);
-        background: var(--ui-taskpane-section);
+        background: var(--ui-chrome-tint);
         color: var(--ui-link);
     }
 
@@ -708,8 +712,8 @@
         height: 100%;
         padding-inline: var(--ui-space-5) var(--ui-space-6);
         border-radius: 0 var(--ui-radius-pill) var(--ui-radius-pill) 0;
-        background: var(--ui-start);
-        color: var(--ui-text-on-chrome);
+        background: var(--ui-tone-gloss), var(--ui-tone-go);
+        color: var(--ui-tone-go-text);
         font-family: var(--ui-font-title);
         font-size: var(--ui-text-title);
         font-style: italic;

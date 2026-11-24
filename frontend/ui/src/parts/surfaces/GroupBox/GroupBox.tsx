@@ -4,12 +4,14 @@ export type GroupBoxProps = Omit<ComponentPropsWithRef<'fieldset'>, 'title'> & {
     title: ReactNode;
     icon?: ReactNode;
     current?: boolean;
+    fill?: boolean;
 };
 
 export function GroupBox({
     title,
     icon,
     current = false,
+    fill = false,
     className,
     children,
     ...rest
@@ -18,6 +20,7 @@ export function GroupBox({
         <fieldset
             className={className ? `ui-groupbox ${className}` : 'ui-groupbox'}
             data-current={current ? '' : undefined}
+            data-fill={fill ? '' : undefined}
             aria-current={current || undefined}
             {...rest}
         >

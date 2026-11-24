@@ -24,7 +24,7 @@
         margin: 0;
         padding: var(--ui-space-1) var(--ui-space-5);
         border: 1px solid var(--ui-cb-edge);
-        border-radius: var(--ui-radius-inner);
+        border-radius: var(--ui-radius-control-inner);
         background: var(--ui-cb-face);
         box-shadow:
             var(--ui-cb-glow), var(--ui-cb-ring), var(--ui-shadow-control);

@@ -22,7 +22,7 @@ and fonts settle before the capture.
 
 Options:
   --all             every story outside Styleguide
-  --scheme <name>   luna-blue (default) or noir; noir adds a -Noir suffix
+  --scheme <name>   luna-blue (default), olive-green, silver or noir; others add a scheme suffix
   --url <url>       use a running Storybook (default http://localhost:6006);
                     one is started on --port when nothing answers there
   --port <n>        port for the Storybook this script starts (default 6116)
@@ -62,7 +62,7 @@ const parse = (argv) => {
         else if (a.startsWith('--')) throw new Error(`unknown option ${a}`);
         else opts.ids.push(a);
     }
-    if (!['luna-blue', 'noir'].includes(opts.scheme))
+    if (!['luna-blue', 'olive-green', 'silver', 'noir'].includes(opts.scheme))
         throw new Error(`unknown scheme ${opts.scheme}`);
     return opts;
 };
