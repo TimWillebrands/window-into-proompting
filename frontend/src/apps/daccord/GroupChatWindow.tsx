@@ -7,9 +7,9 @@ import {
     Dialog,
     FieldRow,
     Icon,
-    InfoBar,
     Presence,
     RichText,
+    StatusText,
     TaskPane,
     TaskPaneLink,
     TaskPaneSection,
@@ -473,8 +473,9 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                 </ChatLog>
 
                 {!isNearBottom && unreadCount > 0 ? (
-                    <InfoBar
-                        tone="neutral"
+                    <StatusText
+                        variant="bar"
+                        icon={false}
                         actions={
                             <CommandButton
                                 size="small"
@@ -493,7 +494,7 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                         }
                     >
                         {unreadCount} new message(s)
-                    </InfoBar>
+                    </StatusText>
                 ) : null}
 
                 <form
@@ -504,10 +505,14 @@ export function ChatView({ chatGroupId }: ChatViewProps) {
                     }}
                 >
                     {pendingInstruction && (
-                        <InfoBar icon={<Icon name="scales" />}>
+                        <StatusText
+                            variant="bar"
+                            tone="caution"
+                            icon={<Icon name="scales" />}
+                        >
                             <Text strong>As {selectedPersonaName}:</Text>{' '}
                             {pendingInstruction.instruction}
-                        </InfoBar>
+                        </StatusText>
                     )}
                     <TextArea
                         ref={textareaRef}
@@ -881,9 +886,9 @@ function ParticipantsSidebar({
 
                 {participantPersonaIds.length === 0 &&
                     aiPersonas.length > 0 && (
-                        <InfoBar icon={<Icon name="warning" />}>
+                        <StatusText variant="bar" tone="caution">
                             No AI participants — AI won't respond.
-                        </InfoBar>
+                        </StatusText>
                     )}
                 {saveError && (
                     <Text as="p" tone="danger">

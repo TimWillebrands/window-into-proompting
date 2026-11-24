@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { CommandButton } from '../../controls';
 import {
     busy,
     Desk,
     noir,
     reducedMotion,
     reducedTransparency,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { CommandButton } from '../../controls';
 import { Tooltip } from './Tooltip';
 
 const meta = {

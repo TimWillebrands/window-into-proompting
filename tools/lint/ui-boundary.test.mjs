@@ -265,7 +265,7 @@ describe('kit-raw-values', () => {
             'frontend/ui/src/base.css',
             'frontend/ui/skins/winamp/winamp.css',
             'frontend/ui/src/styleguide/styleguide.css',
-            'frontend/ui/src/parts/controls/story-kit.css',
+            'frontend/ui/src/story-kit/story-kit.css',
             'frontend/ui/src/parts/controls/Demo/Demo.stories.tsx',
         ])
             assert.deepEqual(hits(file, text, 'kit-raw-values'), [], file);

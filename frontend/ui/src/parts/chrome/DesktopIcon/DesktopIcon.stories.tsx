@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import { Icon } from '../../icons';
 import {
     Desk,
     noir,
@@ -8,7 +7,8 @@ import {
     reducedMotion,
     reducedTransparency,
     States,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { Icon } from '../../icons';
 import { DesktopIcon } from './DesktopIcon';
 
 const meta = {
@@ -51,6 +51,7 @@ export const LongLabel: Story = {
 export const Column: Story = {
     render: (args) => (
         <States
+            layout="tiles"
             items={[
                 ['default', <DesktopIcon key="a" {...args} />],
                 [

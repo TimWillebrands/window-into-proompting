@@ -17,11 +17,10 @@ export type TabItem = {
 
 export type TabsProps = Omit<
     ComponentPropsWithRef<'div'>,
-    'children' | 'defaultValue' | 'onChange'
+    'children' | 'onChange'
 > & {
     items: ReadonlyArray<TabItem>;
     value?: string;
-    defaultValue?: string;
     onValueChange?: (value: string) => void;
     label?: string;
 };
@@ -29,7 +28,6 @@ export type TabsProps = Omit<
 export function Tabs({
     items,
     value,
-    defaultValue,
     onValueChange,
     label,
     className,
@@ -38,7 +36,7 @@ export function Tabs({
     const base = useId();
     const list = useRef<HTMLDivElement>(null);
     const enabled = items.filter((item) => !item.disabled);
-    const [own, setOwn] = useState(defaultValue ?? enabled[0]?.value);
+    const [own, setOwn] = useState(enabled[0]?.value);
     const current = value ?? own;
     const active = items.find((item) => item.value === current) ?? enabled[0];
 

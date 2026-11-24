@@ -1,7 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, within } from 'storybook/test';
+import {
+    noir,
+    reducedMotion,
+    reducedTransparency,
+    stage,
+} from '../../../story-kit/story-kit';
 import { CheckBox } from '../CheckBox/CheckBox';
-import { noir, reducedMotion, reducedTransparency, stage } from '../story-kit';
 import { Tabs } from './Tabs';
 
 const page = (text: string) => (
@@ -75,11 +80,11 @@ export const AllStates: Story = {
     ),
 };
 
-export const Noir: Story = { ...AllStates, parameters: noir };
-export const ReducedMotion: Story = { ...Default, parameters: reducedMotion };
+export const Noir: Story = { ...AllStates, ...noir };
+export const ReducedMotion: Story = { ...Default, ...reducedMotion };
 export const ReducedTransparency: Story = {
     ...Default,
-    parameters: reducedTransparency,
+    ...reducedTransparency,
 };
 
 export const Keyboard: Story = {

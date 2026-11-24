@@ -5,7 +5,7 @@ import {
     reducedTransparency,
     States,
     stage,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
 import { ProgressBar } from './ProgressBar';
 
 const meta = {
@@ -134,10 +134,10 @@ export const Marquee: Story = {
     ),
 };
 
-export const Noir: Story = { ...AllStates, parameters: noir };
-export const TonesNoir: Story = { ...Tones, parameters: noir };
-export const ReducedMotion: Story = { ...AllStates, parameters: reducedMotion };
+export const Noir: Story = { ...AllStates, ...noir };
+export const TonesNoir: Story = { ...Tones, ...noir };
+export const ReducedMotion: Story = { ...AllStates, ...reducedMotion };
 export const ReducedTransparency: Story = {
     ...AllStates,
-    parameters: reducedTransparency,
+    ...reducedTransparency,
 };

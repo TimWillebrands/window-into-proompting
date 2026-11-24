@@ -4,9 +4,9 @@ import {
     CommandButton,
     ContextMenu,
     Icon,
-    InfoBar,
     StatusBar,
     StatusBarField,
+    StatusText,
     Text,
     TextArea,
     Toolbar,
@@ -282,14 +282,14 @@ function Conversation({
                     </ChatLog>
 
                     {spectate ? (
-                        <InfoBar
-                            tone="neutral"
+                        <StatusText
+                            variant="bar"
                             icon={<Icon name="watching" />}
                             className="justify-center text-center"
                         >
                             You're reading a private conversation. They can't
                             see you.
-                        </InfoBar>
+                        </StatusText>
                     ) : (
                         <div className="flex flex-col gap-1">
                             <Toolbar

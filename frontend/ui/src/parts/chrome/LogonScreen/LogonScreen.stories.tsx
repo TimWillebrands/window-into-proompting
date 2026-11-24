@@ -1,14 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import { CommandButton } from '../../controls/CommandButton/CommandButton';
-import { Hyperlink } from '../../controls/Hyperlink/Hyperlink';
-import { Icon } from '../../icons';
 import {
     noir,
     preview,
     reducedMotion,
     reducedTransparency,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { CommandButton } from '../../controls/CommandButton/CommandButton';
+import { Hyperlink } from '../../controls/Hyperlink/Hyperlink';
+import { Icon } from '../../icons';
 import { LogonAction, LogonScreen, LogonTile } from './LogonScreen';
 
 const meta = {

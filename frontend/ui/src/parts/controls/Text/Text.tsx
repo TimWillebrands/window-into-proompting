@@ -1,5 +1,5 @@
 import type { HTMLAttributes, ReactNode } from 'react';
-import type { Tone } from '../tone';
+import type { Tone } from '../../../tone';
 
 export type TextSize = 'chrome' | 'reading' | 'title' | 'display';
 

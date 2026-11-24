@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import { Icon } from '../../icons';
 import {
     noir,
     preview,
     reducedMotion,
     reducedTransparency,
     States,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { Icon } from '../../icons';
 import { Tray, TrayButton } from './Tray';
 
 const meta = {
@@ -82,6 +82,7 @@ export const Counts: Story = {
     decorators: [(Story) => <Story />],
     render: () => (
         <States
+            layout="tiles"
             items={[
                 ['no count, disabled', bar(0)],
                 ['count', bar(7)],

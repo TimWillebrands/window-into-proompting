@@ -96,7 +96,7 @@
         padding-inline-end: var(--ui-space-2);
     }
 
-    .ui-balloon-text :is(a, button.ui-balloon-link) {
+    .ui-balloon-text a {
         color: var(--ui-link);
     }
 

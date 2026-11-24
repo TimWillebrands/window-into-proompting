@@ -1,8 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
+import {
+    Desk,
+    noir,
+    preview,
+    reducedMotion,
+} from '../../../story-kit/story-kit';
 import { Icon } from '../../icons';
 import type { MenuEntry } from '../ContextMenu/menu';
-import { Desk, noir, preview, reducedMotion } from '../story-kit';
 import { Window } from '../Window/Window';
 import { MenuBar } from './MenuBar';
 

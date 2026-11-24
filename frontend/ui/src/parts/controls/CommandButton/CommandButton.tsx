@@ -1,5 +1,5 @@
 import type { ComponentPropsWithRef, ReactNode } from 'react';
-import type { Tone } from '../tone';
+import type { Tone } from '../../../tone';
 
 export type CommandButtonSize = 'small' | 'medium' | 'large';
 

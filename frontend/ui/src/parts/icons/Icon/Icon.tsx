@@ -4,14 +4,13 @@ export type IconProps = {
     name: IconName;
     size?: IconSize;
     label?: string;
-    className?: string;
 };
 
-export function Icon({ name, size = 16, label, className }: IconProps) {
+export function Icon({ name, size = 16, label }: IconProps) {
     const art = icons[name].sizes[size];
     return (
         <img
-            className={className ? `ui-icon ${className}` : 'ui-icon'}
+            className="ui-icon"
             src={art.src}
             width={size}
             height={size}

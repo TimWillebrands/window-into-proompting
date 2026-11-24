@@ -1,15 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { fn } from 'storybook/test';
-import { CommandButton } from '../../controls';
-import { Icon } from '../../icons';
 import {
     Desk,
     noir,
     preview,
     reducedMotion,
     reducedTransparency,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { CommandButton } from '../../controls';
+import { Icon } from '../../icons';
 import { Dialog } from './Dialog';
 
 const meta = {

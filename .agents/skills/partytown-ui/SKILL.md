@@ -138,6 +138,7 @@ Use XP part names. When you reach for a web word, translate it:
 | login page, splash | `LogonScreen` |
 | bordered scroll box, well | `SunkenField`, or `ListView` for items |
 | caption, helper text, label text | `Text` (`tone="muted"` for help) |
+| alert, callout, banner in a pane | `StatusText`, `variant="bar"` across a pane |
 
 The full inventory and the status of each part is in [references/parts.md](references/parts.md). A web pattern with
 no XP equivalent gets a new part with an XP-style name, decided in the kit, or isn't used.
@@ -173,13 +174,16 @@ fine and any other difference is a bug. A new departure needs a register entry i
 ## Where things are
 
 - Tokens: `frontend/ui/src/tokens.css`. Token families and names: [references/tokens.md](references/tokens.md).
-- Parts: `frontend/ui/src/parts/<Part>/`, one folder per part (`<Part>.tsx`, `<Part>.css`, `<Part>.stories.tsx`),
-  exported from its group barrel (`src/parts/chrome/index.ts` or `src/parts/controls/index.ts`). Its CSS is imported
-  by the group's `index.css` next to that barrel, never from TSX. Part CSS sits in `@layer ui { }` and its classes
+- Parts: `frontend/ui/src/parts/<group>/<Part>/`, one folder per part (`<Part>.tsx`, `<Part>.css`,
+  `<Part>.stories.tsx`), grouped by role: `chrome` (desktop, frame, floating), `controls` (atoms you operate or read),
+  `views` (data displays), `surfaces` (containers) and `icons`. A part is exported from its group's `index.ts`, and its
+  CSS is imported by the group's `index.css` next to that barrel, never from TSX. Part CSS sits in `@layer ui { }` and its classes
   start with `ui-`, which gives them the kit's focus ring and native-widget scheme. The layer order is `theme, base,
   components, ui, utilities`, so an app's Tailwind layout utilities still win over a part.
 - The styleguide itself (swatches, type, shape, glass, motion, schemes): the kit Storybook, under **Styleguide**.
-  Run it with `pnpm --filter @partytown/ui storybook`.
+  Run it with `pnpm --filter @partytown/ui storybook`. Part stories are titled `<Group>/<Part>`; their shared helpers
+  (`stage`, `States`, `Desk`, `noir`, `reducedMotion`, `reducedTransparency`, `preview`) are in
+  `src/story-kit/story-kit.tsx`.
 - Icons: `frontend/ui/icons/` (`icons.json` maps every name to its source emoji or art).
 - Icons are regenerated with `python3 -I tools/icons/pixelate.py build`. Add a name to the script's set, never a
   loose image.

@@ -1,8 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import { StatusBar, StatusBarField } from '../../controls/StatusBar/StatusBar';
-import { Icon } from '../../icons';
-import { MenuBar } from '../MenuBar/MenuBar';
 import {
     busy,
     Desk,
@@ -11,7 +8,10 @@ import {
     reducedMotion,
     reducedTransparency,
     States,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { Icon } from '../../icons';
+import { StatusBar, StatusBarField } from '../../surfaces/StatusBar/StatusBar';
+import { MenuBar } from '../MenuBar/MenuBar';
 import { Window } from './Window';
 
 const menus = [
@@ -154,6 +154,7 @@ const closeUp = (active: boolean) => (
 export const CaptionHover: Story = {
     render: () => (
         <States
+            layout="tiles"
             items={[
                 ['hover, active window', captions(true)],
                 ['hover, inactive window', captions(false)],
@@ -176,6 +177,7 @@ export const CaptionFocus: Story = {
 export const CaptionsCloseUp: Story = {
     render: () => (
         <States
+            layout="tiles"
             items={[
                 ['active, 3x', closeUp(true)],
                 ['inactive, 3x', closeUp(false)],

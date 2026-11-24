@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Icon } from '../../icons';
 import {
     noir,
     reducedMotion,
     reducedTransparency,
     States,
     stage,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { Icon } from '../../icons';
 import { CommandButton } from './CommandButton';
 
 const meta = {
@@ -141,10 +141,10 @@ export const WithIcon: Story = {
     ),
 };
 
-export const Noir: Story = { ...AllStates, parameters: noir };
-export const NoirTones: Story = { ...Tones, parameters: noir };
-export const ReducedMotion: Story = { ...AllStates, parameters: reducedMotion };
+export const Noir: Story = { ...AllStates, ...noir };
+export const NoirTones: Story = { ...Tones, ...noir };
+export const ReducedMotion: Story = { ...AllStates, ...reducedMotion };
 export const ReducedTransparency: Story = {
     ...AllStates,
-    parameters: reducedTransparency,
+    ...reducedTransparency,
 };

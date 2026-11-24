@@ -22,15 +22,9 @@ export type MenuBarMenu = {
 
 export type MenuBarProps = Omit<ComponentPropsWithRef<'div'>, 'children'> & {
     menus: MenuBarMenu[];
-    label?: string;
 };
 
-export function MenuBar({
-    menus,
-    label = 'Menu bar',
-    className,
-    ...rest
-}: MenuBarProps) {
+export function MenuBar({ menus, className, ...rest }: MenuBarProps) {
     const baseId = useId();
     const buttons = useRef<Array<HTMLButtonElement | null>>([]);
     const [focusIndex, setFocusIndex] = useState(0);
@@ -120,7 +114,7 @@ export function MenuBar({
     return (
         <div
             role="menubar"
-            aria-label={label}
+            aria-label="Menu bar"
             className={className ? `ui-menubar ${className}` : 'ui-menubar'}
             data-ui-menu-tree={tree}
             {...rest}

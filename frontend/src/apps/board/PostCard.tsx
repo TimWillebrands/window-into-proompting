@@ -1,10 +1,4 @@
-import {
-    CommandButton,
-    Hyperlink,
-    Icon,
-    Post,
-    PostMention,
-} from '@partytown/ui';
+import { CommandButton, Hyperlink, Icon, Post, Text } from '@partytown/ui';
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import type { BoardReply } from '../../api/model/boardReply';
 import type { BoardThread } from '../../api/model/boardThread';
@@ -223,7 +217,9 @@ export function withMentions(text: string, names: string[]): ReactNode {
     return parts.map((part, i) =>
         i % 2 === 1 ? (
             // biome-ignore lint/suspicious/noArrayIndexKey: split output is positional
-            <PostMention key={i}>{part}</PostMention>
+            <Text key={i} as="strong" tone="neutral" strong>
+                {part}
+            </Text>
         ) : (
             // biome-ignore lint/suspicious/noArrayIndexKey: split output is positional
             <Fragment key={i}>{part}</Fragment>

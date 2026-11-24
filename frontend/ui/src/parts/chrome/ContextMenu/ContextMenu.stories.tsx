@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn, userEvent } from 'storybook/test';
-import { Icon } from '../../icons';
 import {
     busy,
     Desk,
@@ -8,7 +7,8 @@ import {
     preview,
     reducedMotion,
     reducedTransparency,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { Icon } from '../../icons';
 import { ContextMenu, useContextMenu } from './ContextMenu';
 import type { MenuEntry } from './menu';
 

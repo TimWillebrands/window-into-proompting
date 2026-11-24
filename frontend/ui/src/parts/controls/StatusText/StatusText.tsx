@@ -1,10 +1,12 @@
 import type { HTMLAttributes, ReactNode } from 'react';
+import type { Tone } from '../../../tone';
 import { Icon, type IconName } from '../../icons';
-import type { Tone } from '../tone';
 
 export type StatusTextProps = HTMLAttributes<HTMLElement> & {
     tone?: Tone;
     icon?: ReactNode | false;
+    variant?: 'line' | 'bar';
+    actions?: ReactNode;
     as?: 'p' | 'span' | 'div';
 };
 
@@ -18,11 +20,14 @@ const toneIcons: Record<Tone, IconName> = {
 export function StatusText({
     tone = 'neutral',
     icon,
-    as: Tag = 'p',
+    variant = 'line',
+    actions,
+    as,
     className,
     children,
     ...rest
 }: StatusTextProps) {
+    const Tag = as ?? (variant === 'bar' ? 'div' : 'p');
     const glyph = icon ?? <Icon name={toneIcons[tone]} />;
     return (
         <Tag
@@ -30,6 +35,7 @@ export function StatusText({
                 className ? `ui-status-text ${className}` : 'ui-status-text'
             }
             data-tone={tone}
+            data-variant={variant}
             {...rest}
         >
             {glyph && (
@@ -38,6 +44,9 @@ export function StatusText({
                 </span>
             )}
             <span className="ui-status-text-body">{children}</span>
+            {actions && (
+                <span className="ui-status-text-actions">{actions}</span>
+            )}
         </Tag>
     );
 }

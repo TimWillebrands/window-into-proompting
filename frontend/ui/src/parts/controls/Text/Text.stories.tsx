@@ -5,7 +5,7 @@ import {
     reducedTransparency,
     States,
     stage,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
 import { Text } from './Text';
 
 const meta = {
@@ -102,9 +102,9 @@ export const Default: Story = {
     ),
 };
 
-export const Noir: Story = { ...Default, parameters: noir };
-export const ReducedMotion: Story = { ...Default, parameters: reducedMotion };
+export const Noir: Story = { ...Default, ...noir };
+export const ReducedMotion: Story = { ...Default, ...reducedMotion };
 export const ReducedTransparency: Story = {
     ...Default,
-    parameters: reducedTransparency,
+    ...reducedTransparency,
 };

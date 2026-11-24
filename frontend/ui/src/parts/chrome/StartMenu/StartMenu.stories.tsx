@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import { Icon } from '../../icons';
 import {
     busy,
     Desk,
@@ -8,13 +7,9 @@ import {
     preview,
     reducedMotion,
     reducedTransparency,
-} from '../story-kit';
-import {
-    StartMenu,
-    StartMenuAction,
-    StartMenuItem,
-    StartMenuSeparator,
-} from './StartMenu';
+} from '../../../story-kit/story-kit';
+import { Icon } from '../../icons';
+import { StartMenu, StartMenuAction, StartMenuItem } from './StartMenu';
 
 const programs = (
     <>
@@ -36,7 +31,6 @@ const programs = (
             description="Open"
             onClick={fn()}
         />
-        <StartMenuSeparator />
         <StartMenuItem
             icon={<Icon name="board" size={32} />}
             label="Board"

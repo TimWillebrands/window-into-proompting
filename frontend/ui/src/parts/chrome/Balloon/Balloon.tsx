@@ -15,7 +15,6 @@ export type BalloonProps = Omit<ComponentPropsWithoutRef<'div'>, 'title'> & {
     title?: ReactNode;
     icon?: ReactNode;
     onClose?: () => void;
-    closeLabel?: string;
     placement?: 'above' | 'below';
     tailAlign?: 'start' | 'center' | 'end';
     anchor?: Element | null;
@@ -65,7 +64,6 @@ export function Balloon({
     title,
     icon,
     onClose,
-    closeLabel = 'Close',
     placement = 'above',
     tailAlign = 'end',
     anchor,
@@ -131,8 +129,8 @@ export function Balloon({
                             <button
                                 type="button"
                                 className="ui-balloon-close"
-                                aria-label={closeLabel}
-                                title={closeLabel}
+                                aria-label="Close"
+                                title="Close"
                                 onClick={onClose}
                             >
                                 <Glyph name="close" />

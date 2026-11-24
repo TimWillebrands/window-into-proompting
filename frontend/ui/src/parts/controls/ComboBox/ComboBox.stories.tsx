@@ -5,7 +5,7 @@ import {
     reducedTransparency,
     States,
     stage,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
 import { ComboBox } from './ComboBox';
 
 const models = [
@@ -111,9 +111,9 @@ export const AllStates: Story = {
     ),
 };
 
-export const Noir: Story = { ...AllStates, parameters: noir };
-export const ReducedMotion: Story = { ...AllStates, parameters: reducedMotion };
+export const Noir: Story = { ...AllStates, ...noir };
+export const ReducedMotion: Story = { ...AllStates, ...reducedMotion };
 export const ReducedTransparency: Story = {
     ...AllStates,
-    parameters: reducedTransparency,
+    ...reducedTransparency,
 };

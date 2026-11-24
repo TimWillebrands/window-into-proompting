@@ -6,7 +6,5 @@
 @import "./parts/chrome/index.css";
 @import "./parts/controls/index.css";
 @import "./parts/icons/index.css";
-@import "./parts/conversation/index.css";
-@import "./parts/panels/index.css";
-@import "./parts/feed/index.css";
-@import "./parts/collections/index.css";
+@import "./parts/surfaces/index.css";
+@import "./parts/views/index.css";

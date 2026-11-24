@@ -1,8 +1,2 @@
-export { Icon, type IconProps } from './Icon/Icon';
-export {
-    type IconName,
-    type IconSize,
-    type IconTier,
-    iconNames,
-    iconSizes,
-} from './Icon/registry.gen';
+export { Icon } from './Icon/Icon';
+export { type IconName, type IconSize, iconNames } from './Icon/registry.gen';

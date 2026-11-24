@@ -213,19 +213,6 @@
         color: inherit;
     }
 
-    .ui-start-menu-separator {
-        align-self: stretch;
-        height: 1px;
-        margin: var(--ui-space-2) var(--ui-space-5);
-        border: 0;
-        background: linear-gradient(
-            90deg,
-            transparent,
-            var(--ui-face-edge),
-            transparent
-        );
-    }
-
     .ui-start-menu-footer {
         display: flex;
         align-items: center;

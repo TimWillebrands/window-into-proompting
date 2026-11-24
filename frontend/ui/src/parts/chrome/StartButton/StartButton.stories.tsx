@@ -6,7 +6,7 @@ import {
     reducedMotion,
     reducedTransparency,
     States,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
 import { StartButton } from './StartButton';
 
 const meta = {
@@ -42,6 +42,7 @@ export const AllStates: Story = {
     decorators: [(Story) => <Story />],
     render: () => (
         <States
+            layout="tiles"
             items={[
                 ['default', <Bar key="d" />],
                 ['open', <Bar key="o" open />],

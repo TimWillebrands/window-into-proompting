@@ -6,7 +6,6 @@ import { Glyph } from '../glyphs';
 export type TaskbarProps = ComponentPropsWithRef<'div'> & {
     start?: ReactNode;
     tray?: ReactNode;
-    tasksLabel?: string;
 };
 
 export const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -39,7 +38,6 @@ export const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
 export function Taskbar({
     start,
     tray,
-    tasksLabel = 'Open windows',
     className,
     children,
     ...rest
@@ -52,7 +50,7 @@ export function Taskbar({
             {start}
             <div
                 role="toolbar"
-                aria-label={tasksLabel}
+                aria-label="Open windows"
                 className="ui-taskbar-tasks"
                 onKeyDown={moveFocus}
             >
@@ -77,10 +75,6 @@ export type TaskbarButtonProps = Omit<
     onMinimise?: () => void;
     onMaximise?: () => void;
     onClose?: () => void;
-    restoreLabel?: string;
-    minimiseLabel?: string;
-    maximiseLabel?: string;
-    closeLabel?: string;
 };
 
 const opensMenu = (event: KeyboardEvent<HTMLButtonElement>) =>
@@ -97,10 +91,6 @@ export function TaskbarButton({
     onMinimise,
     onMaximise,
     onClose,
-    restoreLabel = 'Restore',
-    minimiseLabel = 'Minimise',
-    maximiseLabel = 'Maximise',
-    closeLabel = 'Close',
     className,
     onContextMenu,
     onKeyDown,
@@ -111,21 +101,21 @@ export function TaskbarButton({
     const items: MenuEntry[] = [
         {
             id: 'restore',
-            label: restoreLabel,
+            label: 'Restore',
             icon: <Glyph name="restore" />,
             disabled: !onRestore || !(minimised || maximised),
             onSelect: onRestore,
         },
         {
             id: 'minimise',
-            label: minimiseLabel,
+            label: 'Minimise',
             icon: <Glyph name="minimise" />,
             disabled: !onMinimise || minimised,
             onSelect: onMinimise,
         },
         {
             id: 'maximise',
-            label: maximiseLabel,
+            label: 'Maximise',
             icon: <Glyph name="maximise" />,
             disabled: !onMaximise || maximised,
             onSelect: onMaximise,
@@ -133,7 +123,7 @@ export function TaskbarButton({
         { type: 'separator', id: 'close-separator' },
         {
             id: 'close',
-            label: closeLabel,
+            label: 'Close',
             icon: <Glyph name="close" />,
             disabled: !onClose,
             onSelect: onClose,

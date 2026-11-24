@@ -1,5 +1,5 @@
 import type { ComponentPropsWithRef, CSSProperties } from 'react';
-import type { Tone } from '../tone';
+import type { Tone } from '../../../tone';
 
 export type ProgressBarProps = Omit<
     ComponentPropsWithRef<'div'>,

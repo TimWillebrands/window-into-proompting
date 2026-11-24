@@ -1,14 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { expect, userEvent, within } from 'storybook/test';
-import { Icon } from '../../icons';
 import {
     noir,
     reducedMotion,
     reducedTransparency,
     States,
     stage,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { Icon } from '../../icons';
 import { Toolbar, ToolbarButton, ToolbarSeparator } from './Toolbar';
 
 const meta = {
@@ -168,12 +168,12 @@ export const Bare: Story = {
     ),
 };
 
-export const Noir: Story = { ...AllStates, parameters: noir };
-export const NoirToolbar: Story = { ...Default, parameters: noir };
-export const ReducedMotion: Story = { ...Default, parameters: reducedMotion };
+export const Noir: Story = { ...AllStates, ...noir };
+export const NoirToolbar: Story = { ...Default, ...noir };
+export const ReducedMotion: Story = { ...Default, ...reducedMotion };
 export const ReducedTransparency: Story = {
     ...Default,
-    parameters: reducedTransparency,
+    ...reducedTransparency,
 };
 
 export const Keyboard: Story = {

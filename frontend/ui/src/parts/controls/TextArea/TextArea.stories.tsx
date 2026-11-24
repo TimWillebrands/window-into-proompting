@@ -5,7 +5,7 @@ import {
     reducedTransparency,
     States,
     stage,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
 import { TextArea } from './TextArea';
 
 const meta = {
@@ -117,10 +117,10 @@ export const Mono: Story = {
     ),
 };
 
-export const Noir: Story = { ...AllStates, parameters: noir };
-export const NoirMono: Story = { ...Mono, parameters: noir };
-export const ReducedMotion: Story = { ...AllStates, parameters: reducedMotion };
+export const Noir: Story = { ...AllStates, ...noir };
+export const NoirMono: Story = { ...Mono, ...noir };
+export const ReducedMotion: Story = { ...AllStates, ...reducedMotion };
 export const ReducedTransparency: Story = {
     ...AllStates,
-    parameters: reducedTransparency,
+    ...reducedTransparency,
 };

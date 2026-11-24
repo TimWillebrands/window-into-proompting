@@ -1,23 +1,16 @@
 import type { ComponentPropsWithRef, ReactNode } from 'react';
-import type { Tone } from '../../controls/tone';
+import type { Tone } from '../../../tone';
 import { moveFocus } from '../Taskbar/Taskbar';
 
 export type TrayProps = ComponentPropsWithRef<'div'> & {
     clock?: ReactNode;
-    label?: string;
 };
 
-export function Tray({
-    clock,
-    label = 'Notification area',
-    className,
-    children,
-    ...rest
-}: TrayProps) {
+export function Tray({ clock, className, children, ...rest }: TrayProps) {
     return (
         <div
             role="toolbar"
-            aria-label={label}
+            aria-label="Notification area"
             onKeyDown={moveFocus}
             className={className ? `ui-tray ${className}` : 'ui-tray'}
             {...rest}

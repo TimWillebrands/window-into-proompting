@@ -1,8 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { Icon } from '../../icons';
-import { StartButton } from '../StartButton/StartButton';
 import {
     busy,
     Desk,
@@ -10,7 +8,9 @@ import {
     preview,
     reducedMotion,
     reducedTransparency,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { Icon } from '../../icons';
+import { StartButton } from '../StartButton/StartButton';
 import { Tray, TrayButton } from '../Tray/Tray';
 import { Taskbar, TaskbarButton } from './Taskbar';
 

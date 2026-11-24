@@ -2,10 +2,10 @@ import {
     CommandButton,
     Hyperlink,
     Icon,
-    InfoBar,
     LogonScreen,
     LogonTile,
     ProgressBar,
+    StatusText,
     Text,
 } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
@@ -57,14 +57,14 @@ export function LoginShell({
 
 export function LoginError({ children }: { children: ReactNode }) {
     return (
-        <InfoBar
+        <StatusText
+            variant="bar"
             role="alert"
             tone="danger"
-            icon={<Icon name="error" />}
             className="max-w-[400px]"
         >
             {children}
-        </InfoBar>
+        </StatusText>
     );
 }
 

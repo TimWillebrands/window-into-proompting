@@ -9,7 +9,6 @@ import {
 type RadioGroupContextValue = {
     name: string;
     value: string | undefined;
-    disabled: boolean;
     select: (value: string) => void;
 };
 
@@ -31,7 +30,7 @@ export function RadioButton({
     ...rest
 }: RadioButtonProps) {
     const group = useContext(RadioGroupContext);
-    const disabled = rest.disabled ?? group?.disabled;
+    const disabled = rest.disabled;
     const grouped = group
         ? {
               name: group.name,
@@ -72,7 +71,6 @@ export type RadioGroupProps = Omit<
     defaultValue?: string;
     onValueChange?: (value: string) => void;
     orientation?: 'vertical' | 'horizontal';
-    disabled?: boolean;
 };
 
 export function RadioGroup({
@@ -81,7 +79,6 @@ export function RadioGroup({
     defaultValue,
     onValueChange,
     orientation = 'vertical',
-    disabled = false,
     className,
     children,
     ...rest
@@ -92,7 +89,6 @@ export function RadioGroup({
         <div
             role="radiogroup"
             aria-orientation={orientation}
-            aria-disabled={disabled || undefined}
             className={
                 className ? `ui-radio-group ${className}` : 'ui-radio-group'
             }
@@ -103,7 +99,6 @@ export function RadioGroup({
                 value={{
                     name,
                     value: current,
-                    disabled,
                     select: (next) => {
                         setOwn(next);
                         onValueChange?.(next);

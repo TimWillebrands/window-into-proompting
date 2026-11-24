@@ -5,7 +5,7 @@ import {
     useEffect,
     useRef,
 } from 'react';
-import type { Tone } from '../../controls/tone';
+import type { Tone } from '../../../tone';
 import { Glyph } from '../glyphs';
 
 export type StartMenuProps = Omit<ComponentPropsWithRef<'div'>, 'children'> & {
@@ -213,10 +213,6 @@ export function StartMenuItem({
             </span>
         </button>
     );
-}
-
-export function StartMenuSeparator() {
-    return <hr className="ui-start-menu-separator" />;
 }
 
 export type StartMenuActionProps = ComponentPropsWithRef<'button'> & {

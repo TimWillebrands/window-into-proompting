@@ -1,8 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { fn } from 'storybook/test';
-import { CommandButton } from '../../controls';
-import { Icon } from '../../icons';
 import {
     busy,
     Desk,
@@ -11,7 +9,9 @@ import {
     reducedMotion,
     reducedTransparency,
     States,
-} from '../story-kit';
+} from '../../../story-kit/story-kit';
+import { CommandButton } from '../../controls';
+import { Icon } from '../../icons';
 import { Balloon } from './Balloon';
 
 const meta = {
@@ -51,6 +51,7 @@ export const Default: Story = {};
 export const Placements: Story = {
     render: (args) => (
         <States
+            layout="tiles"
             items={[
                 [
                     'above, tail end',

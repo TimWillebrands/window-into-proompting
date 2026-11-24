@@ -7,7 +7,7 @@ import {
     useRef,
     useState,
 } from 'react';
-import type { Tone } from '../../controls/tone';
+import type { Tone } from '../../../tone';
 import { Glyph } from '../glyphs';
 import { type Point, placeAtPoint, placeBeside, type Rect } from '../placement';
 import { ChromePortal } from '../portal';

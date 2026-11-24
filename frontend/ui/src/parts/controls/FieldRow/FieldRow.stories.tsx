@@ -1,7 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import {
+    noir,
+    reducedMotion,
+    reducedTransparency,
+    stage,
+} from '../../../story-kit/story-kit';
 import { ComboBox } from '../ComboBox/ComboBox';
 import { Slider } from '../Slider/Slider';
-import { noir, reducedMotion, reducedTransparency, stage } from '../story-kit';
 import { TextArea } from '../TextArea/TextArea';
 import { TextBox } from '../TextBox/TextBox';
 import { FieldRow } from './FieldRow';
@@ -97,10 +102,10 @@ export const Invalid: Story = {
     ),
 };
 
-export const Noir: Story = { ...Invalid, parameters: noir };
-export const NoirLabelWidths: Story = { ...LabelWidths, parameters: noir };
-export const ReducedMotion: Story = { ...Default, parameters: reducedMotion };
+export const Noir: Story = { ...Invalid, ...noir };
+export const NoirLabelWidths: Story = { ...LabelWidths, ...noir };
+export const ReducedMotion: Story = { ...Default, ...reducedMotion };
 export const ReducedTransparency: Story = {
     ...Default,
-    parameters: reducedTransparency,
+    ...reducedTransparency,
 };

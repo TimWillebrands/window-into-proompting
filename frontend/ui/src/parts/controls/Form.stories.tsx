@@ -1,12 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import {
+    noir,
+    reducedMotion,
+    reducedTransparency,
+    stage,
+} from '../../story-kit/story-kit';
+import { GroupBox } from '../surfaces/GroupBox/GroupBox';
 import { CheckBox } from './CheckBox/CheckBox';
 import { ComboBox } from './ComboBox/ComboBox';
 import { CommandButton } from './CommandButton/CommandButton';
 import { FieldRow } from './FieldRow/FieldRow';
-import { GroupBox } from './GroupBox/GroupBox';
 import { RadioButton, RadioGroup } from './RadioButton/RadioButton';
 import { Slider } from './Slider/Slider';
-import { noir, reducedMotion, reducedTransparency, stage } from './story-kit';
 import { Tabs } from './Tabs/Tabs';
 import { TextBox } from './TextBox/TextBox';
 
@@ -98,9 +103,9 @@ export const Default: Story = {
     ),
 };
 
-export const Noir: Story = { ...Default, parameters: noir };
-export const ReducedMotion: Story = { ...Default, parameters: reducedMotion };
+export const Noir: Story = { ...Default, ...noir };
+export const ReducedMotion: Story = { ...Default, ...reducedMotion };
 export const ReducedTransparency: Story = {
     ...Default,
-    parameters: reducedTransparency,
+    ...reducedTransparency,
 };
