@@ -37,10 +37,8 @@ export { Tray, TrayButton } from './Tray/Tray';
 export type { MorphOptions } from './transitions';
 export {
     canMorph,
-    closeStartMenuWithTransition,
     minimiseWithTransition,
     morph,
-    openStartMenuWithTransition,
     restoreWithTransition,
 } from './transitions';
 export type { WindowProps } from './Window/Window';

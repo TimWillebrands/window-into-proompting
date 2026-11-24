@@ -1,8 +1,6 @@
 import {
-    closeStartMenuWithTransition,
     Icon,
     minimiseWithTransition,
-    openStartMenuWithTransition,
     restoreWithTransition,
     StartButton,
     Taskbar,
@@ -71,11 +69,7 @@ export default function DesktopTaskbar({
                 <StartButton
                     open={startMenuOpen}
                     title="Start"
-                    onClick={() =>
-                        startMenuOpen
-                            ? closeStartMenuWithTransition(onStartClick)
-                            : openStartMenuWithTransition(onStartClick)
-                    }
+                    onClick={onStartClick}
                 />
             }
             tray={

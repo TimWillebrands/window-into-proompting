@@ -97,10 +97,13 @@ Parts take `tone="neutral|go|caution|danger"`. Don't pick colours for emphasis; 
 - Durations and easings only from tokens: `--ui-dur-instant|quick|move` and `--ui-ease-out|spring`.
 - Only things that change **place or presence** move. That covers windows opening, minimising and restoring (a zoom
   to and from the taskbar button), floating chrome appearing (fade plus a small slide from its anchor) and morphs
-  between related shapes (banner to notification center, Start button to Start menu, taskbar button to window).
+  between related shapes (banner to notification center, taskbar button to window). Menus, the Start menu included, only
+  float in.
   Hover gets a soft light-up glow.
 - Content doesn't move: no animated messages, lists or layout, nothing looping except progress.
-- Morphs use the View Transitions API, which degrades to a crossfade. There's no animation library.
+- Morphs use the View Transitions API through `morph()` in the kit, which names only the two morphing elements; the
+  rest of the page never crossfades, and an element that morphed doesn't replay its own entry animation. Never call
+  `document.startViewTransition` directly. There's no animation library.
 - **Reduce Motion means very quick, not zero.** Movement and scale are dropped, and a short crossfade stays so the
   state change still reads. The tokens handle this.
 

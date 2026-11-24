@@ -1,5 +1,4 @@
 import {
-    closeStartMenuWithTransition,
     Icon,
     StartMenuAction,
     StartMenuItem,
@@ -29,11 +28,10 @@ export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
     const canOpen = useCanOpen();
     const leaveWorld = useWorldChoice((s) => s.leave);
 
-    const closeThen = (action?: () => void) =>
-        closeStartMenuWithTransition(() => {
-            action?.();
-            onClose();
-        });
+    const closeThen = (action?: () => void) => {
+        action?.();
+        onClose();
+    };
 
     const items = DESKTOP_ICONS.filter((i) => canOpen(i.access)).map((icon) => {
         const preset = WINDOW_PRESETS.find((p) => p.id === icon.windowId);

@@ -23,7 +23,7 @@
         }
     }
 
-    :root[data-ui-morphing] :is(.ui-window, .ui-start-menu) {
+    :is(.ui-window, .ui-taskbar-button)[data-ui-morphed] {
         animation: none;
     }
 }

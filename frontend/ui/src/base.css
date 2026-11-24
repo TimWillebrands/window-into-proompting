@@ -129,6 +129,16 @@
         animation-timing-function: var(--ui-ease-out);
     }
 
+    /* biome-ignore lint/correctness/noUnknownTypeSelector: root is the view-transition group name */
+    ::view-transition-old(root) {
+        display: none;
+    }
+
+    /* biome-ignore lint/correctness/noUnknownTypeSelector: root is the view-transition group name */
+    ::view-transition-new(root) {
+        animation: none;
+    }
+
     @media (prefers-reduced-motion: reduce) {
         ::view-transition-group(*) {
             animation-name: none;

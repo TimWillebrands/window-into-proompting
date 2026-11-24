@@ -9,10 +9,14 @@ export type MorphOptions = {
     name?: string;
 };
 
-const morphingFlag = 'data-ui-morphing';
+const morphedFlag = 'data-ui-morphed';
 
 const setName = (element: Target, name: string) => {
     if (element instanceof HTMLElement) element.style.viewTransitionName = name;
+};
+
+const markMorphed = (element: Target) => {
+    if (element instanceof HTMLElement) element.setAttribute(morphedFlag, '');
 };
 
 export const canMorph = () =>
@@ -24,20 +28,19 @@ export function morph({ from, to, update, name = 'ui-morph' }: MorphOptions) {
         update();
         return;
     }
-    const root = document.documentElement;
     let target: Target = null;
+    markMorphed(from);
     setName(from, name);
-    root.setAttribute(morphingFlag, '');
     const transition = document.startViewTransition(() => {
         setName(from, '');
         flushSync(update);
         target = to();
+        markMorphed(target);
         setName(target, name);
     });
     const done = () => {
         setName(target, '');
         setName(from, '');
-        root.removeAttribute(morphingFlag);
     };
     transition.finished.then(done, done);
 }
@@ -52,16 +55,6 @@ export const windowElement = (windowId: string) =>
 
 export const taskbarButtonElement = (taskId: string) =>
     byData('data-ui-task-id', taskId);
-
-export const startButtonElement = (): Target =>
-    typeof document === 'undefined'
-        ? null
-        : document.querySelector('[data-ui-start-button]');
-
-export const startMenuElement = (): Target =>
-    typeof document === 'undefined'
-        ? null
-        : document.querySelector('.ui-start-menu');
 
 export function minimiseWithTransition(windowId: string, update: () => void) {
     morph({
@@ -78,23 +71,5 @@ export function restoreWithTransition(windowId: string, update: () => void) {
         to: () => windowElement(windowId),
         update,
         name: 'ui-window-morph',
-    });
-}
-
-export function openStartMenuWithTransition(update: () => void) {
-    morph({
-        from: startButtonElement(),
-        to: startMenuElement,
-        update,
-        name: 'ui-start-morph',
-    });
-}
-
-export function closeStartMenuWithTransition(update: () => void) {
-    morph({
-        from: startMenuElement(),
-        to: startButtonElement,
-        update,
-        name: 'ui-start-morph',
     });
 }
