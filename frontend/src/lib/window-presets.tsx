@@ -5,7 +5,6 @@ import BoardApp from '../apps/board/BoardApp';
 import CalendarApp from '../apps/calendar/CalendarApp';
 import CduApp from '../apps/cdu/CduApp';
 import ConfigPanelApp from '../apps/config-panel/ConfigPanelApp';
-import DaccordApp from '../apps/daccord/DaccordApp';
 import DiaryApp from '../apps/diary/DiaryApp';
 import DisplayApp from '../apps/display/DisplayApp';
 import JobsApp from '../apps/jobs/JobsApp';
@@ -132,14 +131,6 @@ export const PROGRAMS: AppProgram[] = [
         component: PersonasApp,
         defaultBounds: { x: 280, y: 200, width: 720, height: 480 },
         shortcut: 'Personas',
-    },
-    {
-        id: 'open-party',
-        title: "D'Accord — Chat Rooms",
-        icon: 'chat-rooms',
-        component: DaccordApp,
-        defaultBounds: { x: 360, y: 260, width: 720, height: 480 },
-        shortcut: 'Chat Rooms',
     },
     {
         id: 'config-panel',

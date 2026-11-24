@@ -14,8 +14,8 @@ const eventNode: EnrichedMemoryNode = {
     createdAt: '2026-05-10T10:00:00Z',
     roomId: 'cg-1',
     anchorMessageId: 42,
-    label: 'Room · general',
-    where: 'Room · general',
+    label: 'Group · general',
+    where: 'Group · general',
 };
 
 const allNodes: EnrichedMemoryNode[] = [

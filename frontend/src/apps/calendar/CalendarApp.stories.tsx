@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import {
-    getGetPartyIdChatGroupsQueryKey,
     getGetWorldsPartyIdGatheringsQueryKey,
+    getGetWorldsPartyIdPlacesQueryKey,
 } from '#api/party-zone';
-import type { ChatGroupInfo, Gathering } from '../../api/model';
+import type { Gathering, PlacesSnapshot } from '../../api/model';
 import {
     STORY_PLAYER,
     seeded,
@@ -15,10 +15,14 @@ import CalendarApp from './CalendarApp';
 
 const now = Date.now();
 
-const rooms: ChatGroupInfo[] = [
-    { id: 'room-lobby', name: 'lobby', kind: 'room' },
-    { id: 'room-garden', name: 'garden', kind: 'room' },
-];
+const places: PlacesSnapshot = {
+    places: [
+        { id: 'place-park', name: 'the Park', kind: 'public' },
+        { id: 'place-cafe', name: 'Café Luna', kind: 'public' },
+        { id: 'place-home', name: "Grace's Home", kind: 'home' },
+    ],
+    bodies: [],
+};
 
 const gatherings: Gathering[] = [
     {
@@ -26,8 +30,9 @@ const gatherings: Gathering[] = [
         hostId: 'persona-ada',
         hostName: 'Ada',
         title: 'Picnic in the park',
-        roomId: 'room-garden',
-        roomName: 'garden',
+        placeId: 'place-park',
+        roomName: 'the Park',
+        where: 'at the Park',
         startsAt: now + 45 * 60_000,
         attendeeIds: ['persona-ada', 'persona-linus', STORY_PLAYER],
         status: 'Planned',
@@ -37,8 +42,9 @@ const gatherings: Gathering[] = [
         hostId: 'persona-linus',
         hostName: 'Linus',
         title: 'Lighthouse stories',
-        roomId: 'room-lobby',
-        roomName: 'lobby',
+        placeId: 'place-cafe',
+        roomName: 'Café Luna',
+        where: 'at Café Luna',
         startsAt: now + 3 * 3_600_000,
         attendeeIds: ['persona-linus'],
         status: 'Planned',
@@ -48,8 +54,9 @@ const gatherings: Gathering[] = [
         hostId: 'persona-hedy',
         hostName: 'Hedy',
         title: 'Kettle amnesty',
-        roomId: 'room-lobby',
-        roomName: 'lobby',
+        placeId: 'place-cafe',
+        roomName: 'Café Luna',
+        where: 'at Café Luna',
         startsAt: now - 86_400_000,
         attendeeIds: ['persona-hedy', 'persona-ada'],
         status: 'Over',
@@ -59,11 +66,23 @@ const gatherings: Gathering[] = [
         hostId: 'persona-ada',
         hostName: 'Ada',
         title: 'Midnight stargazing',
-        roomId: 'room-garden',
-        roomName: 'garden',
+        placeId: 'place-park',
+        roomName: 'the Park',
+        where: 'at the Park',
         startsAt: now - 2 * 86_400_000,
         attendeeIds: [],
         status: 'Missed',
+    },
+    {
+        id: 'g-5',
+        hostId: 'persona-linus',
+        hostName: 'Linus',
+        title: 'Board games',
+        roomName: 'board-games',
+        startsAt: now + 2 * 3_600_000,
+        attendeeIds: ['persona-linus', 'persona-ada'],
+        status: 'Cancelled',
+        cancelledBecause: 'it had no venue: gatherings happen at a Place',
     },
 ];
 
@@ -89,7 +108,7 @@ const meta = {
         ),
         seeded([
             [getGetWorldsPartyIdGatheringsQueryKey(WORLD_ID), gatherings],
-            [getGetPartyIdChatGroupsQueryKey(WORLD_ID), rooms],
+            [getGetWorldsPartyIdPlacesQueryKey(WORLD_ID), places],
         ]),
     ],
 } satisfies Meta<typeof CalendarApp>;
@@ -103,7 +122,7 @@ export const Empty: Story = {
     decorators: [
         seeded([
             [getGetWorldsPartyIdGatheringsQueryKey(WORLD_ID), []],
-            [getGetPartyIdChatGroupsQueryKey(WORLD_ID), rooms],
+            [getGetWorldsPartyIdPlacesQueryKey(WORLD_ID), places],
         ]),
     ],
 };

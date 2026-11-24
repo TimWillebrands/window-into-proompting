@@ -60,7 +60,7 @@ export const Column: Story = {
                         key="b"
                         {...args}
                         icon={<Icon name="chat-rooms" size={48} />}
-                        label="Chat Rooms"
+                        label="Conversations"
                         selected
                     />,
                 ],

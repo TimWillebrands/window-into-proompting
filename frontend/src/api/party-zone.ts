@@ -11411,98 +11411,6 @@ export const usePostPartyIdPrompt = <
     );
 };
 
-export type postPartyIdCancelResponse204 = {
-    data: void;
-    status: 204;
-};
-
-export type postPartyIdCancelResponseSuccess = postPartyIdCancelResponse204 & {
-    headers: Headers;
-};
-
-export type postPartyIdCancelResponse = postPartyIdCancelResponseSuccess;
-
-export const getPostPartyIdCancelUrl = (id: string) => {
-    return `/api/Party/${id}/cancel`;
-};
-
-export const postPartyIdCancel = async (
-    id: string,
-    options?: RequestInit,
-): Promise<postPartyIdCancelResponse> => {
-    return customFetch<postPartyIdCancelResponse>(getPostPartyIdCancelUrl(id), {
-        ...options,
-        method: 'POST',
-    });
-};
-
-export const getPostPartyIdCancelMutationOptions = <
-    TError = unknown,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof postPartyIdCancel>>,
-        TError,
-        { id: string },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof postPartyIdCancel>>,
-    TError,
-    { id: string },
-    TContext
-> => {
-    const mutationKey = ['postPartyIdCancel'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof postPartyIdCancel>>,
-        { id: string }
-    > = (props) => {
-        const { id } = props ?? {};
-
-        return postPartyIdCancel(id, requestOptions);
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PostPartyIdCancelMutationResult = NonNullable<
-    Awaited<ReturnType<typeof postPartyIdCancel>>
->;
-
-export type PostPartyIdCancelMutationError = unknown;
-
-export const usePostPartyIdCancel = <TError = unknown, TContext = unknown>(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof postPartyIdCancel>>,
-            TError,
-            { id: string },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof postPartyIdCancel>>,
-    TError,
-    { id: string },
-    TContext
-> => {
-    return useMutation(
-        getPostPartyIdCancelMutationOptions(options),
-        queryClient,
-    );
-};
-
 export type getPartyIdWsResponse200 = {
     data: void;
     status: 200;
@@ -28866,6 +28774,21 @@ export const usePostWorldsPartyIdMessenger = <
     );
 };
 
+export type postWorldsPartyIdMessengerGroupsResponse200TextPlain = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
+export type postWorldsPartyIdMessengerGroupsResponse200ApplicationJson = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
+export type postWorldsPartyIdMessengerGroupsResponse200TextJson = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
 export type postWorldsPartyIdMessengerGroupsResponse400TextPlain = {
     data: ProblemDetails;
     status: 400;
@@ -28880,6 +28803,14 @@ export type postWorldsPartyIdMessengerGroupsResponse400TextJson = {
     data: ProblemDetails;
     status: 400;
 };
+
+export type postWorldsPartyIdMessengerGroupsResponseSuccess = (
+    | postWorldsPartyIdMessengerGroupsResponse200TextPlain
+    | postWorldsPartyIdMessengerGroupsResponse200ApplicationJson
+    | postWorldsPartyIdMessengerGroupsResponse200TextJson
+) & {
+    headers: Headers;
+};
 export type postWorldsPartyIdMessengerGroupsResponseError = (
     | postWorldsPartyIdMessengerGroupsResponse400TextPlain
     | postWorldsPartyIdMessengerGroupsResponse400ApplicationJson
@@ -28889,7 +28820,8 @@ export type postWorldsPartyIdMessengerGroupsResponseError = (
 };
 
 export type postWorldsPartyIdMessengerGroupsResponse =
-    postWorldsPartyIdMessengerGroupsResponseError;
+    | postWorldsPartyIdMessengerGroupsResponseSuccess
+    | postWorldsPartyIdMessengerGroupsResponseError;
 
 export const getPostWorldsPartyIdMessengerGroupsUrl = (partyId: string) => {
     return `/api/worlds/${partyId}/messenger/groups`;
@@ -28984,6 +28916,22 @@ export const usePostWorldsPartyIdMessengerGroups = <
     );
 };
 
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse200TextPlain = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse200ApplicationJson =
+    {
+        data: ChatGroupInfo;
+        status: 200;
+    };
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse200TextJson = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
 export type postWorldsPartyIdMessengerChatGroupIdInviteResponse400TextPlain = {
     data: ProblemDetails;
     status: 400;
@@ -29015,6 +28963,14 @@ export type postWorldsPartyIdMessengerChatGroupIdInviteResponse404TextJson = {
     data: ProblemDetails;
     status: 404;
 };
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponseSuccess = (
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse200TextPlain
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse200ApplicationJson
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse200TextJson
+) & {
+    headers: Headers;
+};
 export type postWorldsPartyIdMessengerChatGroupIdInviteResponseError = (
     | postWorldsPartyIdMessengerChatGroupIdInviteResponse400TextPlain
     | postWorldsPartyIdMessengerChatGroupIdInviteResponse400ApplicationJson
@@ -29027,7 +28983,8 @@ export type postWorldsPartyIdMessengerChatGroupIdInviteResponseError = (
 };
 
 export type postWorldsPartyIdMessengerChatGroupIdInviteResponse =
-    postWorldsPartyIdMessengerChatGroupIdInviteResponseError;
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponseSuccess
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponseError;
 
 export const getPostWorldsPartyIdMessengerChatGroupIdInviteUrl = (
     partyId: string,
@@ -29639,6 +29596,21 @@ export function useGetWorldsPartyIdGatheringsSuspense<
     return { ...query, queryKey: queryOptions.queryKey };
 }
 
+export type postWorldsPartyIdGatheringsResponse200TextPlain = {
+    data: Gathering;
+    status: 200;
+};
+
+export type postWorldsPartyIdGatheringsResponse200ApplicationJson = {
+    data: Gathering;
+    status: 200;
+};
+
+export type postWorldsPartyIdGatheringsResponse200TextJson = {
+    data: Gathering;
+    status: 200;
+};
+
 export type postWorldsPartyIdGatheringsResponse400TextPlain = {
     data: ProblemDetails;
     status: 400;
@@ -29653,6 +29625,14 @@ export type postWorldsPartyIdGatheringsResponse400TextJson = {
     data: ProblemDetails;
     status: 400;
 };
+
+export type postWorldsPartyIdGatheringsResponseSuccess = (
+    | postWorldsPartyIdGatheringsResponse200TextPlain
+    | postWorldsPartyIdGatheringsResponse200ApplicationJson
+    | postWorldsPartyIdGatheringsResponse200TextJson
+) & {
+    headers: Headers;
+};
 export type postWorldsPartyIdGatheringsResponseError = (
     | postWorldsPartyIdGatheringsResponse400TextPlain
     | postWorldsPartyIdGatheringsResponse400ApplicationJson
@@ -29662,7 +29642,8 @@ export type postWorldsPartyIdGatheringsResponseError = (
 };
 
 export type postWorldsPartyIdGatheringsResponse =
-    postWorldsPartyIdGatheringsResponseError;
+    | postWorldsPartyIdGatheringsResponseSuccess
+    | postWorldsPartyIdGatheringsResponseError;
 
 export const getPostWorldsPartyIdGatheringsUrl = (partyId: string) => {
     return `/api/worlds/${partyId}/gatherings`;

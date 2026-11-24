@@ -9,7 +9,7 @@
 @import "./CategoryView/CategoryView.css";
 @import "./ChatLog/ChatLog.css";
 @import "./ChatMessage/ChatMessage.css";
-@import "./RichText/RichText.css";
 @import "./ContactRow/ContactRow.css";
+@import "./BuddyList/BuddyList.css";
 @import "./Post/Post.css";
 @import "./Console/Console.css";

@@ -4,6 +4,8 @@ export { CommandButton } from './CommandButton/CommandButton';
 export { FieldRow } from './FieldRow/FieldRow';
 export { Hyperlink } from './Hyperlink/Hyperlink';
 export { Meter } from './Meter/Meter';
+export type { PictureStackProps } from './PictureStack/PictureStack';
+export { PictureStack } from './PictureStack/PictureStack';
 export type { PresenceStatus } from './Presence/Presence';
 export { Presence } from './Presence/Presence';
 export { ProgressBar } from './ProgressBar/ProgressBar';

@@ -66,8 +66,8 @@ describe('enrichGraph', () => {
         });
 
         const event = enriched.nodes.find((n) => n.id === 'event:e1');
-        expect(event?.where).toBe('Room · general');
-        expect(event?.label).toBe('Room · general');
+        expect(event?.where).toBe('Group · general');
+        expect(event?.label).toBe('Group · general');
     });
 
     it('resolves Board threads by title and infers the source for legacy Events', () => {
@@ -90,7 +90,7 @@ describe('enrichGraph', () => {
         const enriched = enrichGraph(baseGraph, empty);
 
         const event = enriched.nodes.find((n) => n.id === 'event:e1');
-        expect(event?.where).toBe(`Room · ${roomA.slice(0, 8)}`);
+        expect(event?.where).toBe(`Group · ${roomA.slice(0, 8)}`);
     });
 
     it('labels Concepts from their display value', () => {

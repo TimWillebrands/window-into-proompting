@@ -16,7 +16,7 @@ import { Taskbar, TaskbarButton } from './Taskbar';
 
 const windows = [
     { id: 'personas', label: 'Personas', icon: 'personas' },
-    { id: 'rooms', label: 'Chat Rooms', icon: 'chat-rooms' },
+    { id: 'rooms', label: 'Conversations', icon: 'chat-rooms' },
     { id: 'panel', label: 'Control Panel', icon: 'control-panel' },
     { id: 'notepad', label: 'Untitled - Notepad', icon: 'notepad' },
 ] as const;
@@ -108,7 +108,7 @@ function Desktop() {
         Array<{ id: string; label: string; icon: 'personas' | 'chat-rooms' }>
     >([
         { id: 'personas', label: 'Personas', icon: 'personas' },
-        { id: 'rooms', label: 'Chat Rooms', icon: 'chat-rooms' },
+        { id: 'rooms', label: 'Conversations', icon: 'chat-rooms' },
     ]);
     const [minimised, setMinimised] = useState<string[]>(['personas']);
     const close = (id: string) =>
@@ -145,9 +145,9 @@ export const WindowMenu: Story = {
     render: () => <Desktop />,
     play: async ({ canvasElement }) => {
         const page = within(canvasElement.ownerDocument.body);
-        const rooms = page.getByRole('button', { name: 'Chat Rooms' });
+        const rooms = page.getByRole('button', { name: 'Conversations' });
         await userEvent.pointer({ keys: '[MouseRight]', target: rooms });
-        const menu = await page.findByRole('menu', { name: 'Chat Rooms' });
+        const menu = await page.findByRole('menu', { name: 'Conversations' });
         const inMenu = within(menu);
         await expect(
             inMenu.getByRole('menuitem', { name: 'Restore' }),
@@ -165,16 +165,16 @@ export const WindowMenuCloses: Story = {
     render: () => <Desktop />,
     play: async ({ canvasElement }) => {
         const page = within(canvasElement.ownerDocument.body);
-        const rooms = page.getByRole('button', { name: 'Chat Rooms' });
+        const rooms = page.getByRole('button', { name: 'Conversations' });
         rooms.focus();
         await userEvent.keyboard('{Shift>}{F10}{/Shift}');
-        const menu = await page.findByRole('menu', { name: 'Chat Rooms' });
+        const menu = await page.findByRole('menu', { name: 'Conversations' });
         await userEvent.click(
             within(menu).getByRole('menuitem', { name: 'Close' }),
         );
         await waitFor(() =>
             expect(
-                page.queryByRole('button', { name: 'Chat Rooms' }),
+                page.queryByRole('button', { name: 'Conversations' }),
             ).not.toBeInTheDocument(),
         );
         const personas = page.getByRole('button', { name: 'Personas' });

@@ -36,7 +36,7 @@ describe('FieldRow', () => {
 
     it('sizes the label by name or by length', () => {
         const auto = renderToStaticMarkup(
-            <FieldRow label="Speak as:" labelWidth="auto">
+            <FieldRow label="Send as:" labelWidth="auto">
                 <TextBox />
             </FieldRow>,
         );

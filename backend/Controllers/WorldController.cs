@@ -271,6 +271,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     }
 
     [HttpPost("messenger/groups")]
+    [ProducesResponseType<ChatGroupInfo>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ChatGroupInfo>> StartGroup(Guid partyId, [FromBody] StartGroupRequest request)
     {
@@ -291,6 +292,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
     }
 
     [HttpPost("messenger/{chatGroupId:guid}/invite")]
+    [ProducesResponseType<ChatGroupInfo>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ChatGroupInfo>> InviteToConversation(Guid partyId, Guid chatGroupId, [FromBody] InviteToConversationRequest request)
@@ -352,6 +354,7 @@ public sealed class WorldController(IGrainFactory grains, IEnumerable<IWorldApp>
         => Ok(await grains.GetGrain<ICalendarGrain>(partyId).GetGatheringsAsync());
 
     [HttpPost("gatherings")]
+    [ProducesResponseType<Gathering>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<Gathering>> PlanGathering(Guid partyId, [FromBody] PlanGatheringRequest request)
     {

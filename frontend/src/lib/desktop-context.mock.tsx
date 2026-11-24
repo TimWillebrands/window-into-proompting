@@ -19,6 +19,8 @@ export const useDesktopContext = fn(() => ({
     openWindow: fn(),
     focusWindow: fn(),
     closeWindow: fn(),
+    setWindowProps: fn(),
+    setWindowTitle: fn(),
     minimizeWindow: fn(),
     restoreWindow: fn(),
     toggleMaximize: fn(),

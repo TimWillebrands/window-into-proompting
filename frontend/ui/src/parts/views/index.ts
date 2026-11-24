@@ -1,3 +1,9 @@
+export type {
+    BuddyListGroup,
+    BuddyListItem,
+    BuddyListPoint,
+} from './BuddyList/BuddyList';
+export { BuddyList } from './BuddyList/BuddyList';
 export { CategoryItem, CategoryView } from './CategoryView/CategoryView';
 export { ChatLog } from './ChatLog/ChatLog';
 export { ChatMessage } from './ChatMessage/ChatMessage';
@@ -11,6 +17,5 @@ export type { ListViewColumn } from './ListView/ListView';
 export { ListView } from './ListView/ListView';
 export { Post } from './Post/Post';
 export { PropertyList } from './PropertyList/PropertyList';
-export { RichText } from './RichText/RichText';
 export { ShareBar } from './ShareBar/ShareBar';
 export { TreeView } from './TreeView/TreeView';

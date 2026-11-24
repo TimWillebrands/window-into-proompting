@@ -258,30 +258,6 @@ export const reduceRooms = (
         }));
     }
 
-    if (envelope.type === 'party.messages.truncated') {
-        const payload = envelope.data as {
-            chatGroupId?: string;
-            messageId?: number | null;
-        };
-
-        if (!payload.chatGroupId || payload.messageId == null) {
-            return rooms;
-        }
-
-        const chatGroupId = payload.chatGroupId;
-        const messageId = payload.messageId;
-
-        return withRoom(rooms, chatGroupId, envelope.sequence, (prev) => ({
-            ...prev,
-            messages: prev.messages.filter(
-                (message) => message.messageId <= messageId,
-            ),
-            activeGenerationMessageIds: prev.activeGenerationMessageIds.filter(
-                (id) => id <= messageId,
-            ),
-        }));
-    }
-
     if (envelope.type === 'party.generation.started') {
         const payload = envelope.data as {
             chatGroupId?: string;

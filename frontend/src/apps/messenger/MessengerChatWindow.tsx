@@ -4,6 +4,7 @@ import {
     CommandButton,
     ContextMenu,
     Icon,
+    Pane,
     Stack,
     StatusBar,
     StatusBarField,
@@ -16,22 +17,45 @@ import {
     useWindowMinimised,
     WindowLayout,
 } from '@partytown/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+    getGetWorldsPartyIdMessengerQueryKey,
     useGetWorldsPartyIdLivesSuspense,
     useGetWorldsPartyIdMessenger,
     useGetWorldsPartyIdSelves,
     usePostPartyIdPrompt,
+    usePostWorldsPartyIdMessengerChatGroupIdLeave,
 } from '#api/party-zone';
+import { useDesktopContext } from '#lib/desktop-context';
 import type { RealtimeChatMessage } from '#lib/realtime-store';
+import type { ChatGroupInfo } from '../../api/model/chatGroupInfo';
+import type { LifeSummary } from '../../api/model/lifeSummary';
+import { useWindowId } from '../../components/desktop/window-instance-context';
 import { NARRATOR_PERSONA_ID } from '../../lib/driver';
 import {
     heldBy,
     isShownInMessenger,
     typingState,
+    typists,
 } from '../../lib/room-conversation';
 import { useRoomConversation } from '../../lib/use-room-conversation';
-import { usePlayerId, usePlayerOnAuto, WORLD_ID } from '../../lib/world';
+import {
+    notifyOnRefusal,
+    useOpenConversation,
+    usePlayerId,
+    usePlayerOnAuto,
+    WORLD_ID,
+} from '../../lib/world';
+import {
+    conversationName,
+    conversationTitle,
+    isGroup,
+    names,
+    othersIn,
+    refusal,
+} from './conversations';
+import InviteDialog from './InviteDialog';
 import {
     BuddyIcon,
     type BuddyStatus,
@@ -99,6 +123,7 @@ function Conversation({
     withName: string;
     spectate: boolean;
 }) {
+    const queryClient = useQueryClient();
     const playerId = usePlayerId();
     const livesQuery = useGetWorldsPartyIdLivesSuspense(WORLD_ID);
     const chatsQuery = useGetWorldsPartyIdMessenger(
@@ -107,20 +132,39 @@ function Conversation({
         { query: { enabled: !!playerId } },
     );
     const lives = livesQuery.data.data ?? [];
-    const withId = chatsQuery.data?.data.find(
+    const summary = chatsQuery.data?.data.find(
         (c) => c.chatGroupId === chatGroupId,
-    )?.withId;
+    );
+    const group = !!summary && isGroup(summary);
+    const others = summary && group ? othersIn(summary, playerId) : [];
+    const shownName = summary ? conversationName(summary, playerId) : withName;
+    const withId = group ? undefined : summary?.withId;
     const them = lives.find((l) => l.personaId === withId);
     const selvesQuery = useGetWorldsPartyIdSelves(WORLD_ID, {
         query: { refetchInterval: 60_000 },
     });
-    const theirSelf = selvesQuery.data?.data.find(
-        (s) => s.personaId === withId,
-    );
+    const selfOf = (id: string | undefined) =>
+        selvesQuery.data?.data.find((s) => s.personaId === id);
+    const lifeOf = (id: string | undefined) =>
+        lives.find((l) => l.personaId === id);
+    const theirSelf = selfOf(withId);
     const theirNote = theirSelf?.doing ?? them?.lastActivity?.summary;
     const me = lives.find((l) => l.isPlayer || l.personaId === playerId);
     const myName = me?.name ?? 'You';
     const theirStatus: BuddyStatus = statusOf(them, theirSelf);
+
+    const windowId = useWindowId();
+    const { setWindowTitle, closeWindow } = useDesktopContext();
+    const windowTitle =
+        summary && !spectate ? conversationTitle(summary, playerId) : null;
+    useEffect(() => {
+        if (windowId && windowTitle)
+            setWindowTitle(
+                windowId,
+                windowTitle,
+                group ? 'chat-rooms' : 'chat',
+            );
+    }, [windowId, windowTitle, group, setWindowTitle]);
 
     const {
         messages: allMessages,
@@ -141,16 +185,19 @@ function Conversation({
     const isTyping = otherSide === 'typing';
     const isReading = otherSide === 'reading';
 
+    const memberName = (id: string) =>
+        summary?.members.find((m) => m.id === id)?.name ?? lifeOf(id)?.name;
     const isMine = (m: RealtimeChatMessage) =>
         !spectate &&
         ((!!playerId && m.senderId === playerId) ||
-            (m.senderType === 'user' && m.senderId !== withId));
+            (!group && m.senderType === 'user' && m.senderId !== withId));
     const nameOf = (m: RealtimeChatMessage) => {
         if (isMine(m)) return myName;
-        if (m.senderId === withId) return withName;
+        if (!group && m.senderId === withId) return withName;
         if (m.senderId === NARRATOR_PERSONA_ID) return 'Narrator';
-        return lives.find((l) => l.personaId === m.senderId)?.name ?? withName;
+        return memberName(m.senderId) ?? (group ? 'Someone' : withName);
     };
+    const typing = typists(phases).map((id) => memberName(id) ?? id);
 
     const lastReceived = [...messages]
         .reverse()
@@ -182,6 +229,8 @@ function Conversation({
     }, [messages.length, lastContent, isTyping]);
 
     const [draft, setDraft] = useState('');
+    const [inviting, setInviting] = useState(false);
+    const [problem, setProblem] = useState<string | null>(null);
     const emoticonMenu = useContextMenu();
     const emojiOpen = emoticonMenu.menuProps.open;
     const setEmojiOpen = (open: boolean) => {
@@ -194,6 +243,38 @@ function Conversation({
     const onAuto = usePlayerOnAuto();
     const canSend =
         !!playerId && !onAuto && !!draft.trim() && !prompt.isPending;
+
+    const openConversation = useOpenConversation();
+    const leave = usePostWorldsPartyIdMessengerChatGroupIdLeave({
+        mutation: {
+            onSuccess: () =>
+                queryClient.invalidateQueries({
+                    queryKey: getGetWorldsPartyIdMessengerQueryKey(WORLD_ID),
+                }),
+        },
+    });
+    const leaveConversation = async () => {
+        setProblem(null);
+        try {
+            await leave.mutateAsync({
+                partyId: WORLD_ID,
+                chatGroupId,
+                data: { fromPersonaId: playerId },
+            });
+            if (windowId) closeWindow(windowId);
+        } catch (e) {
+            notifyOnRefusal(e);
+            setProblem(refusal(e, "Couldn't leave the conversation."));
+        }
+    };
+    const invited = (info: ChatGroupInfo, invitee: LifeSummary) => {
+        setInviting(false);
+        if (!info.id || info.id === chatGroupId) return;
+        openConversation(info.id, {
+            name: [shownName, invitee.name].join(', '),
+            group: true,
+        });
+    };
 
     const send = async () => {
         const text = draft.trim();
@@ -219,10 +300,13 @@ function Conversation({
 
     const statusLine = (() => {
         if (connection !== 'connected') return 'Connecting to the server…';
+        if (problem) return problem;
         if (onAuto) return 'Your character is on auto and answers for you.';
-        if (isTyping) return `${withName} is typing a message.`;
-        if (isReading) return `${withName} is reading your message…`;
-        if (theirStatus === 'afk')
+        if (group && typing.length > 0)
+            return `${names(typing)} ${typing.length === 1 ? 'is' : 'are'} typing a message.`;
+        if (!group && isTyping) return `${withName} is typing a message.`;
+        if (!group && isReading) return `${withName} is reading your message…`;
+        if (!group && theirStatus === 'afk')
             return `${withName} is away from the keyboard and may not see this for a while.`;
         if (withId && heldBy(withId, messages, declined))
             return `${withName} saw this and will get back to you.`;
@@ -287,7 +371,11 @@ function Conversation({
                         }}
                         rows={3}
                         maxLength={4000}
-                        aria-label={`Message to ${withName}`}
+                        aria-label={
+                            group
+                                ? `Message to ${shownName}`
+                                : `Message to ${withName}`
+                        }
                         className="w-full resize-none"
                     />
                 </Stack.Item>
@@ -304,91 +392,189 @@ function Conversation({
         </Stack>
     );
 
-    return (
-        <WindowLayout
-            scroll="none"
-            contentLabel={`Conversation with ${withName}`}
-            toolbar={
-                <Stack direction="row" gap="xs" pad="sm" align="center">
-                    <Text tone="muted">To:</Text>
-                    <BuddyIcon status={theirStatus} />
-                    <Stack.Item truncate>
-                        <Text strong>{withName}</Text>
-                    </Stack.Item>
-                    <Text tone="muted">({STATUS_LABEL[theirStatus]})</Text>
-                    {theirNote && (
-                        <Stack.Item grow truncate title={theirNote}>
-                            <Text tone="muted" italic>
-                                - {theirNote}
-                            </Text>
-                        </Stack.Item>
-                    )}
-                </Stack>
-            }
-            statusBar={
-                <StatusBar>
-                    <StatusBarField
-                        grow
-                        icon={isTyping ? <Icon name="edit" /> : undefined}
-                    >
-                        {statusLine}
-                    </StatusBarField>
-                </StatusBar>
-            }
+    const actions = spectate ? null : (
+        <Toolbar key="actions" labels="below" aria-label="Conversation">
+            <ToolbarButton
+                icon={<Icon name="users" size={32} />}
+                title="Invite someone to this conversation"
+                disabled={!summary}
+                onClick={() => setInviting(true)}
+            >
+                Invite
+            </ToolbarButton>
+            {group && (
+                <ToolbarButton
+                    icon={<Icon name="door" size={32} />}
+                    title="Leave this conversation"
+                    disabled={leave.isPending}
+                    onClick={() => void leaveConversation()}
+                >
+                    Leave
+                </ToolbarButton>
+            )}
+        </Toolbar>
+    );
+
+    const toLine = group ? (
+        <Stack
+            key="to"
+            direction="row"
+            wrap
+            gap="sm"
+            rowGap="xxs"
+            pad="sm"
+            align="center"
         >
-            <Stack direction="row" gap="md" pad="md">
-                <Stack gap="sm" grow>
-                    <ChatLog
-                        ref={scrollRef}
-                        aria-label={`Conversation with ${withName}`}
-                        onScroll={(e) => {
-                            const el = e.currentTarget;
-                            nearBottom.current =
-                                el.scrollHeight -
-                                    el.scrollTop -
-                                    el.clientHeight <
-                                40;
-                        }}
-                        className="flex-1 px-2 py-1.5"
+            <Text tone="muted">To:</Text>
+            {others.map((m) => {
+                const status = statusOf(lifeOf(m.id), selfOf(m.id));
+                return (
+                    <Stack
+                        key={m.id}
+                        as="span"
+                        direction="row"
+                        gap="xs"
+                        align="center"
+                        title={`${m.name} (${STATUS_LABEL[status]})`}
                     >
-                        {messages.length === 0 && !isTyping && (
-                            <Text tone="muted" className="py-1">
-                                Say hi to {withName}!
-                            </Text>
+                        <BuddyIcon status={status} size="small" />
+                        <Text strong>{m.name}</Text>
+                        {status !== 'online' && (
+                            <Text tone="muted">({STATUS_LABEL[status]})</Text>
                         )}
-                        {messages.map((m, i) => {
-                            const prev = messages[i - 1];
-                            const showName =
-                                !prev ||
-                                prev.senderId !== m.senderId ||
-                                prev.kind === 'emote' ||
-                                m.kind === 'emote';
-                            return (
-                                <MessageLine
-                                    key={m.messageId}
-                                    message={m}
-                                    name={nameOf(m)}
-                                    mine={isMine(m)}
-                                    showName={showName}
-                                    streaming={activeIds.includes(m.messageId)}
-                                />
-                            );
-                        })}
-                    </ChatLog>
-                    {composer}
+                    </Stack>
+                );
+            })}
+        </Stack>
+    ) : (
+        <Stack key="to" direction="row" gap="xs" pad="sm" align="center">
+            <Text tone="muted">To:</Text>
+            <BuddyIcon status={theirStatus} />
+            <Stack.Item truncate>
+                <Text strong>{withName}</Text>
+            </Stack.Item>
+            <Text tone="muted">({STATUS_LABEL[theirStatus]})</Text>
+            {theirNote && (
+                <Stack.Item grow truncate title={theirNote}>
+                    <Text tone="muted" italic>
+                        - {theirNote}
+                    </Text>
+                </Stack.Item>
+            )}
+        </Stack>
+    );
+
+    const pictures = group ? (
+        <Stack gap="sm" className="w-[84px] @max-sm:hidden">
+            <Pane aria-label="People in this conversation" tabIndex={0}>
+                <Stack gap="sm" align="center">
+                    {others.map((m) => (
+                        <Stack key={m.id} gap="xxs" align="center">
+                            <DisplayPicture who={m.id} size={64} />
+                            <Stack.Item truncate className="max-w-full">
+                                <Text tone="muted">{m.name}</Text>
+                            </Stack.Item>
+                        </Stack>
+                    ))}
                 </Stack>
-                <Stack justify="between" className="@max-sm:hidden">
-                    <DisplayPicture
-                        who={withId ?? spectators[0] ?? withName}
-                        size={96}
-                    />
-                    <DisplayPicture
-                        who={spectate && spectators[1] ? spectators[1] : myName}
-                        size={96}
-                    />
-                </Stack>
+            </Pane>
+            <Stack align="center">
+                <DisplayPicture who={myName} size={64} />
             </Stack>
-        </WindowLayout>
+        </Stack>
+    ) : (
+        <Stack justify="between" className="@max-sm:hidden">
+            <DisplayPicture
+                who={withId ?? spectators[0] ?? withName}
+                size={96}
+            />
+            <DisplayPicture
+                who={spectate && spectators[1] ? spectators[1] : myName}
+                size={96}
+            />
+        </Stack>
+    );
+
+    const label = group
+        ? `Conversation with ${names(others.map((m) => m.name))}`
+        : `Conversation with ${withName}`;
+
+    return (
+        <>
+            <WindowLayout
+                scroll="none"
+                contentLabel={label}
+                toolbar={actions ? [actions, toLine] : toLine}
+                statusBar={
+                    <StatusBar>
+                        <StatusBarField
+                            grow
+                            icon={isTyping ? <Icon name="edit" /> : undefined}
+                        >
+                            {statusLine}
+                        </StatusBarField>
+                    </StatusBar>
+                }
+            >
+                <Stack direction="row" gap="md" pad="md">
+                    <Stack gap="sm" grow>
+                        <ChatLog
+                            ref={scrollRef}
+                            aria-label={label}
+                            onScroll={(e) => {
+                                const el = e.currentTarget;
+                                nearBottom.current =
+                                    el.scrollHeight -
+                                        el.scrollTop -
+                                        el.clientHeight <
+                                    40;
+                            }}
+                            className="flex-1 px-2 py-1.5"
+                        >
+                            {messages.length === 0 && !isTyping && (
+                                <Text tone="muted" className="py-1">
+                                    {group
+                                        ? `Say hi to ${names(others.map((m) => m.name))}!`
+                                        : `Say hi to ${withName}!`}
+                                </Text>
+                            )}
+                            {messages.map((m, i) => {
+                                const prev = messages[i - 1];
+                                const showName =
+                                    !prev ||
+                                    prev.senderId !== m.senderId ||
+                                    prev.kind === 'emote' ||
+                                    m.kind === 'emote';
+                                return (
+                                    <MessageLine
+                                        key={m.messageId}
+                                        message={m}
+                                        name={nameOf(m)}
+                                        mine={isMine(m)}
+                                        showName={showName}
+                                        streaming={activeIds.includes(
+                                            m.messageId,
+                                        )}
+                                    />
+                                );
+                            })}
+                        </ChatLog>
+                        {composer}
+                    </Stack>
+                    {pictures}
+                </Stack>
+            </WindowLayout>
+            {inviting && summary && (
+                <InviteDialog
+                    chatGroupId={chatGroupId}
+                    group={group}
+                    memberIds={summary.members.map((m) => m.id)}
+                    withName={shownName}
+                    onClose={() => setInviting(false)}
+                    onInvited={invited}
+                />
+            )}
+        </>
     );
 }
 

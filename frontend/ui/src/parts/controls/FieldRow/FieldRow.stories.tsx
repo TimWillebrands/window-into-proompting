@@ -72,7 +72,7 @@ const speakers = [
 export const LabelWidths: Story = {
     render: () => (
         <div className="ui-story-column ui-story-w-360">
-            <FieldRow label="Speak as:" labelWidth="auto">
+            <FieldRow label="Send as:" labelWidth="auto">
                 <ComboBox defaultValue="me" options={speakers} />
             </FieldRow>
             <FieldRow label="Hue:" labelWidth="compact">

@@ -115,7 +115,7 @@ export const Maximised: Story = {
 
 export const TitleBarAccessory: Story = {
     args: {
-        title: 'Chat Rooms',
+        title: 'Conversations',
         icon: <Icon name="chat-rooms" />,
         titleBarAccessory: <span>#general · 4 here</span>,
     },

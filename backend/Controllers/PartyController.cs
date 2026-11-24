@@ -172,14 +172,6 @@ public sealed class PartyController(
         return Accepted();
     }
 
-    [HttpPost("{id:guid}/cancel")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<ActionResult> CancelGenerations(Guid id)
-    {
-        await grains.GetGrain<IPartyGrain>(id).CancelAllGenerations();
-        return NoContent();
-    }
-
     [AllowAnonymous]
     [HttpGet("{id:guid}/ws")]
     public async Task Realtime(Guid id)
