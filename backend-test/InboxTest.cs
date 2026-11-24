@@ -125,6 +125,24 @@ public class InboxTest
     }
 
     [Fact]
+    public void Group_CountsWhoWroteSinceYourLastLine()
+    {
+        var group = new GroupWaiting(Guid.NewGuid(), "Ana, Bo and you", new List<ChatMessage>
+        {
+            Message(1, Ana, 150, "hey"), Message(2, Me, 160, "hi!"), Message(3, Ana, 200, "plans?"), Message(4, Bo, 210, "pub"),
+        });
+
+        var n = Inbox.FromGroup(group, Me, 100, NameOf)!;
+
+        Assert.Equal(NotificationKinds.Group, n.Kind);
+        Assert.Equal("Bo and Ana wrote in Ana, Bo and you", n.Title);
+        Assert.Equal("Bo: pub", n.Body);
+        Assert.Equal(group.ChatGroupId, n.TargetId);
+        Assert.Equal("messenger", n.App);
+        Assert.Null(Inbox.FromGroup(group with { Recent = group.Recent.Append(Message(5, Me, 220, "in")).ToList() }, Me, 100, NameOf));
+    }
+
+    [Fact]
     public void Dm_YouHadTheLastWord_OrItFailed_IsQuiet()
     {
         var answered = new DmWaiting(Guid.NewGuid(), Ana, "Ana", new List<ChatMessage> { Message(1, Ana, 150, "hey"), Message(2, Me, 160, "hi") });
@@ -134,12 +152,14 @@ public class InboxTest
         Assert.Null(Inbox.FromDm(failed, Me, 100));
     }
 
+    private static readonly Guid Cafe = Guid.NewGuid();
+
     [Fact]
     public void Gatherings_OnlyStartedOnesYouSaidYoudAttend()
     {
         Gathering G(GatheringStatus status, params Guid[] attendees) => new()
         {
-            Id = Guid.NewGuid(), Title = "Pub quiz", HostId = Ana, HostName = "Ana", RoomName = "kitchen", StartsAt = 200,
+            Id = Guid.NewGuid(), Title = "Pub quiz", HostId = Ana, HostName = "Ana", RoomName = "the Café", PlaceId = Cafe, StartsAt = 200,
             Status = status, AttendeeIds = attendees.ToList(),
         };
         var going = G(GatheringStatus.Started, Me, Ana);
@@ -147,8 +167,9 @@ public class InboxTest
         var n = Assert.Single(Inbox.FromGatherings(new[] { going, G(GatheringStatus.Started, Ana), G(GatheringStatus.Planned, Me), G(GatheringStatus.Over, Me) }, Me, 100));
 
         Assert.Equal("“Pub quiz” is starting", n.Title);
-        Assert.Equal("In #kitchen. You said you'd be there.", n.Body);
-        Assert.Equal("open-party", n.App);
+        Assert.Equal("At the Café. You said you'd be there.", n.Body);
+        Assert.Equal("places", n.App);
+        Assert.Equal(Cafe, n.TargetId);
     }
 
     [Fact]

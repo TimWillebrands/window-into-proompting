@@ -18,6 +18,7 @@ public sealed record class WorldActivity
     [Id(8)] public Guid? TargetId { get; init; }
     [Id(9)] public Guid? WithPersonaId { get; init; }
     [Id(10)] public string? Affordance { get; init; }
+    [Id(11)] public List<Guid>? Among { get; init; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.WorldStatus")]

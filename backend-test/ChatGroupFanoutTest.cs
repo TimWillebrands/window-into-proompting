@@ -93,7 +93,7 @@ public class ChatGroupFanoutTest : IClassFixture<ChatGroupClusterFixture>
         await chatGroup.EndTurnAsync(first, new TurnOutcome.Spoke("too late", null, null, null));
 
         var gone = await chatGroup.BeginTurnAsync(alice.Id);
-        await chatGroup.DeleteMessagesAfterAsync(first);
+        await chatGroup.DeleteMessageAsync(gone);
         await chatGroup.EndTurnAsync(gone, new TurnOutcome.Spoke("into the void", null, null, null));
 
         var messages = await chatGroup.GetMessagesAsync();

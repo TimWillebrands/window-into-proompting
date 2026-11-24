@@ -195,6 +195,8 @@ Use XP part names. When you reach for a web word, translate it:
 | flex row or column, HStack, VStack | `Stack` (`Stack.Item` to grow or truncate) |
 | two-column layout, split view (inside content) | `Columns` |
 | card grid, auto-fill grid | `Tiles` |
+| chat room, group chat, channel | a Messenger group conversation (`BuddyList`, `PictureStack`, the `msn` Skin) |
+| contact list, people picker | `BuddyList` |
 
 The full inventory and the status of each part is in [references/parts.md](references/parts.md). A web pattern with
 no XP equivalent gets a new part with an XP-style name, decided in the kit, or isn't used.

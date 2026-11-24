@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface UpdateChatGroupParticipantIdsRequest {
-    participantIds?: string[];
+export interface LeaveGroupRequest {
+    /** @nullable */
+    fromPersonaId?: string | null;
 }

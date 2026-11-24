@@ -7,11 +7,9 @@
 
 export interface PlanGatheringRequest {
     title: string;
-    roomId: string;
+    placeId: string;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     startsAt: number | string;
     /** @nullable */
     hostId: string | null;
-    /** @nullable */
-    placeId?: string | null;
 }

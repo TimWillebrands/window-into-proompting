@@ -90,13 +90,13 @@ export const mockChatGroups: ChatGroupInfo[] = [
     {
         id: 'cg-1',
         name: 'Stealth Horticulture Standup',
-        scenario: 'Office of a stealth horticulture startup.',
+        kind: 'room',
         createdAt: '2026-04-20T09:00:00Z',
     },
     {
         id: 'cg-2',
         name: 'Architecture Review',
-        scenario: null,
+        kind: 'room',
         createdAt: '2026-04-22T14:30:00Z',
     },
 ];
@@ -292,8 +292,6 @@ export const useGetPartiesPartyIdMemoryGraphSuspense = fn(() =>
     }),
 );
 
-export const usePostPartyIdChatGroups = fn(() => noopMutationResult());
-
 export const useGetLlmConfigProviders = fn(() =>
     queryResult({ data: mockProviders, status: 200, headers: new Headers() }),
 );
@@ -364,19 +362,7 @@ export const useGetPartyIdSuspense = fn(() =>
     }),
 );
 export const usePostPartyIdPrompt = fn(() => noopMutationResult());
-export const usePostPartyIdProceed = fn(() => noopMutationResult());
-export const usePostPartyIdCancel = fn(() => noopMutationResult());
-export const usePostPartyIdRepromptMessageId = fn(() => noopMutationResult());
 export const usePutPartyIdParticipants = fn(() => noopMutationResult());
-export const usePutPartyIdChatGroupsChatGroupIdScenario = fn(() =>
-    noopMutationResult(),
-);
-export const useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId = fn(() =>
-    noopMutationResult(),
-);
-export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = fn(
-    () => noopMutationResult(),
-);
 
 export const mockStances: StanceRecord[] = [
     {

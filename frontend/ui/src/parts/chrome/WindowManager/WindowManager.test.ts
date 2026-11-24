@@ -410,6 +410,16 @@ describe('props and the Start menu', () => {
         );
     });
 
+    it('retitles a window and keeps the state when nothing changed', () => {
+        const state = run(notepad, act.setTitle('notepad', 'Notes', 'chat'));
+        expect(at(state, 'notepad').title).toBe('Notes');
+        expect(at(state, 'notepad').icon).toBe('chat');
+        expect(windowReducer(state, act.setTitle('notepad', 'Notes'))).toBe(
+            state,
+        );
+        expect(windowReducer(state, act.setTitle('nope', 'x'))).toBe(state);
+    });
+
     it('opens, closes and toggles the Start menu', () => {
         const opened = run(act.startMenu());
         expect(opened.startMenuOpen).toBe(true);

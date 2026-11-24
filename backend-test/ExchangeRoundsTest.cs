@@ -191,9 +191,8 @@ public class ExchangeRoundsTest
 
         var chatGroup = new Mock<IChatGroupGrain>();
         chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(Guid.NewGuid());
-        chatGroup.Setup(g => g.GetScenarioAsync()).ReturnsAsync((string?)null);
         chatGroup.Setup(g => g.GetCastAsync()).ReturnsAsync(RoomCast.Create(
-            cast, new HashSet<Guid> { Alice, Bob }, new Dictionary<Guid, DriverKind>(), ChatGroupKinds.Direct));
+            cast, new HashSet<Guid> { Alice, Bob }, ChatGroupKinds.Direct));
         chatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>())).ReturnsAsync(history);
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(UrgeMath.CountExchangeRounds(history));
         chatGroup.Setup(g => g.RecordSkippedTurnAsync(

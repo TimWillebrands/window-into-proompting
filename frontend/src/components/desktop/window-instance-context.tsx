@@ -29,3 +29,7 @@ export function useWindowInstance(): WindowInstance {
     }
     return ctx;
 }
+
+export function useWindowId(): string | null {
+    return useContext(WindowInstanceContext)?.windowId ?? null;
+}

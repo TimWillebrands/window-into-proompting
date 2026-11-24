@@ -62,7 +62,7 @@ export default function PersonasApp() {
                             empty={
                                 personasQuery.isError
                                     ? undefined
-                                    : 'No personas yet. Create one below — it can then join chat rooms and speak on its own.'
+                                    : 'No personas yet. Create one below — it can then join conversations and speak on its own.'
                             }
                             items={personas.map((persona) => ({
                                 id: persona.id ?? '',
@@ -124,9 +124,9 @@ export default function PersonasApp() {
                                 <Icon name="users" size={32} />
                                 <Text as="p" tone="muted">
                                     Each one has a name, a bio, and a system
-                                    prompt that shapes how it speaks in chat
-                                    rooms. Select one on the left to edit it, or
-                                    create a new one below the list.
+                                    prompt that shapes how it speaks in
+                                    conversations. Select one on the left to
+                                    edit it, or create a new one below the list.
                                 </Text>
                             </Stack>
                         </GroupBox>

@@ -64,9 +64,6 @@ public class PersonaGrainFeedbackTest : TestKitBase
             .ReturnsAsync(new List<ChatMessage> { triggering });
         var partyId = Guid.NewGuid();
         chatGroup.Setup(g => g.GetPartyIdAsync()).ReturnsAsync(partyId);
-        chatGroup.Setup(g => g.GetDriverOverridesAsync())
-            .ReturnsAsync((IReadOnlyDictionary<Guid, DriverKind>)new Dictionary<Guid, DriverKind>());
-        chatGroup.Setup(g => g.GetScenarioAsync()).ReturnsAsync((string?)null);
 
         var partyGrain = Silo.AddProbe<IPartyGrain>(partyId);
         partyGrain.Setup(g => g.GetCastAsync()).ReturnsAsync((IReadOnlyList<CastMember>)new List<CastMember>
@@ -78,8 +75,7 @@ public class PersonaGrainFeedbackTest : TestKitBase
         chatGroup.Setup(g => g.GetCastAsync()).ReturnsAsync(() => RoomCast.Create(
             partyGrain.Object.GetCastAsync().Result,
             new HashSet<Guid> { _personaId },
-            new Dictionary<Guid, DriverKind>(),
-            ChatGroupKinds.Room));
+            ChatGroupKinds.Group));
         chatGroup.Setup(g => g.CountTrailingAssistantMessagesAsync()).ReturnsAsync(2);
         chatGroup.Setup(g => g.NotifyStreamChunkAsync(It.IsAny<int>(), It.IsAny<MessageStreamEvent>()))
             .Returns(Task.CompletedTask);

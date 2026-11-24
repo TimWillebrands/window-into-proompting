@@ -306,7 +306,6 @@ public class WorkClothesTest : IClassFixture<WorkClothesTest.Fixture>
                     services.AddSingleton<ConsolidationService>();
                     services.AddSingleton<WorldMemory>();
                     services.AddSingleton<ISystemOneJudge>(new MenuJudge(() => null));
-                    services.AddSingleton<IWorldApp, RoomsApp>();
                     services.AddSingleton<IWorldApp, MessengerApp>();
                     services.AddSingleton<IWorldApp, BoardApp>();
                     services.AddSingleton<IWorldApp, DiaryApp>();

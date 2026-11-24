@@ -45,14 +45,14 @@ public sealed record LifeContext(
         !string.IsNullOrEmpty(text) && text.Contains(Self.Name.Split(' ')[0], StringComparison.OrdinalIgnoreCase);
 }
 
-public sealed record Affordance(string AppId, string Label, int Priority, Guid? TargetId = null, string? Verb = null, bool Look = false, string? Meets = null)
+public sealed record Affordance(string AppId, string Label, int Priority, Guid? TargetId = null, string? Verb = null, bool Look = false, string? Meets = null, IReadOnlyList<Guid>? With = null)
 {
     public string Key => $"{AppId}|{Verb}|{TargetId}{(Meets is null ? string.Empty : $"|{Meets}")}";
 }
 
 public sealed record AppPerception(string AppId, string Title, string Block, IReadOnlyList<Affordance> Affordances);
 
-public sealed record ActOutcome(string Action, string Summary, Guid? TargetId, Guid? WithPersonaId = null)
+public sealed record ActOutcome(string Action, string Summary, Guid? TargetId, Guid? WithPersonaId = null, IReadOnlyList<Guid>? Among = null)
 {
     public bool Looked => Action == PersonaLifeGrain.LookAction;
 

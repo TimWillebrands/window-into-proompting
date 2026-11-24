@@ -12,7 +12,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import {
     getGetWorldsPartyIdGatheringsQueryKey,
-    useGetPartyIdChatGroups,
     useGetWorldsPartyIdGatherings,
     useGetWorldsPartyIdLivesSuspense,
     useGetWorldsPartyIdPlaces,
@@ -32,7 +31,14 @@ const time = (ts: number | string | undefined) =>
           });
 
 const whereOf = (g: Gathering) =>
-    g.placeId ? `at ${g.roomName}` : `in #${g.roomName}`;
+    g.placeId ? (g.where ?? `at ${g.roomName}`) : '—';
+
+const outcomeOf = (g: Gathering) => {
+    if (g.status === 'Cancelled')
+        return `Cancelled — ${g.cancelledBecause ?? 'called off'}`;
+    if (g.status === 'Missed') return 'missed, the world was asleep';
+    return `${g.attendeeIds?.length ?? 0} said they'd come`;
+};
 
 const upcomingColumns: ListViewColumn[] = [
     { key: 'title', header: 'Gathering', width: 'minmax(140px, 2fr)' },
@@ -47,7 +53,12 @@ const pastColumns: ListViewColumn[] = [
     { key: 'title', header: 'Gathering', width: 'minmax(140px, 2fr)' },
     { key: 'when', header: 'When', width: 'minmax(96px, auto)' },
     { key: 'where', header: 'Where', width: 'minmax(96px, 1fr)' },
-    { key: 'outcome', header: 'How it went', width: 'minmax(140px, 2fr)' },
+    {
+        key: 'outcome',
+        header: 'How it went',
+        width: 'minmax(140px, 2fr)',
+        wrap: true,
+    },
 ];
 
 const startsIn = (g: Gathering, now: number) => {
@@ -113,13 +124,14 @@ export default function CalendarApp() {
                         items={past.map((g) => ({
                             id: g.id ?? '',
                             label: `“${g.title}”`,
+                            tone:
+                                g.status === 'Cancelled'
+                                    ? ('caution' as const)
+                                    : undefined,
                             cells: {
                                 when: time(g.startsAt),
                                 where: whereOf(g),
-                                outcome:
-                                    g.status === 'Missed'
-                                        ? 'missed, the world was asleep'
-                                        : `${g.attendeeIds?.length ?? 0} said they'd come`,
+                                outcome: outcomeOf(g),
                             },
                         }))}
                     />
@@ -161,14 +173,11 @@ function Rsvp({ g, playerId }: { g: Gathering; playerId: string | null }) {
 function PlanForm({ playerId }: { playerId: string | null }) {
     const queryClient = useQueryClient();
     const ids = useId();
-    const rooms = (useGetPartyIdChatGroups(WORLD_ID).data?.data ?? []).filter(
-        (r) => r.kind !== 'dm' && r.kind !== 'place',
-    );
     const places = (
         useGetWorldsPartyIdPlaces(WORLD_ID).data?.data.places ?? []
     ).filter((p) => p.kind === 'public');
     const [title, setTitle] = useState('');
-    const [roomId, setRoomId] = useState('');
+    const [placeId, setPlaceId] = useState('');
     const [minutes, setMinutes] = useState('30');
     const plan = usePostWorldsPartyIdGatherings({
         mutation: {
@@ -180,7 +189,7 @@ function PlanForm({ playerId }: { playerId: string | null }) {
             },
         },
     });
-    const room = roomId || rooms[0]?.id || '';
+    const place = placeId || places[0]?.id || '';
     return (
         <Stack
             as="form"
@@ -190,18 +199,12 @@ function PlanForm({ playerId }: { playerId: string | null }) {
             gap="sm"
             onSubmit={(e) => {
                 e.preventDefault();
-                if (!title.trim() || !room) return;
-                const placeId = room.startsWith('place:')
-                    ? room.slice(6)
-                    : null;
+                if (!title.trim() || !place) return;
                 plan.mutate({
                     partyId: WORLD_ID,
                     data: {
                         title: title.trim(),
-                        roomId: placeId
-                            ? '00000000-0000-0000-0000-000000000000'
-                            : room,
-                        placeId,
+                        placeId: place,
                         startsAt:
                             Date.now() +
                             Math.max(1, Number(minutes) || 30) * 60000,
@@ -219,30 +222,22 @@ function PlanForm({ playerId }: { playerId: string | null }) {
                 placeholder="Movie night, storm stories, …"
                 onChange={(e) => setTitle(e.currentTarget.value)}
             />
-            <label htmlFor={`${ids}-r`}>in</label>
+            <label htmlFor={`${ids}-r`}>at</label>
             <ComboBox
                 id={`${ids}-r`}
-                value={room}
-                onChange={(e) => setRoomId(e.currentTarget.value)}
+                value={place}
+                disabled={places.length === 0}
+                onChange={(e) => setPlaceId(e.currentTarget.value)}
             >
-                {rooms.length > 0 ? (
-                    <optgroup label="Rooms">
-                        {rooms.map((r) => (
-                            <option key={r.id} value={r.id ?? ''}>
-                                #{r.name}
-                            </option>
-                        ))}
-                    </optgroup>
-                ) : null}
                 {places.length > 0 ? (
-                    <optgroup label="Places">
-                        {places.map((p) => (
-                            <option key={p.id} value={`place:${p.id}`}>
-                                {p.name}
-                            </option>
-                        ))}
-                    </optgroup>
-                ) : null}
+                    places.map((p) => (
+                        <option key={p.id} value={p.id ?? ''}>
+                            {p.name}
+                        </option>
+                    ))
+                ) : (
+                    <option value="">No public Places yet</option>
+                )}
             </ComboBox>
             <label htmlFor={`${ids}-m`}>starts in</label>
             <TextBox
@@ -257,7 +252,7 @@ function PlanForm({ playerId }: { playerId: string | null }) {
             <CommandButton
                 type="submit"
                 isDefault
-                disabled={!title.trim() || !room || plan.isPending}
+                disabled={!title.trim() || !place || plan.isPending}
             >
                 Plan it
             </CommandButton>

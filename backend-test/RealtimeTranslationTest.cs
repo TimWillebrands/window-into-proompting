@@ -23,6 +23,19 @@ public class RealtimeTranslationTest
     }
 
     [Fact]
+    public void ConversationChange_IsARoomFrame_WithTheConversation()
+    {
+        var group = new ChatGroupInfo { Id = Room, Kind = ChatGroupKinds.Group, MemberIds = new List<Guid> { Guid.NewGuid() } };
+
+        var frame = Assert.Single(RealtimeTranslation.Party(Party, new PartyStreamEvent { Type = "conversation", ChatGroupId = Room, Conversation = group }));
+
+        Assert.Equal("party.conversation", frame.Type);
+        var data = Assert.IsType<PartyConversationData>(frame.Data);
+        Assert.Same(group, data.Conversation);
+        Assert.IsAssignableFrom<IRoomFrame>(frame.Data);
+    }
+
+    [Fact]
     public void SkippedTurn_IsARoomFrame_SoADmsStaysPrivate()
     {
         var evt = new PartyStreamEvent { Type = "skippedTurn", ChatGroupId = Guid.NewGuid(), SkippedTurn = new PartyTown.Grains.SkippedTurn { Reason = "reflex: holding: finishing up first" } };

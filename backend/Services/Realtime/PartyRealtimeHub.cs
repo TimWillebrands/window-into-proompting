@@ -58,6 +58,7 @@ public sealed class PartyRealtimeHub(
 
     private async Task<Func<Viewer, bool>> AudienceAsync(Guid partyId, RealtimeFrame frame)
     {
+        if (frame.Data is PartyConversationData changed) roomMembers.TryRemove(changed.ChatGroupId, out _);
         var members = frame.Data is IRoomFrame room ? await PrivateMembersAsync(partyId, room.ChatGroupId) : null;
         var humans = frame.Data is PartyWorldEventData { Kind: "activity" } ? await HumansAsync(partyId) : NoHumans;
         return viewer => FeedPrivacy.CanSee(viewer, frame, members, humans);

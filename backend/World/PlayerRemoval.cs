@@ -16,7 +16,11 @@ public sealed class PlayerRemoval(IGrainFactory grains)
             if (group.Kind == ChatGroupKinds.Direct && group.MemberIds?.Contains(playerId) == true)
                 await party.RemoveChatGroup(group.Id);
             else
+            {
                 await RemoveMessagesAsync(group.Id, playerId);
+                if (group.Kind == ChatGroupKinds.Group && group.MemberIds?.Contains(playerId) == true)
+                    await party.SetGroupMembersAsync(group.Id, group.MemberIds.Where(id => id != playerId).ToList());
+            }
         }
 
         if (await party.RemoveParticipantAsync(playerId) is null) return false;

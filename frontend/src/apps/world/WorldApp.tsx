@@ -41,7 +41,7 @@ import type { WorldActivity } from '../../api/model/worldActivity';
 import type { WorldStatus } from '../../api/model/worldStatus';
 import Portrait from '../../components/Portrait';
 import {
-    useOpenDirectChat,
+    useOpenConversation,
     usePlayerId,
     usePlayerSession,
     WORLD_ID,
@@ -51,7 +51,7 @@ import { canMoveIn, useResidency } from '../personas/residence';
 type Meta = { icon: IconName; label: string };
 
 const APPS: Record<string, Meta> = {
-    rooms: { icon: 'chat-rooms', label: 'Rooms' },
+    rooms: { icon: 'chat-rooms', label: 'Groups' },
     messenger: { icon: 'messenger', label: 'Messenger' },
     board: { icon: 'board', label: 'Board' },
     diary: { icon: 'diary', label: 'Diary' },
@@ -816,7 +816,7 @@ function ActivityFeed({
     now: number;
 }) {
     const { openWindow, setWindowProps } = useDesktopContext();
-    const openDirectChat = useOpenDirectChat();
+    const openConversation = useOpenConversation();
     const activitiesQuery = useGetWorldsPartyIdActivities(
         WORLD_ID,
         { limit: 100, ...(filterId ? { personaId: filterId } : {}) },
@@ -841,20 +841,33 @@ function ActivityFeed({
             };
         }
         if (a.app === 'messenger' || a.app === 'memory') {
-            const dm = dms.find((d) => d.chatGroupId === target);
-            if (dm) return () => openDirectChat(dm.chatGroupId, dm.withName);
-            if (a.app !== 'messenger' || !a.withPersonaId) return null;
+            const known = dms.find((d) => d.chatGroupId === target);
+            if (known)
+                return () =>
+                    openConversation(known.chatGroupId, {
+                        name: known.withName,
+                    });
+            if (a.app !== 'messenger') return null;
+            const among = (a.among ?? []).filter((id) => id !== a.personaId);
+            if (among.length > 1 || a.action === 'group') {
+                const who = [a.personaId, ...among]
+                    .filter((id): id is string => !!id)
+                    .map((id) =>
+                        id === a.personaId
+                            ? (a.personaName ?? 'someone')
+                            : (nameById.get(id) ?? 'someone'),
+                    );
+                return () =>
+                    openConversation(target, {
+                        name: who.join(', '),
+                        group: true,
+                        spectate: true,
+                    });
+            }
+            if (!a.withPersonaId) return null;
             const pair = `${a.personaName} & ${nameById.get(a.withPersonaId) ?? 'someone'}`;
             return () =>
-                openWindow('messenger-chat', {
-                    instanceId: `dm-${target}`,
-                    title: `${pair} — Conversation`,
-                    props: {
-                        chatGroupId: target,
-                        withName: pair,
-                        spectate: true,
-                    },
-                });
+                openConversation(target, { name: pair, spectate: true });
         }
         return null;
     };

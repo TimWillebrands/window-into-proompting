@@ -97,7 +97,26 @@ export const storySelves: SelfSummary[] = [
     },
 ];
 
+const grace = { id: STORY_PLAYER, name: 'Grace', human: true };
+const ada = { id: 'persona-ada', name: 'Ada', human: false };
+const linus = { id: 'persona-linus', name: 'Linus', human: false };
+const hedy = { id: 'persona-hedy', name: 'Hedy', human: false };
+
+export const STORY_GROUP = 'group-picnic';
+
 export const storyChats: DirectChatSummary[] = [
+    {
+        chatGroupId: STORY_GROUP,
+        withId: '00000000-0000-0000-0000-000000000000',
+        withName: 'Grace, Ada, Linus and Hedy',
+        lastMessage: 'bring the good mugs <3',
+        lastSenderId: 'persona-linus',
+        lastAt: now - 120_000,
+        kind: 'room',
+        name: 'Grace, Ada, Linus and Hedy',
+        members: [grace, ada, linus, hedy],
+        createdBy: STORY_PLAYER,
+    },
     {
         chatGroupId: 'dm-ada',
         withId: 'persona-ada',
@@ -105,6 +124,9 @@ export const storyChats: DirectChatSummary[] = [
         lastMessage: 'are you around tonight? :)',
         lastSenderId: 'persona-ada',
         lastAt: now - 300_000,
+        kind: 'dm',
+        name: 'dm',
+        members: [grace, ada],
     },
     {
         chatGroupId: 'dm-linus',
@@ -113,6 +135,9 @@ export const storyChats: DirectChatSummary[] = [
         lastMessage: 'see you then',
         lastSenderId: STORY_PLAYER,
         lastAt: now - 86_400_000 * 2,
+        kind: 'dm',
+        name: 'dm',
+        members: [grace, linus],
     },
 ];
 

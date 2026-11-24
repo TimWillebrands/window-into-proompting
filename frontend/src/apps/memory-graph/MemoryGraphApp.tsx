@@ -406,9 +406,9 @@ function EmptyState() {
                 className="max-w-[360px]"
             >
                 <Text as="p" tone="muted">
-                    Chat in a room, then use “Remember” on a message. Captured
-                    moments show up here as a graph of people, memories and
-                    topics.
+                    When a conversation goes quiet, the people in it remember
+                    what mattered. Captured moments show up here as a graph of
+                    people, memories and topics.
                 </Text>
             </GroupBox>
         </Stack>

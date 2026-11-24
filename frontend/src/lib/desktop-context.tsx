@@ -38,6 +38,7 @@ interface DesktopStoreState {
         update: (prev: Record<string, unknown>) => Record<string, unknown>,
         opts?: DispatchOptions,
     ) => void;
+    setWindowTitle: (id: string, title: string, icon?: string) => void;
     toggleStartMenu: () => void;
     closeStartMenu: () => void;
 }
@@ -92,6 +93,10 @@ export const useDesktopStore = create<DesktopStoreState>((set, get) => {
             if (!window) return;
             dispatch(windowActions.setProps(id, update(window.props)), opts);
         },
+        setWindowTitle: (id, title, icon) =>
+            dispatch(windowActions.setTitle(id, title, icon), {
+                replace: true,
+            }),
         toggleStartMenu: () => dispatch(windowActions.startMenu()),
         closeStartMenu: () => dispatch(windowActions.startMenu(false)),
     };
@@ -114,6 +119,7 @@ export function useDesktopContext() {
     const focusWindow = useDesktopStore((state) => state.focusWindow);
     const closeWindow = useDesktopStore((state) => state.closeWindow);
     const setWindowProps = useDesktopStore((state) => state.setWindowProps);
+    const setWindowTitle = useDesktopStore((state) => state.setWindowTitle);
     const toggleStartMenu = useDesktopStore((state) => state.toggleStartMenu);
     const closeStartMenu = useDesktopStore((state) => state.closeStartMenu);
 
@@ -124,6 +130,7 @@ export function useDesktopContext() {
         focusWindow,
         closeWindow,
         setWindowProps,
+        setWindowTitle,
         toggleStartMenu,
         closeStartMenu,
     };

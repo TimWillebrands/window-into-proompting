@@ -12,7 +12,6 @@ import { Text } from '../../controls/Text/Text';
 import { UserPicture } from '../../controls/UserPicture/UserPicture';
 import { Icon } from '../../icons';
 import { ChatLog } from '../ChatLog/ChatLog';
-import { RichText } from '../RichText/RichText';
 import { ChatMessage } from './ChatMessage';
 
 const meta = {
@@ -52,12 +51,12 @@ export const Default: Story = {
                 picture={<UserPicture src={picture(210)} size={24} />}
                 actions={actions}
             >
-                <RichText>
+                <Text as="div" size="reading">
                     <p>
                         Has anyone seen the <strong>kettle</strong>? It was here
                         a minute ago.
                     </p>
-                </RichText>
+                </Text>
             </ChatMessage>
             <ChatMessage
                 sender="Grace (you)"
@@ -66,9 +65,9 @@ export const Default: Story = {
                 picture={<UserPicture src={picture(30)} size={24} />}
                 actions={actions}
             >
-                <RichText>
+                <Text as="div" size="reading">
                     <p>Check the cupboard by the window.</p>
-                </RichText>
+                </Text>
             </ChatMessage>
             <ChatMessage kind="emote" sender="Ada">
                 looks in the cupboard.
@@ -143,9 +142,9 @@ export const WithDetails: Story = {
                     </>
                 }
             >
-                <RichText>
+                <Text as="div" size="reading">
                     <p>It was by the window.</p>
-                </RichText>
+                </Text>
             </ChatMessage>
         </ChatLog>
     ),

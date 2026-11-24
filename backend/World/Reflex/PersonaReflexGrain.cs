@@ -322,11 +322,11 @@ public sealed class PersonaReflexGrain(
 
     private void Log(Percept p, CastMember self, string action, string summary)
     {
-        var app = p.Kind switch { PerceptKind.Direct => "messenger", PerceptKind.Line => "rooms", _ => "places" };
+        var app = p.Kind is PerceptKind.Direct or PerceptKind.Line ? "messenger" : "places";
         Spawn(() => Clock.RecordAsync(new WorldActivity
         {
             PersonaId = self.Id, PersonaName = self.Name, App = app, Action = action, Summary = summary,
-            TargetId = p.RoomId, WithPersonaId = p.Kind == PerceptKind.Direct ? p.FromId : null,
+            TargetId = p.RoomId, WithPersonaId = p.Kind is PerceptKind.Direct or PerceptKind.Line ? p.FromId : null,
         }), "log");
     }
 

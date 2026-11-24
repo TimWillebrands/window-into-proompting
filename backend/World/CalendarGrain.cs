@@ -6,11 +6,24 @@ public sealed class CalendarGrain(
     : Grain, ICalendarGrain
 {
     private const int MaxKept = 100;
+    public const string NoVenue = "it had no venue: gatherings happen at a Place";
+
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        var homeless = state.State.Gatherings.Where(g => g.Status == GatheringStatus.Planned && g.PlaceId is null).ToList();
+        foreach (var g in homeless)
+        {
+            g.Status = GatheringStatus.Cancelled;
+            g.CancelledBecause = NoVenue;
+        }
+        if (homeless.Count > 0) await state.WriteStateAsync();
+        await base.OnActivateAsync(cancellationToken);
+    }
 
     public Task<List<Gathering>> GetGatheringsAsync()
         => Task.FromResult(state.State.Gatherings.OrderBy(g => g.StartsAt).ToList());
 
-    public async Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid roomId, string roomName, long startsAt, Guid? placeId = null)
+    public async Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid placeId, string placeName, long startsAt)
     {
         var gathering = new Gathering
         {
@@ -18,8 +31,7 @@ public sealed class CalendarGrain(
             HostId = hostId,
             HostName = hostName,
             Title = WorldStream.Clip(title, 120),
-            RoomId = roomId,
-            RoomName = roomName,
+            RoomName = placeName,
             StartsAt = startsAt,
             AttendeeIds = new List<Guid> { hostId },
             PlaceId = placeId,
@@ -74,7 +86,7 @@ public sealed class CalendarGrain(
 public interface ICalendarGrain : IGrainWithGuidKey
 {
     [Alias("GetGatheringsAsync")] Task<List<Gathering>> GetGatheringsAsync();
-    [Alias("PlanAsync")] Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid roomId, string roomName, long startsAt, Guid? placeId = null);
+    [Alias("PlanAsync")] Task<Gathering> PlanAsync(Guid hostId, string hostName, string title, Guid placeId, string placeName, long startsAt);
     [Alias("RsvpAsync")] Task<Gathering?> RsvpAsync(Guid gatheringId, Guid personaId, bool going);
     [Alias("CancelAsync")] Task<bool> CancelAsync(Guid gatheringId);
     [Alias("StartDueAsync")] Task<List<Gathering>> StartDueAsync(long now);
@@ -94,6 +106,7 @@ public enum GatheringStatus
     Started = 1,
     Over = 2,
     Missed = 3,
+    Cancelled = 4,
 }
 
 public static class GatheringRules
@@ -132,6 +145,7 @@ public sealed class Gathering
     [Id(7)] public List<Guid> AttendeeIds { get; set; } = new();
     [Id(8)] public GatheringStatus Status { get; set; }
     [Id(9)] public Guid? PlaceId { get; set; }
+    [Id(10)] public string? CancelledBecause { get; set; }
 
-    public string Where => PlaceId is null ? $"in #{RoomName}" : $"at {RoomName}";
+    public string Where => $"at {RoomName}";
 }

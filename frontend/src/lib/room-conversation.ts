@@ -4,64 +4,6 @@ import type {
     RealtimeChatMessage,
 } from './room-state';
 
-export interface Appraisal {
-    personaId: string | null;
-    reason: string | null;
-    instruction: string | null;
-    stop: boolean;
-    raceCancelled: boolean;
-}
-
-export const parseAppraisal = (
-    raw: string | null | undefined,
-): Appraisal | null => {
-    if (!raw) return null;
-    try {
-        const o = JSON.parse(raw);
-        return {
-            personaId: o.personaId ?? o.PersonaId ?? null,
-            reason: o.reason ?? o.Reason ?? null,
-            instruction: o.instruction ?? o.Instruction ?? null,
-            stop: !!(o.stop ?? o.Stop),
-            raceCancelled: o.raceCancelled === true,
-        };
-    } catch {
-        return null;
-    }
-};
-
-export const pendingInstructionFor = (
-    messages: readonly RealtimeChatMessage[],
-    userPersonaId: string,
-): { instruction: string | null; reason: string | null } | null => {
-    if (!userPersonaId) return null;
-    let lastStop = -1;
-    let pending: Appraisal | null = null;
-    messages.forEach((m, i) => {
-        const a = parseAppraisal(m.appraisal);
-        if (a?.stop && a.personaId === userPersonaId) {
-            lastStop = i;
-            pending = a;
-        }
-    });
-    if (lastStop < 0 || !pending) return null;
-    if (messages.slice(lastStop + 1).some((m) => m.senderType === 'user'))
-        return null;
-    const { instruction, reason } = pending as Appraisal;
-    return { instruction, reason };
-};
-
-export const isShownInRoom = (
-    m: RealtimeChatMessage,
-    generating: boolean,
-    userPersonaId: string,
-): boolean => {
-    if (generating && !m.content && !m.error) return false;
-    if (m.content || m.error || !m.appraisal) return true;
-    const a = parseAppraisal(m.appraisal);
-    return !!a?.stop && a.personaId === userPersonaId;
-};
-
 export const isShownInMessenger = (m: RealtimeChatMessage): boolean =>
     !!m.content?.trim() || (!!m.error && m.senderType !== 'user');
 
@@ -106,3 +48,13 @@ export const typingState = (
         : phases.some((p) => p.phase === 'deciding')
           ? 'reading'
           : 'idle';
+
+export const typists = (phases: readonly ActiveGenerationPhase[]): string[] => [
+    ...new Set(
+        phases.flatMap((p) =>
+            p.phase === 'typing' || p.phase === 'streaming'
+                ? [p.personaName]
+                : [],
+        ),
+    ),
+];

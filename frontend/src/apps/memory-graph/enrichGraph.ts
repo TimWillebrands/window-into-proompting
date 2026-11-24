@@ -8,7 +8,7 @@ import type {
 } from './types';
 
 const SOURCE_LABEL: Record<string, string> = {
-    rooms: 'Room',
+    rooms: 'Group',
     messenger: 'DM',
     places: 'Place',
     board: 'Board',
@@ -23,7 +23,7 @@ const ROOM_KIND_SOURCE: Record<string, string> = {
 };
 
 export function sourceLabel(source: string | null | undefined): string {
-    return (source && SOURCE_LABEL[source]) ?? 'Room';
+    return (source && SOURCE_LABEL[source]) ?? 'Conversation';
 }
 
 export function enrichGraph(

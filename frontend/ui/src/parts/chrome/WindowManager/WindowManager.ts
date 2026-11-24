@@ -58,6 +58,7 @@ export type WindowAction =
       }
     | { type: 'snap'; id: string; edge: SnapEdge; area: WindowSize }
     | { type: 'setProps'; id: string; props: Record<string, unknown> }
+    | { type: 'setTitle'; id: string; title: string; icon?: string }
     | { type: 'startMenu'; open?: boolean };
 
 export const cascadeStep = 24;
@@ -355,6 +356,16 @@ export function windowReducer(
             if (!window || window.props === action.props) return state;
             return patch(state, action.id, { props: action.props });
         }
+        case 'setTitle': {
+            const window = state.windows[action.id];
+            const icon = action.icon ?? window?.icon;
+            if (
+                !window ||
+                (window.title === action.title && window.icon === icon)
+            )
+                return state;
+            return patch(state, action.id, { title: action.title, icon });
+        }
         case 'startMenu': {
             const open = action.open ?? !state.startMenuOpen;
             return open === state.startMenuOpen
@@ -395,6 +406,12 @@ export const windowActions = {
         type: 'setProps',
         id,
         props,
+    }),
+    setTitle: (id: string, title: string, icon?: string): WindowAction => ({
+        type: 'setTitle',
+        id,
+        title,
+        icon,
     }),
     startMenu: (open?: boolean): WindowAction => ({ type: 'startMenu', open }),
 };

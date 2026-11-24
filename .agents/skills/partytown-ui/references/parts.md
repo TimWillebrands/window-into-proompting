@@ -57,6 +57,7 @@ sets primitives (`--ui-p-*`) where the derivation gives its look and overrides s
 | `SwatchPicker` | A radio grid of colour swatches, with an optional "none" |
 | `Presence` | Online, away, busy or offline, as a dot or a Messenger buddy |
 | `UserPicture` | A framed user picture at a fixed size, with an optional presence badge |
+| `PictureStack` | A few user pictures overlapping, the first on top, with a `+n` for the rest (`max`, `size` 16, 24 or 32, a required `label` naming everyone). A group conversation's picture |
 | `FieldRow` | A label next to a control, aligned, with hint and error. `labelWidth`: `auto`, `compact`, or a CSS length |
 | `Icon` | `<Icon name size>`, real or pixel tier |
 
@@ -73,10 +74,10 @@ sets primitives (`--ui-p-*`) where the derivation gives its look and overrides s
 | `CategoryView` / `CategoryItem` | Control Panel's "Pick a category": big icon links with descriptions |
 | `ChatLog` | The scrolling log a conversation is read in: a reading-size `SunkenField` with `role="log"` and a keyboard stop |
 | `ChatMessage` | One message: sender, picture, time, actions, details, error. `say` or `emote`, `row` or `transcript` layout, own, toned, live and continued states, `colour` and `manner` |
-| `RichText` | Rendered formatted text (paragraphs, headings, lists, code) at reading size |
 | `Post` | A Board post: picture, title, meta, context, actions and replies, as a card or flat, regular or compact, unread and current states |
 | `Console` / `ConsoleLine` | Monospace output, a line at a time, with a prompt and a tone per line, always in Noir |
 | `ContactRow` | A person as a button row: picture, name, meta, details; selected, dimmed, unread and disabled. Toggle rows use `aria-pressed` |
+| `BuddyList` | Messenger's contact list: `ContactRow`s as options in collapsible groups (an `Expander` and a listbox each, `empty` text when a group has nobody), one selection across all of them (`selectionMode` `single` or `multiple`: Ctrl and Shift click, the arrows, Space, Ctrl+A), `onActivate` on double-click or Enter, `onItemContextMenu` on right-click, the Menu key or Shift+F10 (it selects the row first), `collapsed` groups |
 
 ## Surfaces (containers)
 
@@ -102,10 +103,12 @@ sets primitives (`--ui-p-*`) where the derivation gives its look and overrides s
 - `Hint` is `<Text as="p" tone="muted">`; `ReadingText` is `<Text size="reading">`.
 - `LogView` / `LogEntry` / `LogNote` are `ChatLog` with `ChatMessage layout="transcript"`, and a note is
   `<Text as="p" tone="muted" italic>` in the log.
-- `ReadingPane` and `ContactList` are `SunkenField` (`text="reading"` for a page).
+- `ReadingPane` and `ContactList` are `SunkenField` (`text="reading"` for a page); a list of people you pick from is a `BuddyList`.
+- `RichText` went with D'Accord, its only user: someone's words are `<Text size="reading">`.
 - Kept apart on purpose: `Meter` (a level, `role="meter"`) and `ProgressBar` (a task); `HudPanel` (docked to a canvas,
   no tail) and `Balloon` (points at an anchor); `Expander` (inside content) and `TaskPaneSection` (a blue pane box);
-  `ContactRow` (toggle buttons) and `ListView` (a listbox).
+  `ContactRow` (toggle buttons) and `ListView` (a listbox); `BuddyList` (contact rows in groups, for Messenger) and
+  `ListView` (items in views and columns).
 
 ## Not parts
 

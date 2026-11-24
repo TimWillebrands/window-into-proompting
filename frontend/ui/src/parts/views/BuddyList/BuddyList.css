@@ -1,0 +1,55 @@
+@layer ui {
+    .ui-buddy-list {
+        display: grid;
+        align-content: start;
+        gap: var(--ui-space-2);
+        min-width: 0;
+    }
+
+    .ui-buddy-list-group {
+        display: grid;
+        min-width: 0;
+    }
+
+    .ui-buddy-list-item {
+        padding-inline-start: var(--ui-space-6);
+        cursor: default;
+        user-select: none;
+    }
+
+    .ui-buddy-list-item:focus-visible {
+        outline-offset: -2px;
+    }
+
+    .ui-buddy-list-item:hover:not([aria-disabled="true"]):not([data-selected]),
+    .ui-buddy-list-item[data-ui-preview~="hover"] {
+        border-color: color-mix(
+            in oklab,
+            var(--ui-select) 40%,
+            var(--ui-field)
+        );
+        background: color-mix(in oklab, var(--ui-select) 10%, var(--ui-field));
+    }
+
+    .ui-buddy-list-item[data-selected]:not([data-unread]) .ui-contact-row-name {
+        font-weight: inherit;
+    }
+
+    .ui-buddy-list-item[aria-disabled="true"] {
+        cursor: progress;
+        opacity: 0.6;
+    }
+
+    .ui-buddy-list-empty {
+        padding: var(--ui-space-1) var(--ui-space-6);
+        color: var(--ui-text-muted);
+        font-style: italic;
+    }
+}
+
+@layer ui {
+    .ui-buddy-list-item[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: -2px;
+    }
+}

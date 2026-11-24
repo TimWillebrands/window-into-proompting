@@ -52,42 +52,23 @@ public class ChatGroupGrainTest
     }
 
     [Fact]
-    public void Apply_InitializedEvent_PopulatesScenarioWhenProvided()
+    public void Apply_LegacyScenarioEvents_AreNoOps()
     {
+        var existing = Guid.NewGuid();
         var state = new ChatGroupState();
         state.Apply(new ChatGroupInitializedEvent
         {
             PartyId = _partyId,
-            ParticipantIds = new HashSet<Guid>(),
+            ParticipantIds = new HashSet<Guid> { existing },
             Scenario = "Office of a stealth horticulture startup."
         });
 
-        Assert.Equal("Office of a stealth horticulture startup.", state.Scenario);
-    }
-
-    [Fact]
-    public void Apply_ScenarioSetEvent_UpdatesOnlyScenario()
-    {
-        var existing = Guid.NewGuid();
-        var state = NewState([existing]);
         state.Apply(new ChatGroupScenarioSetEvent { Scenario = "After-hours bar." });
 
-        Assert.Equal("After-hours bar.", state.Scenario);
-        Assert.Equal(_partyId, state.PartyId);
-        Assert.Single(state.ParticipantIds);
-        Assert.Contains(existing, state.ParticipantIds);
-    }
-
-    [Fact]
-    public void Apply_ScenarioSetEvent_NullClearsExistingScenario()
-    {
-        var state = NewState();
-        state.Apply(new ChatGroupScenarioSetEvent { Scenario = "Previous setting." });
-        Assert.Equal("Previous setting.", state.Scenario);
-
-        state.Apply(new ChatGroupScenarioSetEvent { Scenario = null });
-
         Assert.Null(state.Scenario);
+        Assert.True(state.Initialized);
+        Assert.Equal(_partyId, state.PartyId);
+        Assert.Equal(new[] { existing }, state.ParticipantIds.ToArray());
     }
 
     [Fact]
@@ -289,50 +270,44 @@ public class ChatGroupGrainTest
     }
 
     [Fact]
-    public void Apply_DriverOverrideSet_AddsEntryToMap()
-    {
-        var personaId = Guid.NewGuid();
-        var state = NewState([personaId]);
-
-        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = personaId, Kind = DriverKind.User });
-
-        Assert.Single(state.DriverOverrides);
-        Assert.Equal(DriverKind.User, state.DriverOverrides[personaId]);
-    }
-
-    [Fact]
-    public void Apply_DriverOverrideSet_TwiceOnSamePersona_OverwritesValue()
-    {
-        var personaId = Guid.NewGuid();
-        var state = NewState([personaId]);
-
-        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = personaId, Kind = DriverKind.User });
-        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = personaId, Kind = DriverKind.LLM });
-
-        Assert.Equal(DriverKind.LLM, state.DriverOverrides[personaId]);
-    }
-
-    [Fact]
-    public void Apply_DriverOverrideCleared_RemovesEntry()
+    public void Apply_LegacyDriverOverrideEvents_AreNoOps()
     {
         var a = Guid.NewGuid();
         var b = Guid.NewGuid();
         var state = NewState([a, b]);
-        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = a, Kind = DriverKind.User });
-        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = b, Kind = DriverKind.User });
 
+        state.Apply(new ChatGroupDriverOverrideSetEvent { PersonaId = a, Kind = DriverKind.User });
+        state.Apply(new ChatGroupDriverOverridesReplacedEvent { Overrides = new Dictionary<Guid, DriverKind> { [b] = DriverKind.User } });
         state.Apply(new ChatGroupDriverOverrideClearedEvent { PersonaId = a });
 
-        Assert.Single(state.DriverOverrides);
-        Assert.False(state.DriverOverrides.ContainsKey(a));
-        Assert.Equal(DriverKind.User, state.DriverOverrides[b]);
+        Assert.Empty(state.DriverOverrides);
+        Assert.Equal(2, state.ParticipantIds.Count);
     }
 
     [Fact]
-    public void Apply_DriverOverrideCleared_OnUnknownPersona_IsNoOp()
+    public void Replay_HistoryWithLegacyEvents_StillBuildsTheConversation()
     {
-        var state = NewState();
-        state.Apply(new ChatGroupDriverOverrideClearedEvent { PersonaId = Guid.NewGuid() });
+        var alice = Guid.NewGuid();
+        var bob = Guid.NewGuid();
+        var history = new List<ChatGroupEvent>
+        {
+            new ChatGroupInitializedEvent { PartyId = _partyId, ParticipantIds = new HashSet<Guid> { alice, bob }, Scenario = "A bar." },
+            new ChatGroupScenarioSetEvent { Scenario = "A rooftop." },
+            new ChatGroupDriverOverrideSetEvent { PersonaId = bob, Kind = DriverKind.User },
+            new ChatGroupMessageSlotReservedEvent { ChatGroupId = _chatGroupId, SenderId = alice, SenderType = "user" },
+            new ChatGroupUserMessageEvent { SenderId = alice, Message = new ChatMessage { MessageId = 1, ChatGroupId = _chatGroupId, SenderId = alice, SenderType = "user", Content = "hi" } },
+            new ChatGroupDriverOverridesReplacedEvent { Overrides = new Dictionary<Guid, DriverKind> { [alice] = DriverKind.LLM } },
+            new ChatGroupMessageSlotReservedEvent { ChatGroupId = _chatGroupId, SenderId = bob },
+            new ChatGroupGenerationCompletedEvent { MessageId = 2, SenderId = bob, Content = "hey" },
+            new ChatGroupDriverOverrideClearedEvent { PersonaId = bob },
+        };
+
+        var state = new ChatGroupState();
+        foreach (var e in history) ((dynamic)state).Apply((dynamic)e);
+
+        Assert.Equal(new[] { "hi", "hey" }, state.Messages.Select(m => m.Content).ToArray());
+        Assert.Equal(2, state.NextMessageId);
+        Assert.Null(state.Scenario);
         Assert.Empty(state.DriverOverrides);
     }
 

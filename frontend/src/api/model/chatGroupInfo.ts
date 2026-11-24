@@ -15,4 +15,6 @@ export interface ChatGroupInfo {
     kind?: string;
     /** @nullable */
     memberIds?: string[] | null;
+    /** @nullable */
+    createdBy?: string | null;
 }

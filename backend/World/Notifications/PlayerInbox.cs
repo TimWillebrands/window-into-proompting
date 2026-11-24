@@ -24,6 +24,10 @@ public sealed class PlayerInbox(IGrainFactory grains)
             .Where(g => g.Kind == ChatGroupKinds.Direct && g.MemberIds?.Contains(playerId) == true && g.MemberIds.Any(id => id != playerId))
             .ToList();
         var recent = await Task.WhenAll(dms.Select(dm => grains.GetGrain<IChatGroupGrain>(dm.Id).GetRecentMessagesAsync(DmLookback)));
+        var groups = (await party.GetChatGroups())
+            .Where(g => g.Kind == ChatGroupKinds.Group && g.MemberIds?.Contains(playerId) == true)
+            .ToList();
+        var groupRecent = await Task.WhenAll(groups.Select(g => grains.GetGrain<IChatGroupGrain>(g.Id).GetRecentMessagesAsync(DmLookback)));
 
         var all = new List<PlayerNotification>();
         all.AddRange(Inbox.FromBoard(await boardTask, playerId, selfName, since));
@@ -36,6 +40,9 @@ public sealed class PlayerInbox(IGrainFactory grains)
             if (Inbox.FromDm(new DmWaiting(dms[i].Id, other, names.GetValueOrDefault(other, "Someone"), recent[i]), playerId, since) is { } n)
                 all.Add(n);
         }
+        for (var i = 0; i < groups.Count; i++)
+            if (Inbox.FromGroup(new GroupWaiting(groups[i].Id, groups[i].Name, groupRecent[i]), playerId, since, id => names.GetValueOrDefault(id, "Someone")) is { } n)
+                all.Add(n);
 
         return Inbox.Feed(all, await readTask);
     }

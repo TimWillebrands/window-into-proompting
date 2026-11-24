@@ -235,7 +235,7 @@ public sealed class PersonaLifeGrain(
             if (outcome is not null) await TellAsync(ctx.PartyId, personaId, picked.Label);
             return outcome is null
                 ? (Activity(personaId, self.Name, app.Id, "fizzle", $"meant to: {picked.Label}", thought), false)
-                : (Activity(personaId, self.Name, app.Id, outcome.Action, outcome.Summary, thought, outcome.TargetId, outcome.WithPersonaId, picked.Key), outcome.Looked);
+                : (Activity(personaId, self.Name, app.Id, outcome.Action, outcome.Summary, thought, outcome.TargetId, outcome.WithPersonaId, picked.Key, outcome.Among), outcome.Looked);
         }
         catch (Exception ex)
         {
@@ -383,11 +383,12 @@ public sealed class PersonaLifeGrain(
     }
 
     private static WorldActivity Activity(Guid personaId, string name, string app, string action, string summary,
-        string? thought = null, Guid? target = null, Guid? with = null, string? affordance = null)
+        string? thought = null, Guid? target = null, Guid? with = null, string? affordance = null, IReadOnlyList<Guid>? among = null)
         => new()
         {
             PersonaId = personaId, PersonaName = name, App = app, Action = action,
             Summary = summary, Thought = thought, TargetId = target, WithPersonaId = with, Affordance = affordance,
+            Among = among?.ToList(),
         };
 }
 
