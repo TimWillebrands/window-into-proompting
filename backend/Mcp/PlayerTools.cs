@@ -54,14 +54,14 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
             .ToList();
     });
 
-    [McpServerTool(Name = "get_place", ReadOnly = true), Description("A Place by id: spots, things (with ids and tiles for arranging), colours and the tile map.")]
+    [McpServerTool(Name = "get_place", ReadOnly = true), Description("A Place by id: spots, things (with ids and tiles for arranging), colours, the tile map and a plan of what stands where (props lettered, spots numbered): keep things off taken tiles.")]
     public Task<PlaceView> GetPlaceAsync([Description("Place id from list_places.")] Guid placeId) => Guard(async () =>
     {
         var snapshot = await Places.GetSnapshotAsync();
         return PlaceView.Of(snapshot.Places.FirstOrDefault(p => p.Id == placeId) ?? throw new McpException("No such Place."), snapshot);
     });
 
-    [McpServerTool(Name = "get_home", ReadOnly = true), Description("Their Home: name, spots, things (with ids and tiles for arranging), colours and the tile map.")]
+    [McpServerTool(Name = "get_home", ReadOnly = true), Description("Their Home: name, spots, things (with ids and tiles for arranging), colours, the tile map and a plan of what stands where (props lettered, spots numbered): keep things off taken tiles.")]
     public Task<PlaceView> GetHomeAsync(ClaimsPrincipal user, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
     {
         var who = await ReadAsync(user, participantId);
@@ -336,7 +336,7 @@ public sealed record HomeThing(string Id, string Kind, string Name, string SpotI
 
 public sealed record PlaceRow(Guid Id, string Name, string Kind, string? Purpose, List<string> People);
 
-public sealed record PlaceView(Guid Id, string Name, string Kind, string Description, string? Purpose, List<string> LivingHere, List<string> Staff, List<Spot> Spots, List<HomeThing> Things, string? WallColour, string? FloorColour, List<string> Map)
+public sealed record PlaceView(Guid Id, string Name, string Kind, string Description, string? Purpose, List<string> LivingHere, List<string> Staff, List<Spot> Spots, List<HomeThing> Things, string? WallColour, string? FloorColour, List<string> Map, string? Plan)
 {
     public static PlaceView Of(Place home, PlacesSnapshot snapshot) => new(
         home.Id, home.Name, home.Kind, home.Description, home.Purpose,
@@ -347,5 +347,6 @@ public sealed record PlaceView(Guid Id, string Name, string Kind, string Descrip
             f.Gives is not null ? f.UseLabel : null,
             f.Leaves && f.Takes.Count > 0 ? f.Takes.TakeLast(4).Select(t => $"{t.ByName}: {t.Text}").ToList() : null)).ToList(),
         home.WallColour, home.FloorColour,
-        PlaceDesign.MapRows(home.CustomScene));
+        PlaceDesign.MapRows(home.CustomScene),
+        PlaceDesign.Plan(home.CustomScene, home.Spots));
 }

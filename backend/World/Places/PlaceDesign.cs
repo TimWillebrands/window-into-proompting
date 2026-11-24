@@ -77,6 +77,13 @@ public static partial class PlaceDesign
     public static List<string> MapRows(string? stored)
         => stored is null ? new List<string>() : Rows(JsonNode.Parse(stored)?["map"]) ?? new List<string>();
 
+    public static string? Plan(string? stored, IReadOnlyList<Spot> spots)
+    {
+        if (stored is null || JsonNode.Parse(stored) is not JsonObject scene) return null;
+        var plan = Preview(scene, spots, OwnModels(scene, new List<string>(), new List<string>()));
+        return plan.Length > 0 ? plan : null;
+    }
+
     public static List<string>? Rows(JsonNode? map)
     {
         var rows = map switch
