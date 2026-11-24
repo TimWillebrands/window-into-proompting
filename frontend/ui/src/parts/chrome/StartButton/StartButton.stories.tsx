@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
-import { Icon } from '../../icons';
 import {
     noir,
     preview,
@@ -38,10 +37,6 @@ export const Focus: Story = { play: preview('.ui-start-button', 'focus') };
 export const Pressed: Story = { play: preview('.ui-start-button', 'active') };
 
 export const Disabled: Story = { args: { disabled: true } };
-
-export const WithIcon: Story = {
-    args: { icon: <Icon name="computer" size={16} /> },
-};
 
 export const AllStates: Story = {
     decorators: [(Story) => <Story />],

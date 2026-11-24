@@ -1,14 +1,11 @@
-import type { ComponentPropsWithRef, ReactNode } from 'react';
-import { Icon } from '../../icons';
+import type { ComponentPropsWithRef } from 'react';
 
 export type StartButtonProps = ComponentPropsWithRef<'button'> & {
     open?: boolean;
-    icon?: ReactNode;
 };
 
 export function StartButton({
     open = false,
-    icon = <Icon name="start" />,
     className,
     children = 'start',
     ...rest
@@ -25,11 +22,6 @@ export function StartButton({
             aria-expanded={open}
             {...rest}
         >
-            {icon && (
-                <span className="ui-start-button-icon" aria-hidden="true">
-                    {icon}
-                </span>
-            )}
             <span className="ui-start-button-label">{children}</span>
         </button>
     );

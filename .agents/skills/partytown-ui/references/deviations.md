@@ -20,7 +20,6 @@ intended and anything not listed is a bug. A new departure is added here in the 
 | Reduce Motion keeps a very quick crossfade | A state change has to read, even at its most reduced | Tokens only |
 | Noir dark scheme | Dark mode. After Royale Noir, an unreleased XP style | Keeps the severity code and Luna's shapes |
 | Pixel icons from emoji | Enough icons, fast, until real art lands | Through `<Icon>` only. Real art replaces them by name |
-| Our own four-colour flag on Start | XP's waving flag is recognisable; Microsoft's logo isn't ours to copy | The `start` icon, drawn in `tools/icons/glyphs/start.svg` |
 | Self-hosted Wine Tahoma | Tahoma is missing on Linux and mobile | Fallback after a system Tahoma |
 | Content emoji in one emoji font | The same look on every platform | Content only, never chrome |
 | Light halo on dark pixel icons | Near-black glyphs (check, add, close…) vanished on the Noir face | Added by `tools/icons/` only to icons whose mean luminance is very low: a 1px light ring at low alpha, next to dark pixels only. Nearly invisible on Luna |
