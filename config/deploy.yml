@@ -39,6 +39,7 @@ env:
     Cdu__Url: http://proompting-cdu:8790
     Mcp__Resource: https://proompting.party/api/mcp
     Mcp__AuthorizationServer: https://clerk.proompting.party
+    Render__BaseUrl: https://proompting.party
   secret:
     - POSTGRES_PASSWORD
     - OPENROUTER_API_KEY
@@ -46,6 +47,8 @@ env:
     - ConnectionStrings__Default
     - POSTHOG_PROJECT_TOKEN
     - Cdu__Token:CDU_TOKEN
+    - Render__AccountId:CLOUDFLARE_ACCOUNT_ID
+    - Render__ApiToken:CLOUDFLARE_RENDER_TOKEN
 
 accessories:
   age-db:

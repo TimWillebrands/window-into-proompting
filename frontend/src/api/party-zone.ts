@@ -92,6 +92,7 @@ import type {
     PartyInfo,
     Persona,
     PersonaRoute,
+    Place,
     PlaceAccessRequest,
     PlaceStyleRequest,
     PlacesSnapshot,
@@ -23343,6 +23344,350 @@ export const useDeleteWorldsPartyIdRelationsRelationId = <
         queryClient,
     );
 };
+
+export type getRenderDraftsKeyResponse200TextPlain = {
+    data: Place;
+    status: 200;
+};
+
+export type getRenderDraftsKeyResponse200ApplicationJson = {
+    data: Place;
+    status: 200;
+};
+
+export type getRenderDraftsKeyResponse200TextJson = {
+    data: Place;
+    status: 200;
+};
+
+export type getRenderDraftsKeyResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type getRenderDraftsKeyResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type getRenderDraftsKeyResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type getRenderDraftsKeyResponseSuccess = (
+    | getRenderDraftsKeyResponse200TextPlain
+    | getRenderDraftsKeyResponse200ApplicationJson
+    | getRenderDraftsKeyResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type getRenderDraftsKeyResponseError = (
+    | getRenderDraftsKeyResponse404TextPlain
+    | getRenderDraftsKeyResponse404ApplicationJson
+    | getRenderDraftsKeyResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type getRenderDraftsKeyResponse =
+    | getRenderDraftsKeyResponseSuccess
+    | getRenderDraftsKeyResponseError;
+
+export const getGetRenderDraftsKeyUrl = (key: string) => {
+    return `/api/render/drafts/${key}`;
+};
+
+export const getRenderDraftsKey = async (
+    key: string,
+    options?: RequestInit,
+): Promise<getRenderDraftsKeyResponse> => {
+    return customFetch<getRenderDraftsKeyResponse>(
+        getGetRenderDraftsKeyUrl(key),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetRenderDraftsKeyQueryKey = (key: string) => {
+    return [`/api/render/drafts/${key}`] as const;
+};
+
+export const getGetRenderDraftsKeyQueryOptions = <
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetRenderDraftsKeyQueryKey(key);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getRenderDraftsKey>>
+    > = ({ signal }) => getRenderDraftsKey(key, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!key,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getRenderDraftsKey>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetRenderDraftsKeyQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getRenderDraftsKey>>
+>;
+export type GetRenderDraftsKeyQueryError = ProblemDetails;
+
+export function useGetRenderDraftsKey<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                    TError,
+                    Awaited<ReturnType<typeof getRenderDraftsKey>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRenderDraftsKey<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                    TError,
+                    Awaited<ReturnType<typeof getRenderDraftsKey>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRenderDraftsKey<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetRenderDraftsKey<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetRenderDraftsKeyQueryOptions(key, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetRenderDraftsKeySuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetRenderDraftsKeyQueryKey(key);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getRenderDraftsKey>>
+    > = ({ signal }) => getRenderDraftsKey(key, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getRenderDraftsKey>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetRenderDraftsKeySuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getRenderDraftsKey>>
+>;
+export type GetRenderDraftsKeySuspenseQueryError = ProblemDetails;
+
+export function useGetRenderDraftsKeySuspense<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRenderDraftsKeySuspense<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRenderDraftsKeySuspense<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetRenderDraftsKeySuspense<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetRenderDraftsKeySuspenseQueryOptions(
+        key,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
 
 export type getWorldsPartyIdSelvesResponse200TextPlain = {
     data: SelfSummary[];

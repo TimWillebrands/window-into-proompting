@@ -32,6 +32,11 @@ builder.Services.AddControllers(o =>
 builder.Services.AddClerkAuth(builder.Configuration);
 builder.Services.AddPartyMcp();
 builder.Services.AddHttpClient();
+builder.Services.Configure<PartyTown.Services.Render.RenderOptions>(builder.Configuration.GetSection("Render"));
+#pragma warning disable EXTEXP0001
+builder.Services.AddHttpClient(PartyTown.Services.Render.PlaceRenderer.ClientName, c => c.Timeout = TimeSpan.FromSeconds(28)).RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<PartyTown.Services.Render.PlaceRenderer>();
 builder.AddPostHogAnalytics();
 builder.Services.AddSingleton<IAiObservabilityCapture, AiObservabilityCapture>();
 builder.Services.AddSingleton<IPartyRealtimeHub, PartyRealtimeHub>();

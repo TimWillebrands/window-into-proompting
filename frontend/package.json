@@ -28,6 +28,7 @@
         "dev": "vite dev",
         "build": "vite build",
         "preview": "vite preview",
+        "render:dev": "node render/dev.mjs",
         "test": "vitest run && node --test ../tools/lint/*.test.mjs",
         "format": "biome format --write",
         "lint": "biome lint --write",
@@ -82,6 +83,7 @@
         "@types/three": "0.182.0",
         "@vitejs/plugin-react": "^6.0.1",
         "orval": "^8.5.3",
+        "playwright": "^1.65.1",
         "storybook": "^10.3.5",
         "typescript": "^5.7.2",
         "vitest": "^3.0.0"

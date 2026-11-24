@@ -6,6 +6,7 @@ import {
     HeadContent,
     Outlet,
     Scripts,
+    useLocation,
 } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import type { ReactNode } from 'react';
@@ -29,19 +30,27 @@ function RootComponent() {
     useEffect(() => {
         void useThemeStore.persist.rehydrate();
     }, []);
+    const bare = useLocation({
+        select: (l) => l.pathname.startsWith('/render/'),
+    });
     return (
-        <RootDocument>
+        <RootDocument bare={bare}>
             <Suspense>
                 <Outlet />
             </Suspense>
-            <CSSIsolation>
-                <TanStackRouterDevtools position="top-right" />
-            </CSSIsolation>
+            {bare ? null : (
+                <CSSIsolation>
+                    <TanStackRouterDevtools position="top-right" />
+                </CSSIsolation>
+            )}
         </RootDocument>
     );
 }
 
-function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+function RootDocument({
+    children,
+    bare,
+}: Readonly<{ children: ReactNode; bare: boolean }>) {
     return (
         <html lang="en" suppressHydrationWarning>
             <head>
@@ -53,7 +62,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
             </head>
             <body className="min-h-screen">
                 <ClerkProvider>{children}</ClerkProvider>
-                <CookieBalloon />
+                {bare ? null : <CookieBalloon />}
                 <Scripts />
             </body>
         </html>
