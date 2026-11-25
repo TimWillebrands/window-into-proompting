@@ -9449,10 +9449,9 @@
           "awake",
           "hearing",
           "model",
-          "trunkHead",
           "trunk",
           "pr",
-          "resets",
+          "verdict",
           "allowance",
           "exchanges",
           "models"
@@ -9480,14 +9479,11 @@
               "string"
             ]
           },
-          "trunkHead": {
+          "trunk": {
             "type": [
               "null",
-              "string"
-            ]
-          },
-          "trunk": {
-            "type": "array",
+              "array"
+            ],
             "items": {
               "$ref": "#/components/schemas/CduCommitSummary"
             }
@@ -9502,11 +9498,15 @@
               }
             ]
           },
-          "resets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CduResetSummary"
-            }
+          "verdict": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CduVerdictSummary"
+              }
+            ]
           },
           "allowance": {
             "oneOf": [
@@ -9538,7 +9538,8 @@
           "url",
           "title",
           "state",
-          "checks"
+          "checks",
+          "conflicts"
         ],
         "type": "object",
         "properties": {
@@ -9561,14 +9562,16 @@
           },
           "checks": {
             "type": "string"
+          },
+          "conflicts": {
+            "type": "boolean"
           }
         }
       },
-      "CduResetSummary": {
+      "CduVerdictSummary": {
         "required": [
           "pr",
           "state",
-          "actor",
           "at"
         ],
         "type": "object",
@@ -9583,12 +9586,6 @@
           },
           "state": {
             "type": "string"
-          },
-          "actor": {
-            "type": [
-              "null",
-              "string"
-            ]
           },
           "at": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",

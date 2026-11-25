@@ -9,8 +9,8 @@ import {
     money,
     prLine,
     resetLine,
-    reviewWord,
     shortSha,
+    verdictLine,
 } from './cdu-lib';
 
 const exchange = (over: Partial<CduExchangeSummary>): CduExchangeSummary => ({
@@ -74,6 +74,7 @@ describe('words', () => {
                 title: 't',
                 state: 'OPEN',
                 checks: 'failing',
+                conflicts: false,
             }),
         ).toBe('#3 open, checks fail');
         expect(
@@ -83,8 +84,19 @@ describe('words', () => {
                 title: 't',
                 state: 'MERGED',
                 checks: 'none',
+                conflicts: false,
             }),
         ).toBe('#4 merged, no checks yet');
+        expect(
+            prLine({
+                number: 12,
+                url: 'u',
+                title: 't',
+                state: 'OPEN',
+                checks: 'passing',
+                conflicts: true,
+            }),
+        ).toBe('#12 open, checks pass, conflicts with master');
     });
 
     it('says where an exchange stands', () => {
@@ -134,11 +146,12 @@ describe('words', () => {
         expect(resetLine(1765050986000)).toBe('2025-12-06 19:56 UTC');
     });
 
-    it('words the review decision per PR state', () => {
-        expect(reviewWord('OPEN')).toBe('awaiting review');
-        expect(reviewWord('MERGED')).toBe('review decided: merged');
-        expect(reviewWord('CLOSED')).toBe(
-            'review decided: closed without merging',
+    it('words the last verdict', () => {
+        expect(
+            verdictLine({ pr: 126, state: 'MERGED', at: 1765050986000 }),
+        ).toBe('Last verdict: #126 merged, 2025-12-06 19:56 UTC');
+        expect(verdictLine({ pr: 127, state: 'CLOSED', at: 0 })).toBe(
+            'Last verdict: #127 closed without merging, 1970-01-01 00:00 UTC',
         );
     });
 });

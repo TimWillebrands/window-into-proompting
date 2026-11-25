@@ -9,7 +9,7 @@ public sealed record CduSpeaker(string Id, string Name);
 
 public sealed record CduCommit(string Sha, string Subject, string Author);
 
-public sealed record CduPr(int Number, string Url, string Title, string State, string Head, string Checks);
+public sealed record CduPr(int Number, string Url, string Title, string State, string Head, string Checks, bool Conflicts = false);
 
 public sealed record CduAllowance(double Usd, double CapUsd);
 
@@ -21,7 +21,7 @@ public sealed record CduTurn(
     string Id, CduSpeaker From, string Text, string Kind, string Status, long At, long? DoneAt,
     string? Reply, bool? Asked, List<CduCommit> Commits, double? Usd, string? Error);
 
-public sealed record CduReset(int Pr, string State, string? Actor, long At);
+public sealed record CduReset(int Pr, string State, long At);
 
 public sealed record CduStatus(
     bool Awake, string? Hearing, int Queued, string Model, CduTrunk? Trunk, CduPr? Pr, CduAllowance? Allowance,

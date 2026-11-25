@@ -5,12 +5,10 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface CduResetSummary {
+export interface CduVerdictSummary {
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     pr: number | string;
     state: string;
-    /** @nullable */
-    actor: string | null;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     at: number | string;
 }

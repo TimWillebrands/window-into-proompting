@@ -156,14 +156,32 @@ test('a reset leaves a reset-event record in state.json', async () => {
     await done(s.cdu, s.cdu.talk(denise, 'make a'));
     await s.cdu.tideOut();
     await s.merge('cdu/tide');
-    s.github.judge(1, 'MERGED', 'TimWillebrands');
+    s.github.judge(1, 'MERGED');
     await s.cdu.watch();
     const state = JSON.parse(readFileSync(statePath, 'utf8'));
     assert.equal(state.resets.length, 1);
     assert.equal(state.resets[0].pr, 1);
     assert.equal(state.resets[0].state, 'MERGED');
-    assert.equal(state.resets[0].actor, 'TimWillebrands');
     assert.equal(typeof state.resets[0].at, 'number');
+});
+
+test('only the latest resets are kept', async () => {
+    const statePath = path.join((await import('node:os')).tmpdir(), `state-kept-${Date.now()}.json`);
+    writeFileSync(statePath, JSON.stringify({ resets: Array.from({ length: 10 }, (_, i) => ({ pr: 100 + i, state: 'MERGED', at: i })) }));
+    const s = await setup(statePath);
+    s.mind.next = async (repo) => {
+        writeFileSync(path.join(repo, 'a.txt'), 'a');
+        await git(repo, 'add', '-A');
+        await must('git', ['-C', repo, 'commit', '-q', '-m', 'feat: a']);
+        return 'ok';
+    };
+    await done(s.cdu, s.cdu.talk(denise, 'make a'));
+    await s.cdu.tideOut();
+    s.github.judge(1, 'CLOSED');
+    await s.cdu.watch();
+    const { resets } = await s.cdu.status();
+    assert.equal(resets.length, 10);
+    assert.deepEqual([resets[0].pr, resets[9].pr, resets[9].state], [101, 1, 'CLOSED']);
 });
 
 test('checks are told once per head commit', async () => {

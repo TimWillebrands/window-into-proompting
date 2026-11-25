@@ -50,7 +50,6 @@ export interface Allowance {
 export interface ResetEvent {
     pr: number;
     state: 'MERGED' | 'CLOSED';
-    actor: string | null;
     at: number;
 }
 
@@ -83,6 +82,7 @@ export class Store {
 }
 
 const KeptTurns = 50;
+const KeptResets = 10;
 const MaxText = 4000;
 
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
@@ -271,7 +271,8 @@ export class Cdu {
         this.state.notes.push(fact);
         this.state.seen = null;
         this.state.checked = null;
-        this.state.resets.push({ pr: pr.number, state: verdict.kind === 'merged' ? 'MERGED' : 'CLOSED', actor: pr.actor ?? null, at: this.now() });
+        this.state.resets.push({ pr: pr.number, state: verdict.kind === 'merged' ? 'MERGED' : 'CLOSED', at: this.now() });
+        this.state.resets.splice(0, Math.max(0, this.state.resets.length - KeptResets));
         this.news.push(verdict.kind, pr.title, { number: pr.number, url: pr.url, tag: verdict.tag ?? null });
         this.store.save();
         return true;

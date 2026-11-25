@@ -9,7 +9,7 @@ import type { CduCommitSummary } from './cduCommitSummary';
 import type { CduExchangeSummary } from './cduExchangeSummary';
 import type { CduModelSummary } from './cduModelSummary';
 import type { CduPrSummary } from './cduPrSummary';
-import type { CduResetSummary } from './cduResetSummary';
+import type { CduVerdictSummary } from './cduVerdictSummary';
 
 export interface CduOverview {
     enabled: boolean;
@@ -20,10 +20,9 @@ export interface CduOverview {
     /** @nullable */
     model: string | null;
     /** @nullable */
-    trunkHead: string | null;
-    trunk: CduCommitSummary[];
+    trunk: CduCommitSummary[] | null;
     pr: null | CduPrSummary;
-    resets: CduResetSummary[];
+    verdict: null | CduVerdictSummary;
     allowance: null | CduAllowanceSummary;
     exchanges: CduExchangeSummary[];
     models: CduModelSummary[];

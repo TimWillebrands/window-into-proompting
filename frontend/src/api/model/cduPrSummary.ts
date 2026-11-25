@@ -12,4 +12,5 @@ export interface CduPrSummary {
     title: string;
     state: string;
     checks: string;
+    conflicts: boolean;
 }

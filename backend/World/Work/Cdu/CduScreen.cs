@@ -129,44 +129,28 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         if (cdu.Models is { Count: > 0 } minds) sb.AppendLine($"Minds you can wake it with, cheapest first:\n{string.Join("\n", minds.Select(Mind))}");
         if (CduRules.OpenQuestion(desk.State.Exchanges) is { } q) sb.AppendLine($"It asked {(q.SpeakerId == desk.Self ? "you" : q.SpeakerName)} something and nobody has answered yet.");
         sb.AppendLine(Trunk(cdu));
-        sb.AppendLine(Queue(cdu));
-        if (cdu.Pr is { } pr) sb.AppendLine($"In the Agora: PR #{pr.Number}, \"{pr.Title}\", {ChecksWord(pr.Checks)}.");
+        sb.AppendLine(Agora(cdu));
         return sb.ToString().TrimEnd();
     }
 
-    public static string Queue(CduStatus cdu)
+    public static string Agora(CduStatus cdu)
     {
-        string queue;
-        if (cdu.Pr is { } pr)
-        {
-            var decision = pr.State switch
-            {
-                "MERGED" => "review decided: merged",
-                "CLOSED" => "review decided: closed without merging",
-                _ => "awaiting review",
-            };
-            queue = $"The Agora queue: PR #{pr.Number} \"{pr.Title}\" — {ChecksWord(pr.Checks)}, {decision}.";
-        }
-        else if (cdu.Trunk is null)
-            queue = "The Agora queue's unpushed state could not be read.";
-        else if (cdu.Trunk.Ahead.Count > 0)
-        {
-            var n = cdu.Trunk.Ahead.Count;
-            queue = $"The Agora queue is empty: nothing is out for review; {n} commit{(n == 1 ? "" : "s")} on the trunk not yet pushed, waiting for end of shift:\n"
-                    + string.Join("\n", cdu.Trunk.Ahead.Select(c => $"- {c.Sha[..Math.Min(7, c.Sha.Length)]} {c.Subject} (asked by {c.Author})"));
-        }
-        else if (cdu.Trunk.Head is { Length: > 0 } headSha)
-            queue = $"The Agora queue is empty: the trunk was pushed to {headSha[..Math.Min(7, headSha.Length)]} on origin/master, and nothing new is waiting for review.";
-        else
-            queue = "The Agora queue is empty: nothing new is waiting for review.";
-        var tide = cdu.Trunk?.Head is { Length: > 0 } head
-            ? $" Last tide: {head[..Math.Min(7, head.Length)]} on origin/master; no push time is recorded."
-            : " Last tide: origin/master hash unavailable; no push time is recorded.";
-        var last = cdu.Resets is { Count: > 0 } resets ? resets[^1] : null;
-        var reset = last is null
-            ? ""
-            : $" Last trunk reset: PR #{last.Pr} {last.State.ToLowerInvariant()}, by {last.Actor ?? "actor unknown"}, {DateTimeOffset.FromUnixTimeMilliseconds(last.At):yyyy-MM-dd HH:mm 'UTC'}.";
-        return $"{queue}{tide}{reset}".TrimEnd();
+        var now = cdu.Pr is { } pr
+            ? $"In the Agora: PR #{pr.Number}, \"{pr.Title}\", {ChecksWord(pr.Checks)}.{Stuck(pr)}"
+            : "Nothing of its is in the Agora.";
+        return cdu.Resets is { Count: > 0 } resets ? $"{now} {Verdict(resets[^1])}" : now;
+    }
+
+    private static string Stuck(CduPr pr) => pr is { State: "OPEN", Conflicts: true }
+        ? " The One can't merge it as it stands: it no longer fits what the world has become since. Until someone hands the CDU the work of bringing its trunk up to date, it stays there."
+        : string.Empty;
+
+    private static string Verdict(CduReset last)
+    {
+        var day = DateTimeOffset.FromUnixTimeMilliseconds(last.At).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        return last.State == "MERGED"
+            ? $"The One's last verdict: he merged PR #{last.Pr} on {day}, so that work is real now."
+            : $"The One's last verdict: he closed PR #{last.Pr} without merging on {day}, so that work never became real.";
     }
 
     public static List<Affordance> Affordances(CduDesk desk)
@@ -213,7 +197,8 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         sb.Append(Trunk(cdu));
         if (cdu.Trunk is { Ahead.Count: > 0 } trunk) sb.Append(' ').Append(string.Join("; ", trunk.Ahead.TakeLast(6).Select(c => $"\"{c.Subject}\" for {c.Author}"))).Append('.');
         sb.Append(cdu.Pr is { } pr ? $" In the Agora, PR #{pr.Number} \"{pr.Title}\" is {pr.State.ToLowerInvariant()}, {ChecksWord(pr.Checks)}." : " Nothing of its is in the Agora.");
-        if (cdu.Pr is { State: "OPEN", Checks: "passing" }) sb.Append(" It waits on the One now: nothing more for you to do on it until he merges or closes it.");
+        if (cdu.Pr is { } stuck) sb.Append(Stuck(stuck));
+        if (cdu.Pr is { State: "OPEN", Checks: "passing", Conflicts: false }) sb.Append(" It waits on the One now: nothing more for you to do on it until he merges or closes it.");
         return sb.ToString();
     }
 

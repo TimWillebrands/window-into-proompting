@@ -17,7 +17,7 @@ public class CduScreenTest
         new CduTrunk("abc", Enumerable.Range(1, ahead).Select(i => new CduCommit($"s{i}", $"fix: thing {i}", "Denise")).ToList()),
         pr, new CduAllowance(1.25, 5), 10, 3, null, Resets: Resets, Models: Minds);
 
-    private static readonly List<CduReset> Resets = new() { new(126, "MERGED", "TimWillebrands", 1765050986000) };
+    private static readonly List<CduReset> Resets = new() { new(126, "MERGED", 1765050986000) };
 
     private static readonly List<CduModel> Minds = new() { new("beam-free", "free preview", "free", 0, 0), new("kimi-k2.7-code", "the best coder", "capable", 0.95, 4) };
 
@@ -40,50 +40,29 @@ public class CduScreenTest
         => Assert.Equal("ask,talk,look", Verbs(Desk(Up(ahead: 1))));
 
     [Fact]
-    public void Queue_TrunkUnreadable_ShowsDistinctMessageNotTheCalmWording()
+    public void Agora_Empty_SaysSoOnce_AndKeepsTheLastVerdict()
     {
-        var text = CduScreen.Queue(Up() with { Trunk = null });
-        Assert.Contains("The Agora queue's unpushed state could not be read", text);
-        Assert.DoesNotContain("nothing is out for review", text);
-        Assert.DoesNotContain("the trunk was pushed", text);
+        var text = CduScreen.Render(Desk(Up()));
+        Assert.Contains("Its trunk holds nothing the world doesn't already have.", text);
+        Assert.Contains("Nothing of its is in the Agora. The One's last verdict: he merged PR #126 on 2025-12-06, so that work is real now.", text);
+
+        var closed = Up() with { Resets = new List<CduReset> { new(126, "MERGED", 1), new(127, "CLOSED", 1765050986000) } };
+        Assert.Contains("he closed PR #127 without merging on 2025-12-06, so that work never became real.", CduScreen.Agora(closed));
+
+        Assert.Equal("Nothing of its is in the Agora.", CduScreen.Agora(Up() with { Resets = null }));
     }
 
     [Fact]
-    public void Queue_ShowsLastReset_WithActorOrUnknown()
+    public void Agora_NamesAPullRequestOnce_AndSaysWhenItCantBeMerged()
     {
-        var text = CduScreen.Queue(Up());
-        Assert.Contains("The Agora queue is empty: the trunk was pushed to abc on origin/master, and nothing new is waiting for review", text);
-        Assert.Contains("Last tide: abc on origin/master; no push time is recorded.", text);
-        Assert.Contains("Last trunk reset: PR #126 merged, by TimWillebrands", text);
-        var unknown = Up() with { Resets = new List<CduReset> { new(126, "MERGED", null, 1765050986000) } };
-        Assert.Contains("by actor unknown", CduScreen.Queue(unknown));
-    }
+        var fits = CduScreen.Render(Desk(Up(pr: new CduPr(9, "http://x/9", "a fix", "OPEN", "h", "passing"))));
+        Assert.Single(fits.Split('\n'), line => line.Contains("PR #9"));
+        Assert.DoesNotContain("can't merge it", fits);
 
-    [Fact]
-    public void Queue_CommitsAheadWithNoPr_ShowsTheCountAndNeverTheCalmWording()
-    {
-        var text = CduScreen.Queue(Up(ahead: 6));
-        Assert.Contains("nothing is out for review; 6 commits on the trunk not yet pushed", text);
-        Assert.Contains("- s1 fix: thing 1 (asked by Denise)", text);
-        Assert.Contains("- s6 fix: thing 6 (asked by Denise)", text);
-        Assert.DoesNotContain("the trunk was pushed", text);
-        Assert.DoesNotContain("nothing new is waiting for review", text);
-        var calm = CduScreen.Queue(Up(ahead: 0));
-        Assert.Contains("the trunk was pushed to abc on origin/master", calm);
-        Assert.DoesNotContain("not yet pushed", calm);
-    }
-
-    [Fact]
-    public void Queue_QueuedPr_ShowsChecksAndReviewDecision()
-    {
-        var open = CduScreen.Queue(Up(pr: new CduPr(9, "http://x/9", "a fix", "OPEN", "h", "passing")));
-        Assert.Contains("its checks pass", open);
-        Assert.Contains("awaiting review", open);
-        var merged = CduScreen.Queue(Up(pr: new CduPr(9, "http://x/9", "a fix", "MERGED", "h", "failing")));
-        Assert.Contains("its checks fail", merged);
-        Assert.Contains("review decided: merged", merged);
-        var closed = CduScreen.Queue(Up(pr: new CduPr(9, "http://x/9", "a fix", "CLOSED", "h", "none")));
-        Assert.Contains("review decided: closed without merging", closed);
+        var stuck = Up(pr: new CduPr(9, "http://x/9", "a fix", "OPEN", "h", "passing", Conflicts: true));
+        Assert.Contains("PR #9, \"a fix\", its checks pass. The One can't merge it as it stands", CduScreen.Agora(stuck));
+        Assert.Contains("The One can't merge it as it stands", CduScreen.Look(stuck));
+        Assert.DoesNotContain("nothing more for you to do", CduScreen.Look(stuck));
     }
 
     [Fact]
