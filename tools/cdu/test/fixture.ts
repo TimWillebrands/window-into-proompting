@@ -48,7 +48,7 @@ export class FakeGitHub implements GitHub {
 
     async create(branch: string, base: string, title: string, body: string): Promise<Pr> {
         const number = ++this.n;
-        this.prs.set(number, { number, url: `https://example.com/pull/${number}`, title, state: 'OPEN', head: 'h', checks: 'pending', body, base, branch });
+        this.prs.set(number, { number, url: `https://example.com/pull/${number}`, title, state: 'OPEN', head: 'h', checks: 'pending', conflicts: false, body, base, branch });
         return this.view(number);
     }
 

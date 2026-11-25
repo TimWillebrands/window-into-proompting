@@ -15,7 +15,9 @@ public class CduScreenTest
     private static CduStatus Up(int ahead = 0, CduPr? pr = null, bool awake = false) => new(
         awake, awake ? "Justin" : null, 0, "careful",
         new CduTrunk("abc", Enumerable.Range(1, ahead).Select(i => new CduCommit($"s{i}", $"fix: thing {i}", "Denise")).ToList()),
-        pr, new CduAllowance(1.25, 5), 10, 3, null, Minds);
+        pr, new CduAllowance(1.25, 5), 10, 3, null, Resets: Resets, Models: Minds);
+
+    private static readonly List<CduReset> Resets = new() { new(126, "MERGED", 1765050986000) };
 
     private static readonly List<CduModel> Minds = new() { new("beam-free", "free preview", "free", 0, 0), new("kimi-k2.7-code", "the best coder", "capable", 0.95, 4) };
 
@@ -36,6 +38,32 @@ public class CduScreenTest
     [Fact]
     public void Affordances_CommitsOnTheTrunk_OfferALook()
         => Assert.Equal("ask,talk,look", Verbs(Desk(Up(ahead: 1))));
+
+    [Fact]
+    public void Agora_Empty_SaysSoOnce_AndKeepsTheLastVerdict()
+    {
+        var text = CduScreen.Render(Desk(Up()));
+        Assert.Contains("Its trunk holds nothing the world doesn't already have.", text);
+        Assert.Contains("Nothing of its is in the Agora. The One's last verdict: he merged PR #126 on 2025-12-06, so that work is real now.", text);
+
+        var closed = Up() with { Resets = new List<CduReset> { new(126, "MERGED", 1), new(127, "CLOSED", 1765050986000) } };
+        Assert.Contains("he closed PR #127 without merging on 2025-12-06, so that work never became real.", CduScreen.Agora(closed));
+
+        Assert.Equal("Nothing of its is in the Agora.", CduScreen.Agora(Up() with { Resets = null }));
+    }
+
+    [Fact]
+    public void Agora_NamesAPullRequestOnce_AndSaysWhenItCantBeMerged()
+    {
+        var fits = CduScreen.Render(Desk(Up(pr: new CduPr(9, "http://x/9", "a fix", "OPEN", "h", "passing"))));
+        Assert.Single(fits.Split('\n'), line => line.Contains("PR #9"));
+        Assert.DoesNotContain("can't merge it", fits);
+
+        var stuck = Up(pr: new CduPr(9, "http://x/9", "a fix", "OPEN", "h", "passing", Conflicts: true));
+        Assert.Contains("PR #9, \"a fix\", its checks pass. The One can't merge it as it stands", CduScreen.Agora(stuck));
+        Assert.Contains("The One can't merge it as it stands", CduScreen.Look(stuck));
+        Assert.DoesNotContain("nothing more for you to do", CduScreen.Look(stuck));
+    }
 
     [Fact]
     public void Affordances_AllowanceSpent_TheyCanStillWriteOnce_ThenOnlyLook()

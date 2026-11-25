@@ -29,6 +29,7 @@ import {
     prLine,
     SAID,
     shortSha,
+    verdictLine,
 } from './cdu-lib';
 
 const TONES: Record<string, ConsoleTone> = {
@@ -106,7 +107,9 @@ function State({ cdu }: { cdu: CduOverview }) {
                 <p>{allowanceLine(cdu.allowance)}</p>
             </TaskPaneSection>
             <TaskPaneSection title="Trunk">
-                {cdu.trunk.length === 0 ? (
+                {cdu.trunk === null ? (
+                    <p>Can't be read right now.</p>
+                ) : cdu.trunk.length === 0 ? (
                     <p>Nothing the world lacks.</p>
                 ) : (
                     <Stack as="ul" gap="sm">
@@ -146,6 +149,7 @@ function State({ cdu }: { cdu: CduOverview }) {
                 ) : (
                     <p>No PR open.</p>
                 )}
+                {cdu.verdict ? <p>{verdictLine(cdu.verdict)}</p> : null}
             </TaskPaneSection>
         </>
     );

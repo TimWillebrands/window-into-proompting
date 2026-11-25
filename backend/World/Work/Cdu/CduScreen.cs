@@ -129,8 +129,28 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         if (cdu.Models is { Count: > 0 } minds) sb.AppendLine($"Minds you can wake it with, cheapest first:\n{string.Join("\n", minds.Select(Mind))}");
         if (CduRules.OpenQuestion(desk.State.Exchanges) is { } q) sb.AppendLine($"It asked {(q.SpeakerId == desk.Self ? "you" : q.SpeakerName)} something and nobody has answered yet.");
         sb.AppendLine(Trunk(cdu));
-        if (cdu.Pr is { } pr) sb.AppendLine($"In the Agora: PR #{pr.Number}, \"{pr.Title}\", {ChecksWord(pr.Checks)}.");
+        sb.AppendLine(Agora(cdu));
         return sb.ToString().TrimEnd();
+    }
+
+    public static string Agora(CduStatus cdu)
+    {
+        var now = cdu.Pr is { } pr
+            ? $"In the Agora: PR #{pr.Number}, \"{pr.Title}\", {ChecksWord(pr.Checks)}.{Stuck(pr)}"
+            : "Nothing of its is in the Agora.";
+        return cdu.Resets is { Count: > 0 } resets ? $"{now} {Verdict(resets[^1])}" : now;
+    }
+
+    private static string Stuck(CduPr pr) => pr is { State: "OPEN", Conflicts: true }
+        ? " The One can't merge it as it stands: it no longer fits what the world has become since. Until someone hands the CDU the work of bringing its trunk up to date, it stays there."
+        : string.Empty;
+
+    private static string Verdict(CduReset last)
+    {
+        var day = DateTimeOffset.FromUnixTimeMilliseconds(last.At).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        return last.State == "MERGED"
+            ? $"The One's last verdict: he merged PR #{last.Pr} on {day}, so that work is real now."
+            : $"The One's last verdict: he closed PR #{last.Pr} without merging on {day}, so that work never became real.";
     }
 
     public static List<Affordance> Affordances(CduDesk desk)
@@ -177,7 +197,8 @@ You choose the mind you wake it with, and its allowance has to last the day for 
         sb.Append(Trunk(cdu));
         if (cdu.Trunk is { Ahead.Count: > 0 } trunk) sb.Append(' ').Append(string.Join("; ", trunk.Ahead.TakeLast(6).Select(c => $"\"{c.Subject}\" for {c.Author}"))).Append('.');
         sb.Append(cdu.Pr is { } pr ? $" In the Agora, PR #{pr.Number} \"{pr.Title}\" is {pr.State.ToLowerInvariant()}, {ChecksWord(pr.Checks)}." : " Nothing of its is in the Agora.");
-        if (cdu.Pr is { State: "OPEN", Checks: "passing" }) sb.Append(" It waits on the One now: nothing more for you to do on it until he merges or closes it.");
+        if (cdu.Pr is { } stuck) sb.Append(Stuck(stuck));
+        if (cdu.Pr is { State: "OPEN", Checks: "passing", Conflicts: false }) sb.Append(" It waits on the One now: nothing more for you to do on it until he merges or closes it.");
         return sb.ToString();
     }
 

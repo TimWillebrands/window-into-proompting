@@ -4,6 +4,7 @@ import type {
     CduLineSummary,
     CduModelSummary,
     CduPrSummary,
+    CduVerdictSummary,
 } from '../../api/model';
 
 export function mergeLines(
@@ -51,7 +52,7 @@ const CHECKS: Record<string, string> = {
 };
 
 export const prLine = (pr: CduPrSummary) =>
-    `#${pr.number} ${pr.state.toLowerCase()}, ${CHECKS[pr.checks] ?? 'no checks yet'}`;
+    `#${pr.number} ${pr.state.toLowerCase()}, ${CHECKS[pr.checks] ?? 'no checks yet'}${pr.conflicts ? ', conflicts with master' : ''}`;
 
 export function exchangeWord(e: CduExchangeSummary): string {
     if (e.status === 'queued') return 'waiting for it';
@@ -71,3 +72,9 @@ export const mindLine = (m: CduModelSummary) =>
     Number(m.in) === 0 && Number(m.out) === 0
         ? `${m.id} · ${m.tier ?? '?'} · free`
         : `${m.id} · ${m.tier ?? '?'} · ${money(m.in)}/${money(m.out)}`;
+
+export const resetLine = (at: number | string) =>
+    `${new Date(Number(at)).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+
+export const verdictLine = (v: CduVerdictSummary) =>
+    `Last verdict: #${v.pr} ${v.state === 'MERGED' ? 'merged' : 'closed without merging'}, ${resetLine(v.at)}`;

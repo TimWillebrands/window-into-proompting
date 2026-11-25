@@ -47,6 +47,12 @@ export interface Allowance {
     capUsd: number;
 }
 
+export interface ResetEvent {
+    pr: number;
+    state: 'MERGED' | 'CLOSED';
+    at: number;
+}
+
 export interface CduState {
     turns: Turn[];
     notes: string[];
@@ -54,9 +60,10 @@ export interface CduState {
     seen: Pr | null;
     checked: { head: string; checks: Checks } | null;
     soul: string | null;
+    resets: ResetEvent[];
 }
 
-export const emptyState = (): CduState => ({ turns: [], notes: [], pr: null, seen: null, checked: null, soul: null });
+export const emptyState = (): CduState => ({ turns: [], notes: [], pr: null, seen: null, checked: null, soul: null, resets: [] });
 
 export class Store {
     readonly state: CduState;
@@ -75,6 +82,7 @@ export class Store {
 }
 
 const KeptTurns = 50;
+const KeptResets = 10;
 const MaxText = 4000;
 
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
@@ -263,6 +271,8 @@ export class Cdu {
         this.state.notes.push(fact);
         this.state.seen = null;
         this.state.checked = null;
+        this.state.resets.push({ pr: pr.number, state: verdict.kind === 'merged' ? 'MERGED' : 'CLOSED', at: this.now() });
+        this.state.resets.splice(0, Math.max(0, this.state.resets.length - KeptResets));
         this.news.push(verdict.kind, pr.title, { number: pr.number, url: pr.url, tag: verdict.tag ?? null });
         this.store.save();
         return true;
@@ -288,6 +298,7 @@ export class Cdu {
             models: this.models,
             trunk: ahead && { head: await this.tide.head().catch(() => null), ahead },
             pr: this.state.seen,
+            resets: this.store.state.resets,
             allowance: await this.allowance().catch(() => null),
             lines: this.lines.last,
             news: this.news.last,

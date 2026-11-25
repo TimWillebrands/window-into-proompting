@@ -9451,6 +9451,7 @@
           "model",
           "trunk",
           "pr",
+          "verdict",
           "allowance",
           "exchanges",
           "models"
@@ -9479,7 +9480,10 @@
             ]
           },
           "trunk": {
-            "type": "array",
+            "type": [
+              "null",
+              "array"
+            ],
             "items": {
               "$ref": "#/components/schemas/CduCommitSummary"
             }
@@ -9491,6 +9495,16 @@
               },
               {
                 "$ref": "#/components/schemas/CduPrSummary"
+              }
+            ]
+          },
+          "verdict": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CduVerdictSummary"
               }
             ]
           },
@@ -9524,7 +9538,8 @@
           "url",
           "title",
           "state",
-          "checks"
+          "checks",
+          "conflicts"
         ],
         "type": "object",
         "properties": {
@@ -9547,6 +9562,38 @@
           },
           "checks": {
             "type": "string"
+          },
+          "conflicts": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CduVerdictSummary": {
+        "required": [
+          "pr",
+          "state",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "pr": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "state": {
+            "type": "string"
+          },
+          "at": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },

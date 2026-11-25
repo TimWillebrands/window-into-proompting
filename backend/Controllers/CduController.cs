@@ -19,8 +19,9 @@ public sealed class CduController(IGrainFactory grains, ICdu cdu, Cytheurgy site
         var state = await grains.GetGrain<ICduGrain>(partyId).GetAsync();
         return Ok(new CduOverview(
             site.Enabled, status is not null, status?.Awake ?? false, status?.Hearing, status?.Model,
-            status?.Trunk?.Ahead.Select(c => new CduCommitSummary(c.Sha, c.Subject, c.Author)).ToList() ?? new List<CduCommitSummary>(),
-            status?.Pr is { } pr ? new CduPrSummary(pr.Number, pr.Url, pr.Title, pr.State, pr.Checks) : null,
+            status?.Trunk?.Ahead.Select(c => new CduCommitSummary(c.Sha, c.Subject, c.Author)).ToList(),
+            status?.Pr is { } pr ? new CduPrSummary(pr.Number, pr.Url, pr.Title, pr.State, pr.Checks, pr.Conflicts) : null,
+            status?.Resets is { Count: > 0 } resets ? new CduVerdictSummary(resets[^1].Pr, resets[^1].State, resets[^1].At) : null,
             status?.Allowance is { } a ? new CduAllowanceSummary(a.Usd, a.CapUsd) : null,
             state.Exchanges.AsEnumerable().Reverse().Select(e => new CduExchangeSummary(
                 e.TurnId, e.SpeakerId, e.SpeakerName, e.Kind, e.Text, e.Status, e.Reply, e.Asked, e.Answered, e.Commits, e.At, e.DoneAt, e.Model)).ToList(),
@@ -43,14 +44,16 @@ public sealed class CduController(IGrainFactory grains, ICdu cdu, Cytheurgy site
 }
 
 public sealed record CduOverview(
-    bool Enabled, bool Up, bool Awake, string? Hearing, string? Model, List<CduCommitSummary> Trunk, CduPrSummary? Pr,
-    CduAllowanceSummary? Allowance, List<CduExchangeSummary> Exchanges, List<CduModelSummary> Models);
+    bool Enabled, bool Up, bool Awake, string? Hearing, string? Model, List<CduCommitSummary>? Trunk, CduPrSummary? Pr,
+    CduVerdictSummary? Verdict, CduAllowanceSummary? Allowance, List<CduExchangeSummary> Exchanges, List<CduModelSummary> Models);
 
 public sealed record CduModelSummary(string Id, string Label, string? Tier, double In, double Out);
 
 public sealed record CduCommitSummary(string Sha, string Subject, string Author);
 
-public sealed record CduPrSummary(int Number, string Url, string Title, string State, string Checks);
+public sealed record CduPrSummary(int Number, string Url, string Title, string State, string Checks, bool Conflicts);
+
+public sealed record CduVerdictSummary(int Pr, string State, long At);
 
 public sealed record CduAllowanceSummary(double Usd, double CapUsd);
 
