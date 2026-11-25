@@ -1,3 +1,11 @@
+import {
+    ComboBox,
+    CommandButton,
+    Icon,
+    ListView,
+    Stack,
+    TextBox,
+} from '@partytown/ui';
 import { useState } from 'react';
 import { usePostWorldsPartyIdPracticesParticipantIdSessions } from '#api/party-zone';
 import type { SessionSummary } from '../../api/model';
@@ -8,7 +16,17 @@ import {
     sessionsInOrder,
     whenLabel,
 } from './jobs-lib';
-import { Card, Empty, Field, Jump, PageHead, Refusal } from './parts';
+import {
+    Actions,
+    Card,
+    Empty,
+    Field,
+    Fields,
+    Jump,
+    Page,
+    PageHead,
+    Refusal,
+} from './parts';
 import { useRefreshWork, useWork } from './work-context';
 
 export function PracticesPage() {
@@ -16,38 +34,32 @@ export function PracticesPage() {
     return (
         <>
             <PageHead
-                icon="🛋️"
+                icon="sofa"
                 title="Practices"
                 sub="People who sell their time by the session, paid wallet to wallet."
             />
-            <div className="wk-page">
+            <Page>
                 {practices.length === 0 ? (
                     <Empty>
                         Nobody takes clients yet. Pick someone under People and
                         give them their own practice.
                     </Empty>
                 ) : (
-                    <div className="wk-tiles">
-                        {practices.map((p) => (
-                            <button
-                                key={p.participantId}
-                                type="button"
-                                className="xp-bare wk-tile"
-                                title={p.approach}
-                                onClick={() =>
-                                    go({ page: 'person', id: p.participantId })
-                                }
-                            >
-                                <strong>{p.name}</strong>
-                                <span>
-                                    {p.title}, {p.field}
-                                </span>
-                                <span>
-                                    {p.days} {p.hours} · {p.fee} credits
-                                </span>
-                            </button>
-                        ))}
-                    </div>
+                    <ListView
+                        view="tiles"
+                        label="Practices"
+                        activateOn="single"
+                        onActivate={(id) => go({ page: 'person', id })}
+                        items={practices.map((p) => ({
+                            id: p.participantId,
+                            label: <span title={p.approach}>{p.name}</span>,
+                            largeIcon: <Icon name="sofa" size={48} />,
+                            details: [
+                                `${p.title}, ${p.field}`,
+                                `${p.days} ${p.hours} · ${p.fee} credits`,
+                            ],
+                        }))}
+                    />
                 )}
                 {practices.length > 0 ? (
                     <Card title="Book a session">
@@ -59,7 +71,7 @@ export function PracticesPage() {
                         <SessionList sessions={sessions} />
                     </Card>
                 ) : null}
-            </div>
+            </Page>
         </>
     );
 }
@@ -67,32 +79,46 @@ export function PracticesPage() {
 export function SessionList({ sessions }: { sessions: SessionSummary[] }) {
     const { go } = useWork();
     return (
-        <ul className="wk-log">
-            {sessionsInOrder(sessions).map((s) => (
-                <li key={s.id} title={s.reason}>
-                    <time>{whenLabel(s.startsAt)}</time>
-                    <span>
-                        <Jump
-                            onClick={() =>
-                                go({ page: 'person', id: s.clientId })
-                            }
-                        >
-                            {s.clientName}
-                        </Jump>{' '}
-                        with{' '}
-                        <Jump
-                            onClick={() =>
-                                go({ page: 'person', id: s.practitionerId })
-                            }
-                        >
-                            {s.practitionerName}
-                        </Jump>{' '}
-                        at {s.workplace} · {sessionLabel(s)}
-                        {s.homework ? ` · ${homeworkLabel(s)}` : ''}
-                    </span>
-                </li>
-            ))}
-        </ul>
+        <ListView
+            label="Sessions"
+            selectionMode="none"
+            columns={[
+                { key: 'when', header: 'When', width: 'max-content' },
+                {
+                    key: 'session',
+                    header: 'Session',
+                    width: 'minmax(160px, 1fr)',
+                    wrap: true,
+                },
+            ]}
+            items={sessionsInOrder(sessions).map((s) => ({
+                id: s.id,
+                label: whenLabel(s.startsAt),
+                cells: {
+                    session: (
+                        <span title={s.reason}>
+                            <Jump
+                                onClick={() =>
+                                    go({ page: 'person', id: s.clientId })
+                                }
+                            >
+                                {s.clientName}
+                            </Jump>{' '}
+                            with{' '}
+                            <Jump
+                                onClick={() =>
+                                    go({ page: 'person', id: s.practitionerId })
+                                }
+                            >
+                                {s.practitionerName}
+                            </Jump>{' '}
+                            at {s.workplace} · {sessionLabel(s)}
+                            {s.homework ? ` · ${homeworkLabel(s)}` : ''}
+                        </span>
+                    ),
+                },
+            }))}
+        />
     );
 }
 
@@ -107,7 +133,9 @@ export function BookForm({ practitionerId }: { practitionerId?: string }) {
     const clients = people.filter((p) => p.participantId !== practitioner);
 
     return (
-        <form
+        <Stack
+            as="form"
+            gap="md"
             onSubmit={(e) => {
                 e.preventDefault();
                 book.mutate(
@@ -120,9 +148,9 @@ export function BookForm({ practitionerId }: { practitionerId?: string }) {
                 );
             }}
         >
-            <div className="wk-fields">
+            <Fields>
                 <Field label="Who">
-                    <select
+                    <ComboBox
                         value={client}
                         onChange={(e) => setClient(e.currentTarget.value)}
                     >
@@ -135,11 +163,11 @@ export function BookForm({ practitionerId }: { practitionerId?: string }) {
                                 {p.name}
                             </option>
                         ))}
-                    </select>
+                    </ComboBox>
                 </Field>
                 {practitionerId ? null : (
                     <Field label="Sees">
-                        <select
+                        <ComboBox
                             value={practitioner}
                             onChange={(e) =>
                                 setPractitioner(e.currentTarget.value)
@@ -154,19 +182,20 @@ export function BookForm({ practitionerId }: { practitionerId?: string }) {
                                     {p.name}
                                 </option>
                             ))}
-                        </select>
+                        </ComboBox>
                     </Field>
                 )}
                 <Field label="Why they're coming" grow>
-                    <input
+                    <TextBox
                         value={reason}
                         onChange={(e) => setReason(e.currentTarget.value)}
                     />
                 </Field>
-            </div>
-            <div className="wk-actions">
-                <button
+            </Fields>
+            <Actions>
+                <CommandButton
                     type="submit"
+                    isDefault
                     disabled={
                         !client ||
                         !practitioner ||
@@ -175,9 +204,9 @@ export function BookForm({ practitionerId }: { practitionerId?: string }) {
                     }
                 >
                     Book
-                </button>
-            </div>
+                </CommandButton>
+            </Actions>
             <Refusal error={book.error} />
-        </form>
+        </Stack>
     );
 }

@@ -1,0 +1,162 @@
+@layer ui {
+    .ui-desktop {
+        position: relative;
+        display: grid;
+        grid-template: minmax(0, 1fr) auto / minmax(0, 1fr);
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-desktop-wallpaper {
+        position: relative;
+        grid-area: 1 / 1 / -1 / -1;
+        overflow: hidden;
+    }
+
+    .ui-desktop-area {
+        position: relative;
+        grid-area: 1 / 1;
+        isolation: isolate;
+        overflow: hidden;
+    }
+
+    .ui-desktop-icons {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-auto-columns: max-content;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(auto-fill, 96px);
+        align-content: start;
+        justify-content: start;
+        gap: var(--ui-space-2) var(--ui-space-3);
+        padding: var(--ui-space-5);
+    }
+
+    .ui-desktop-window {
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: flex;
+    }
+
+    .ui-desktop-window[data-maximised] {
+        inset: 0;
+    }
+
+    .ui-desktop-window[data-minimised] {
+        visibility: hidden;
+        content-visibility: hidden;
+        pointer-events: none;
+    }
+
+    .ui-desktop-window[data-moving] {
+        user-select: none;
+    }
+
+    .ui-desktop-window > .ui-window {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .ui-desktop-window > .ui-window:focus-visible {
+        outline: none;
+    }
+
+    .ui-desktop-grip {
+        --ui-grip: var(--ui-space-4);
+        position: absolute;
+        z-index: 1;
+        touch-action: none;
+    }
+
+    .ui-desktop-grip:is([data-grip="n"], [data-grip="s"]) {
+        right: 0;
+        left: 0;
+        height: var(--ui-grip);
+        cursor: ns-resize;
+    }
+
+    .ui-desktop-grip:is([data-grip="e"], [data-grip="w"]) {
+        top: 0;
+        bottom: 0;
+        width: var(--ui-grip);
+        cursor: ew-resize;
+    }
+
+    .ui-desktop-grip:is(
+            [data-grip="ne"],
+            [data-grip="nw"],
+            [data-grip="se"],
+            [data-grip="sw"]
+        ) {
+        width: calc(var(--ui-grip) * 1.5);
+        height: calc(var(--ui-grip) * 1.5);
+    }
+
+    .ui-desktop-grip:is([data-grip="n"], [data-grip="ne"], [data-grip="nw"]) {
+        top: calc(-1 * var(--ui-grip));
+    }
+
+    .ui-desktop-grip:is([data-grip="s"], [data-grip="se"], [data-grip="sw"]) {
+        bottom: calc(-1 * var(--ui-grip));
+    }
+
+    .ui-desktop-grip:is([data-grip="e"], [data-grip="ne"], [data-grip="se"]) {
+        right: calc(-1 * var(--ui-grip));
+    }
+
+    .ui-desktop-grip:is([data-grip="w"], [data-grip="nw"], [data-grip="sw"]) {
+        left: calc(-1 * var(--ui-grip));
+    }
+
+    .ui-desktop-grip:is([data-grip="ne"], [data-grip="sw"]) {
+        cursor: nesw-resize;
+    }
+
+    .ui-desktop-grip:is([data-grip="nw"], [data-grip="se"]) {
+        cursor: nwse-resize;
+    }
+
+    .ui-desktop-window > .ui-window > .ui-window-titlebar {
+        touch-action: none;
+    }
+
+    .ui-desktop-snap {
+        --ui-radius-here: var(--ui-radius-window);
+        position: absolute;
+        top: 0;
+        left: 0;
+        box-sizing: border-box;
+        border: var(--ui-space-3) solid transparent;
+        border-radius: calc(var(--ui-radius-window) + var(--ui-space-3));
+        background: var(--ui-glass-tint-clear) padding-box;
+        backdrop-filter: var(--ui-glass-blur-clear);
+        -webkit-backdrop-filter: var(--ui-glass-blur-clear);
+        box-shadow:
+            inset 0 0 0 1px var(--ui-glass-edge),
+            var(--ui-glass-rim);
+        pointer-events: none;
+        animation: ui-chrome-zoom-in var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-desktop-taskbar {
+        z-index: 1;
+        grid-area: 2 / 1;
+    }
+
+    .ui-desktop-start-menu {
+        z-index: 2;
+        display: flex;
+        grid-area: 1 / 1;
+        align-self: end;
+        justify-self: start;
+        max-height: 100%;
+        min-height: 0;
+    }
+}

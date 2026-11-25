@@ -1,19 +1,25 @@
+import type { IconName } from '@partytown/ui';
 import type { Appearance } from '../../api/model/appearance';
 import type { ShopItem } from '../../api/model/shopItem';
-import { paletteHex } from '../places/iso/appearance';
+import { paletteHex, SWATCH_FALLBACK } from '../places/iso/appearance';
 
 export const TABS: {
     id: string;
     label: string;
-    icon: string;
+    icon: IconName;
     slots: string[];
 }[] = [
-    { id: 'all', label: 'Everything', icon: '✨', slots: [] },
-    { id: 'top', label: 'Tops', icon: '👕', slots: ['top'] },
-    { id: 'bottom', label: 'Bottoms', icon: '👖', slots: ['bottom'] },
-    { id: 'shoes', label: 'Shoes', icon: '👟', slots: ['shoes', 'legwear'] },
-    { id: 'accessory', label: 'Extras', icon: '🎩', slots: ['accessory'] },
-    { id: 'hair', label: 'Salon', icon: '✂️', slots: ['hair', 'hairStyle'] },
+    { id: 'all', label: 'Everything', icon: 'sparkle', slots: [] },
+    { id: 'top', label: 'Tops', icon: 'shirt', slots: ['top'] },
+    { id: 'bottom', label: 'Bottoms', icon: 'trousers', slots: ['bottom'] },
+    { id: 'shoes', label: 'Shoes', icon: 'shoes', slots: ['shoes', 'legwear'] },
+    { id: 'accessory', label: 'Extras', icon: 'hat', slots: ['accessory'] },
+    {
+        id: 'hair',
+        label: 'Salon',
+        icon: 'scissors',
+        slots: ['hair', 'hairStyle'],
+    },
 ];
 
 export const inTab = (item: ShopItem, tab: string) => {
@@ -107,7 +113,7 @@ export function itemIcon(item: ShopItem): string {
 
 export function itemColour(item: ShopItem): string {
     const p = item.picks ?? {};
-    return paletteHex(p.top ?? p.bottom ?? p.shoes ?? p.hair, '#e8dff5');
+    return paletteHex(p.top ?? p.bottom ?? p.shoes ?? p.hair, SWATCH_FALLBACK);
 }
 
 const REPLACES: Record<string, string[]> = {

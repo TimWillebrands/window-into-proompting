@@ -1,0 +1,102 @@
+@layer ui {
+    .ui-progressbar {
+        --ui-progress-segment: 8px;
+        --ui-progress-gap: 2px;
+        --ui-progress-fill: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-tone-go) calc(l + 0.335) calc(c * 0.755)
+                        calc(h + 1.4)
+                )
+                0%,
+            oklch(
+                    from var(--ui-tone-go) calc(l + 0.259) calc(c * 1.131)
+                        calc(h + 1.2)
+                )
+                15%,
+            oklch(
+                    from var(--ui-tone-go) calc(l + 0.188) calc(c * 1.37)
+                        calc(h + 0.7)
+                )
+                35%,
+            oklch(
+                    from var(--ui-tone-go) calc(l + 0.138) calc(c * 1.341)
+                        calc(h + 0.6)
+                )
+                55%,
+            oklch(
+                    from var(--ui-tone-go) calc(l + 0.185) calc(c * 1.312)
+                        calc(h + 0.8)
+                )
+                75%,
+            oklch(
+                    from var(--ui-tone-go) calc(l + 0.291) calc(c * 0.966)
+                        calc(h + 1.4)
+                )
+                100%
+        );
+        position: relative;
+        box-sizing: border-box;
+        min-width: 80px;
+        height: 14px;
+        padding: 2px;
+        overflow: hidden;
+        border: 1px solid var(--ui-face-edge);
+        border-radius: var(--ui-radius-control-inner);
+        background: var(--ui-field);
+        box-shadow: inset 1px 1px 1px
+            color-mix(in oklab, var(--ui-face-edge) 45%, transparent);
+    }
+
+    .ui-progressbar[data-tone="neutral"] {
+        --ui-progress-fill: var(--ui-tone-gloss), var(--ui-tone-neutral);
+    }
+
+    .ui-progressbar[data-tone="caution"] {
+        --ui-progress-fill: var(--ui-tone-gloss), var(--ui-tone-caution);
+    }
+
+    .ui-progressbar[data-tone="danger"] {
+        --ui-progress-fill: var(--ui-tone-gloss), var(--ui-tone-danger);
+    }
+
+    .ui-progressbar-fill {
+        display: block;
+        width: calc(var(--ui-progress) * 100%);
+        height: 100%;
+        background:
+            repeating-linear-gradient(
+                90deg,
+                transparent 0 var(--ui-progress-segment),
+                var(--ui-field) var(--ui-progress-segment)
+                    calc(var(--ui-progress-segment) + var(--ui-progress-gap))
+            ), var(--ui-progress-fill);
+        transition: width var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-progressbar[data-marquee] .ui-progressbar-fill {
+        width: calc(
+            var(--ui-progress-segment) *
+            3 +
+            var(--ui-progress-gap) *
+            2
+        );
+        margin-inline: auto;
+        animation: ui-progressbar-marquee var(--ui-dur-loop) linear infinite;
+        transition: none;
+    }
+
+    @keyframes ui-progressbar-marquee {
+        from {
+            translate: calc(var(--ui-motion-travel) * (-50cqw - 50%)) 0;
+        }
+
+        to {
+            translate: calc(var(--ui-motion-travel) * (50cqw + 50%)) 0;
+        }
+    }
+
+    .ui-progressbar[data-marquee] {
+        container-type: inline-size;
+    }
+}

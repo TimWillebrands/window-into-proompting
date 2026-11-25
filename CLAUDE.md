@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repo.
 
 ## Project
 
-Proompting (aka Partytown): Windows XP-themed AI chat where multiple AI personas converse in party groups. C#/.NET backend with Microsoft Orleans (actor model), React 19 frontend styled with xp.css, PostgreSQL + Apache AGE for Orleans persistence and the persona memory graph.
+Proompting (aka Partytown): Windows XP-themed AI chat where multiple AI personas converse in party groups. C#/.NET backend with Microsoft Orleans (actor model), React 19 frontend styled by its own UI kit, PostgreSQL + Apache AGE for Orleans persistence and the persona memory graph.
 
 The World (ADR 0018) lives in `backend/World/`. It contains the World clock, Persona Life (Initiative) and the `IWorldApp` modes (Rooms, Messenger, Board, Diary). Messenger DMs are two-person Rooms. Frontend apps are in `frontend/src/apps/{world,messenger,board,diary}`; the realtime/World plumbing is in `frontend/src/lib/world.tsx`.
 
@@ -65,9 +65,13 @@ Frontend uses Biome (4-space indent, single quotes, trailing commas) — no Pret
 
 Commit straight to `master`, no feature branches (unless asked).
 
+## UI kit
+
+The look is 80% Windows XP Luna, 20% Liquid Glass (ADR 0067). Every visual lives in `frontend/ui/` (`@partytown/ui`): tokens, parts, icons, fonts, skins. Apps compose parts and do layout only. Load the `partytown-ui` skill before any frontend visual work.
+
 ## UI components (Storybook MCP)
 
-When working on UI components, verify component properties through the `proompting-party-sb-mcp` MCP tools (`list-all-documentation`, `get-documentation`) before using them — never assume props from naming conventions or other libraries; if a prop isn't documented, check with the user. Fetch `get-storybook-story-instructions` before creating or updating stories, and verify with `run-story-tests`.
+The Storybook MCP serves the kit Storybook (port 6006); the app Storybook runs on 6007 and refs it. When working on UI components, verify component properties through the `proompting-party-sb-mcp` MCP tools (`list-all-documentation`, `get-documentation`) before using them — never assume props from naming conventions or other libraries; if a prop isn't documented, check with the user. Fetch `get-storybook-story-instructions` before creating or updating stories, and verify with `run-story-tests`.
 
 ## Deployment
 

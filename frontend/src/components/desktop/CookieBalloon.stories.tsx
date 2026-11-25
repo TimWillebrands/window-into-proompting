@@ -7,8 +7,8 @@ const meta = {
     component: CookieBalloon,
     parameters: {
         layout: 'fullscreen',
-        backgrounds: { default: 'xp-desktop' },
     },
+    globals: { backgrounds: { value: 'xp-desktop' } },
     decorators: [
         (Story) => {
             useConsentPrompt.setState({ open: true });

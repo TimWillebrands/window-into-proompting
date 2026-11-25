@@ -1,3 +1,4 @@
+import { CommandButton, Icon } from '@partytown/ui';
 import type { BoardRespect } from '../../api/model/boardRespect';
 import { hasRespectFrom, respectLabel } from './board-lib';
 
@@ -6,7 +7,6 @@ interface Props {
     playerId: string | null;
     own: boolean;
     onToggle: (given: boolean) => void;
-    small?: boolean;
 }
 
 export default function RespectButton({
@@ -14,16 +14,15 @@ export default function RespectButton({
     playerId,
     own,
     onToggle,
-    small,
 }: Props) {
     const count = respect?.length ?? 0;
     const given = hasRespectFrom(respect, playerId);
     const label = respectLabel(respect, playerId);
     return (
-        <button
-            type="button"
-            className={`pb-respect ${given ? 'pb-respect-on' : ''} ${small ? 'pb-respect-small' : ''}`}
-            aria-pressed={given}
+        <CommandButton
+            size="small"
+            icon={<Icon name="star" />}
+            pressed={given}
             disabled={own || !playerId}
             title={
                 own
@@ -34,9 +33,7 @@ export default function RespectButton({
             }
             onClick={() => onToggle(!given)}
         >
-            <span aria-hidden>★</span>
-            <span>Respect!</span>
-            {count > 0 && <span className="pb-respect-count">{count}</span>}
-        </button>
+            Respect!{count > 0 ? ` ${count}` : ''}
+        </CommandButton>
     );
 }

@@ -1,3 +1,13 @@
+import {
+    CommandButton,
+    GroupBox,
+    Icon,
+    ListView,
+    Stack,
+    StatusText,
+    Text,
+    WindowLayout,
+} from '@partytown/ui';
 import { useMemo, useState } from 'react';
 import { useGetPersonaSuspense } from '#api/party-zone';
 import Portrait from '../../components/Portrait';
@@ -30,172 +40,99 @@ export default function PersonasApp() {
     };
 
     return (
-        <div
-            className="app-surface flex h-full"
-            style={{ background: 'transparent' }}
-        >
-            <div
-                className="xp-glass-panel flex flex-col"
-                style={{
-                    width: '210px',
-                    borderRight: '1px solid rgba(255,255,255,0.7)',
-                }}
-            >
-                <div className="bg-gradient-to-b from-xp-section-from to-xp-section-to text-white text-[11px] font-semibold px-2 py-[3px] flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
-                    <span>Personas</span>
-                    <span
-                        className="xp-glass-chip"
-                        style={{ color: '#003399', fontWeight: 700 }}
-                    >
-                        {personas.length}
-                    </span>
-                </div>
-                <div className="flex-1 overflow-y-auto py-1">
-                    {personasQuery.isError ? (
-                        <p style={{ color: '#c00', padding: '8px' }}>
-                            Could not load personas. Check that the backend is
-                            running, then reopen this window.
-                        </p>
-                    ) : null}
-                    {personas.length === 0 && !personasQuery.isError ? (
-                        <p style={{ color: '#666', padding: '10px 12px' }}>
-                            No personas yet. Create one below — it can then join
-                            chat rooms and speak on its own.
-                        </p>
-                    ) : null}
-                    {personas.map((persona) => {
-                        const active = selectedId === persona.id;
-                        return (
-                            <button
-                                key={persona.id}
-                                type="button"
-                                className={`xp-bare xp-glass-row ${active ? 'active' : ''}`}
-                                onClick={() =>
-                                    setSelectedId(persona.id ?? null)
-                                }
-                            >
-                                <Portrait
-                                    who={persona.id}
-                                    alt=""
-                                    style={{
-                                        width: 24,
-                                        height: 24,
-                                        borderRadius: '50%',
-                                        background: '#fff',
-                                        boxShadow:
-                                            '0 0 0 1px rgba(255,255,255,0.9), 0 1px 3px rgba(31,55,148,0.25)',
-                                        flexShrink: 0,
-                                    }}
-                                />
-                                <div style={{ minWidth: 0 }}>
-                                    <div
-                                        style={{
-                                            fontWeight: 600,
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                        }}
-                                    >
-                                        {persona.name}
-                                    </div>
-                                    {residents.has(persona.id ?? '') ? (
-                                        <div
-                                            style={{
-                                                color: '#666',
-                                                fontSize: 10,
-                                            }}
-                                        >
-                                            In the World
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
-                <div
-                    style={{
-                        borderTop: '1px solid rgba(255,255,255,0.7)',
-                        boxShadow: 'inset 0 1px 0 rgba(31,55,148,0.08)',
-                        padding: '6px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '3px',
-                    }}
-                >
-                    <div
-                        style={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            color: '#003399',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.06em',
-                            padding: '0 2px 2px',
-                        }}
-                    >
-                        Create a persona
-                    </div>
-                    <NewPersonaButton
-                        onCreated={(id) => {
-                            setSelectedId(id);
-                            setAskOnSaveId(id);
-                        }}
-                    />
-                    <button
-                        type="button"
-                        className="w-full"
-                        title="Describe the persona in a sentence and let the AI write the name, bio and system prompt"
-                        onClick={() => setShowGenerateDialog(true)}
-                    >
-                        Generate with AI...
-                    </button>
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-3">
-                {selectedPersona ? (
-                    <PersonaEditor
-                        key={selectedPersona.id}
-                        persona={selectedPersona}
-                        onDeleted={() => setSelectedId(null)}
-                        onSaved={() => {
-                            if (askOnSaveId !== selectedPersona.id) return;
-                            setAskOnSaveId(null);
-                            setAskingId(askOnSaveId);
-                        }}
-                    />
-                ) : (
-                    <div className="h-full flex flex-col items-center justify-center">
-                        <div
-                            className="xp-glass-card"
-                            style={{
-                                maxWidth: 340,
-                                padding: '20px 24px',
-                                textAlign: 'center',
-                            }}
-                        >
-                            <div style={{ fontSize: 28, marginBottom: 6 }}>
-                                🎭
-                            </div>
-                            <p
-                                style={{
-                                    fontWeight: 700,
-                                    fontSize: 12,
-                                    margin: '0 0 4px',
+        <>
+            <WindowLayout
+                taskPaneLabel="Personas"
+                taskPane={
+                    <Stack gap="md" pad="md">
+                        {personasQuery.isError ? (
+                            <StatusText tone="danger">
+                                Could not load personas. Check that the backend
+                                is running, then reopen this window.
+                            </StatusText>
+                        ) : null}
+                        <ListView
+                            view="tiles"
+                            label={`Personas (${personas.length})`}
+                            className="min-h-0 flex-1"
+                            selected={selectedId ? [selectedId] : []}
+                            onSelectionChange={(ids) =>
+                                setSelectedId(ids[0] ?? null)
+                            }
+                            empty={
+                                personasQuery.isError
+                                    ? undefined
+                                    : 'No personas yet. Create one below — it can then join conversations and speak on its own.'
+                            }
+                            items={personas.map((persona) => ({
+                                id: persona.id ?? '',
+                                label: persona.name,
+                                largeIcon: (
+                                    <Portrait
+                                        who={persona.id}
+                                        alt=""
+                                        width={32}
+                                        height={32}
+                                    />
+                                ),
+                                details: residents.has(persona.id ?? '')
+                                    ? ['In the World']
+                                    : undefined,
+                            }))}
+                        />
+                        <GroupBox title="Create a persona">
+                            <NewPersonaButton
+                                onCreated={(id) => {
+                                    setSelectedId(id);
+                                    setAskOnSaveId(id);
                                 }}
+                            />
+                            <CommandButton
+                                className="w-full"
+                                icon={<Icon name="sparkle" />}
+                                title="Describe the persona in a sentence and let the AI write the name, bio and system prompt"
+                                onClick={() => setShowGenerateDialog(true)}
                             >
-                                Personas are the AI characters of this party
-                            </p>
-                            <p style={{ color: '#555', margin: 0 }}>
-                                Each one has a name, a bio, and a system prompt
-                                that shapes how it speaks in chat rooms. Select
-                                one on the left to edit it, or create a new one
-                                below the list.
-                            </p>
-                        </div>
-                    </div>
+                                Generate with AI...
+                            </CommandButton>
+                        </GroupBox>
+                    </Stack>
+                }
+                contentLabel={selectedPersona?.name ?? 'Personas'}
+            >
+                {selectedPersona ? (
+                    <Stack pad="lg">
+                        <PersonaEditor
+                            key={selectedPersona.id}
+                            persona={selectedPersona}
+                            onDeleted={() => setSelectedId(null)}
+                            onSaved={() => {
+                                if (askOnSaveId !== selectedPersona.id) return;
+                                setAskOnSaveId(null);
+                                setAskingId(askOnSaveId);
+                            }}
+                        />
+                    </Stack>
+                ) : (
+                    <Stack align="center" justify="center" pad="lg">
+                        <GroupBox
+                            title="Personas are the AI characters of this party"
+                            icon={<Icon name="personas" />}
+                            className="max-w-[340px]"
+                        >
+                            <Stack direction="row" align="start" gap="lg">
+                                <Icon name="users" size={32} />
+                                <Text as="p" tone="muted">
+                                    Each one has a name, a bio, and a system
+                                    prompt that shapes how it speaks in
+                                    conversations. Select one on the left to
+                                    edit it, or create a new one below the list.
+                                </Text>
+                            </Stack>
+                        </GroupBox>
+                    </Stack>
                 )}
-            </div>
+            </WindowLayout>
 
             {showGenerateDialog && (
                 <GeneratePersonaDialog
@@ -212,6 +149,6 @@ export default function PersonasApp() {
                     onClose={() => setAskingId(null)}
                 />
             )}
-        </div>
+        </>
     );
 }

@@ -1,0 +1,169 @@
+@layer ui {
+    .ui-post {
+        --ui-post-picture: 40px;
+        --ui-post-gap: var(--ui-space-5);
+        --ui-post-pad: var(--ui-space-5);
+        position: relative;
+        container-type: inline-size;
+        box-sizing: border-box;
+        min-width: 0;
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-post[data-size="compact"] {
+        --ui-post-picture: 28px;
+        --ui-post-gap: var(--ui-space-4);
+    }
+
+    .ui-post[data-variant="card"] {
+        border: 1px solid
+            color-mix(in oklab, var(--ui-field-edge) 70%, var(--ui-content));
+        border-radius: var(--ui-radius-inner);
+        background: var(--ui-content);
+        box-shadow: var(--ui-shadow-control);
+    }
+
+    .ui-post[data-variant="flat"] {
+        --ui-post-pad: var(--ui-space-3) var(--ui-space-4);
+        border-radius: var(--ui-radius-control);
+    }
+
+    .ui-post[data-variant="flat"] + .ui-post[data-variant="flat"] {
+        border-block-start: 1px solid
+            color-mix(in oklab, var(--ui-face-edge) 45%, transparent);
+        border-start-start-radius: 0;
+        border-start-end-radius: 0;
+    }
+
+    .ui-post[data-unread] {
+        box-shadow:
+            inset 3px 0 0 var(--ui-select),
+            var(--ui-shadow-control);
+    }
+
+    .ui-post[data-variant="flat"][data-unread] {
+        box-shadow: inset 3px 0 0 var(--ui-select);
+        background: color-mix(in oklab, var(--ui-select) 6%, transparent);
+    }
+
+    .ui-post[data-current] {
+        outline: 2px solid var(--ui-control-hot);
+        outline-offset: 1px;
+    }
+
+    .ui-post-context {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-2);
+        padding: var(--ui-space-2) var(--ui-space-5) 0;
+        color: var(--ui-text-muted);
+    }
+
+    .ui-post-main {
+        display: flex;
+        gap: var(--ui-post-gap);
+        padding: var(--ui-post-pad);
+    }
+
+    .ui-post-picture {
+        display: block;
+        flex: none;
+        width: var(--ui-post-picture);
+        height: var(--ui-post-picture);
+        overflow: hidden;
+        border: 1px solid var(--ui-face-edge);
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-face-lite);
+    }
+
+    .ui-post-picture > * {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .ui-post-content {
+        display: grid;
+        flex: 1;
+        gap: var(--ui-space-2);
+        align-content: start;
+        min-width: 0;
+    }
+
+    .ui-post-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 var(--ui-space-3);
+        min-width: 0;
+    }
+
+    .ui-post-title {
+        color: var(--ui-group-title);
+        font-weight: 700;
+        overflow-wrap: anywhere;
+    }
+
+    .ui-post-meta {
+        color: var(--ui-text-muted);
+    }
+
+    .ui-post-body {
+        font-size: var(--ui-text-reading);
+        line-height: var(--ui-leading-reading);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .ui-post-body > :is(p, ul, ol) {
+        margin: 0;
+    }
+
+    .ui-post-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ui-space-2) var(--ui-space-4);
+        padding-block-start: var(--ui-space-1);
+    }
+
+    .ui-post-replies {
+        display: grid;
+        gap: var(--ui-space-1);
+        padding: var(--ui-space-2) var(--ui-space-5) var(--ui-space-4)
+            calc(
+                var(--ui-space-5) +
+                var(--ui-post-picture) +
+                var(--ui-post-gap)
+            );
+        border-block-start: 1px solid
+            color-mix(in oklab, var(--ui-face-edge) 45%, transparent);
+        background: var(--ui-face-lite);
+        border-end-start-radius: inherit;
+        border-end-end-radius: inherit;
+    }
+
+    .ui-post[data-variant="flat"] .ui-post-replies {
+        padding-inline-start: calc(
+            var(--ui-space-4) +
+            var(--ui-post-picture) +
+            var(--ui-post-gap)
+        );
+        background: transparent;
+    }
+
+    .ui-post:not([data-has-picture]) .ui-post-replies {
+        padding-inline-start: var(--ui-space-6);
+    }
+
+    @container (max-width: 480px) {
+        .ui-post-replies,
+        .ui-post[data-variant="flat"] .ui-post-replies {
+            padding-inline-start: var(--ui-space-5);
+        }
+    }
+}

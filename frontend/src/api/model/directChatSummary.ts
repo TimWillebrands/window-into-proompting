@@ -4,6 +4,7 @@
  * backend | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { ConversationMember } from './conversationMember';
 
 export interface DirectChatSummary {
     chatGroupId: string;
@@ -15,4 +16,9 @@ export interface DirectChatSummary {
     lastSenderId: string | null;
     /** @pattern ^-?(?:0|[1-9]\d*)$ */
     lastAt: number | string;
+    kind: string;
+    name: string;
+    members: ConversationMember[];
+    /** @nullable */
+    createdBy?: string | null;
 }

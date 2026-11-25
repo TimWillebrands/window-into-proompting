@@ -1,4 +1,12 @@
-import { useId, useState } from 'react';
+import {
+    CommandButton,
+    FieldRow,
+    Stack,
+    StatusText,
+    TextBox,
+    WindowLayout,
+} from '@partytown/ui';
+import { useState } from 'react';
 import { ProblemDetailsError } from '../../api/custom-fetch';
 import { usePlayerAccount, useSetAuto } from '../../lib/world';
 
@@ -7,7 +15,6 @@ const MAX_MISSION = 160;
 export default function AutoApp() {
     const { account } = usePlayerAccount();
     const setAuto = useSetAuto();
-    const missionId = useId();
     const [mission, setMission] = useState(account?.mission ?? '');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -31,54 +38,63 @@ export default function AutoApp() {
     };
 
     return (
-        <form
-            onSubmit={(e) => {
-                e.preventDefault();
-                void apply(true);
-            }}
-            className="flex h-full flex-col gap-2 p-3"
-        >
-            <p>
-                {on
-                    ? `${name} is living on their own. You can watch and read, but not act until you take over.`
-                    : `Let ${name} live without you: they post, message, walk around and remember things, just like the Personas here.`}
-            </p>
-            <label htmlFor={missionId}>Give them a mission (optional)</label>
-            <input
-                id={missionId}
-                value={mission}
-                onChange={(e) => setMission(e.target.value)}
-                maxLength={MAX_MISSION}
-                autoComplete="off"
-                placeholder="Find a job. Make Denise laugh."
-            />
-            <p className="text-xs opacity-70">
-                They'll go after it their own way. Signed-in people can see it
-                in Work & Wants. Taking over ends it.
-            </p>
-            {error && (
-                <p role="alert" className="text-sm">
-                    {error}
+        <WindowLayout contentLabel="Auto Mode">
+            <Stack
+                as="form"
+                gap="md"
+                pad="lg"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    void apply(true);
+                }}
+            >
+                <p className="m-0">
+                    {on
+                        ? `${name} is living on their own. You can watch and read, but not act until you take over.`
+                        : `Let ${name} live without you: they post, message, walk around and remember things, just like the Personas here.`}
                 </p>
-            )}
-            <div className="mt-auto flex justify-end gap-2">
-                {on && (
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void apply(false)}
-                    >
-                        Take over
-                    </button>
+                <FieldRow
+                    label="Give them a mission (optional)"
+                    layout="stacked"
+                    hint="They'll go after it their own way. Signed-in people can see it in Work & Wants. Taking over ends it."
+                >
+                    <TextBox
+                        value={mission}
+                        onChange={(e) => setMission(e.target.value)}
+                        maxLength={MAX_MISSION}
+                        autoComplete="off"
+                        placeholder="Find a job. Make Denise laugh."
+                    />
+                </FieldRow>
+                {error && (
+                    <StatusText tone="danger" role="alert">
+                        {error}
+                    </StatusText>
                 )}
-                <button type="submit" disabled={busy}>
-                    {busy
-                        ? 'One moment…'
-                        : on
-                          ? 'Update mission'
-                          : 'Go on auto'}
-                </button>
-            </div>
-        </form>
+                <Stack
+                    direction="row"
+                    justify="end"
+                    gap="md"
+                    className="mt-auto"
+                >
+                    {on && (
+                        <CommandButton
+                            tone="caution"
+                            disabled={busy}
+                            onClick={() => void apply(false)}
+                        >
+                            Take over
+                        </CommandButton>
+                    )}
+                    <CommandButton isDefault disabled={busy}>
+                        {busy
+                            ? 'One moment…'
+                            : on
+                              ? 'Update mission'
+                              : 'Go on auto'}
+                    </CommandButton>
+                </Stack>
+            </Stack>
+        </WindowLayout>
     );
 }

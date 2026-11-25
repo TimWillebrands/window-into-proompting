@@ -4,7 +4,8 @@ WORKDIR /app
 
 RUN npm install -g pnpm@10.8.0
 
-COPY package.json pnpm-lock.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY ui/package.json ui/
 
 RUN pnpm install --frozen-lockfile
 

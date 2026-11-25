@@ -1,3 +1,4 @@
+import { Icon, Window } from '@partytown/ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import ControlPanelHome from './ControlPanelHome';
@@ -9,17 +10,14 @@ const meta = {
     args: { onNavigate: fn() },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 720,
-                    height: 480,
-                    padding: 20,
-                    background:
-                        'linear-gradient(135deg, #5C87C2 0%, #4A73B0 100%)',
-                }}
+            <Window
+                title="Control Panel"
+                icon={<Icon name="control-panel" />}
+                className="h-[480px] w-[720px]"
+                bodyClassName="overflow-auto"
             >
                 <Story />
-            </div>
+            </Window>
         ),
     ],
 } satisfies Meta<typeof ControlPanelHome>;

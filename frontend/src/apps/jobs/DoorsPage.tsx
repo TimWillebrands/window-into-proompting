@@ -1,3 +1,4 @@
+import { ComboBox, CommandButton, Stack } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -8,7 +9,18 @@ import {
 import type { Place } from '../../api/model';
 import { useIsAdmin, WORLD_ID } from '../../lib/world';
 import { DOORS, doorOf, workplacesOf } from './jobs-lib';
-import { Card, Empty, Field, Jump, PageHead, Refusal } from './parts';
+import {
+    Card,
+    Empty,
+    Field,
+    Fields,
+    Jump,
+    Page,
+    PageHead,
+    Refusal,
+    Row,
+    Rows,
+} from './parts';
 import { useWork } from './work-context';
 
 export function DoorsPage() {
@@ -20,17 +32,17 @@ export function DoorsPage() {
     return (
         <>
             <PageHead
-                icon="🚪"
+                icon="door"
                 title="Doors"
                 sub="Who may walk into a workplace. Staff always can; anyone else knocks, unless they're on its list or expected for a session or get-together."
             />
-            <div className="wk-page">
+            <Page>
                 {workplaces.length === 0 ? (
                     <Empty>Nobody works anywhere on the map yet.</Empty>
                 ) : (
                     workplaces.map((p) => <DoorCard key={p.id} place={p} />)
                 )}
-            </div>
+            </Page>
         </>
     );
 }
@@ -69,9 +81,9 @@ function DoorCard({ place }: { place: Place }) {
 
     return (
         <Card title={place.name ?? 'somewhere'}>
-            <div className="wk-fields">
+            <Fields>
                 <Field label="Door">
-                    <select
+                    <ComboBox
                         value={door}
                         disabled={!isAdmin || save.isPending}
                         onChange={(e) => set(e.currentTarget.value, allowed)}
@@ -81,11 +93,11 @@ function DoorCard({ place }: { place: Place }) {
                                 {d.label}
                             </option>
                         ))}
-                    </select>
+                    </ComboBox>
                 </Field>
-            </div>
+            </Fields>
             <p>
-                <span className="wk-muted">Staff: </span>
+                Staff:{' '}
                 {staff.map((id, i) => (
                     <span key={id}>
                         {i > 0 ? ', ' : null}
@@ -94,14 +106,14 @@ function DoorCard({ place }: { place: Place }) {
                 ))}
             </p>
             {allowed.length > 0 ? (
-                <ul className="wk-rows">
+                <Rows>
                     {allowed.map((id) => (
-                        <li key={id}>
+                        <Row key={id}>
                             {person(id)}
-                            <span className="wk-muted">on the list</span>
+                            <Stack.Item grow>on the list</Stack.Item>
                             {isAdmin ? (
-                                <button
-                                    type="button"
+                                <CommandButton
+                                    size="small"
                                     disabled={save.isPending}
                                     onClick={() =>
                                         set(
@@ -111,24 +123,27 @@ function DoorCard({ place }: { place: Place }) {
                                     }
                                 >
                                     Take off
-                                </button>
+                                </CommandButton>
                             ) : null}
-                        </li>
+                        </Row>
                     ))}
-                </ul>
+                </Rows>
             ) : (
-                <p className="wk-muted">Nobody else is on the list.</p>
+                <p>Nobody else is on the list.</p>
             )}
             {isAdmin && door !== 'open' ? (
-                <form
-                    className="wk-inline"
+                <Stack
+                    as="form"
+                    direction="row"
+                    align="center"
+                    gap="sm"
                     onSubmit={(e) => {
                         e.preventDefault();
                         set(door, [...allowed, who]);
                         setWho('');
                     }}
                 >
-                    <select
+                    <ComboBox
                         aria-label="Who else may come in"
                         value={who}
                         onChange={(e) => setWho(e.currentTarget.value)}
@@ -142,11 +157,15 @@ function DoorCard({ place }: { place: Place }) {
                                 {p.name}
                             </option>
                         ))}
-                    </select>
-                    <button type="submit" disabled={!who || save.isPending}>
+                    </ComboBox>
+                    <CommandButton
+                        type="submit"
+                        isDefault
+                        disabled={!who || save.isPending}
+                    >
                         Add
-                    </button>
-                </form>
+                    </CommandButton>
+                </Stack>
             ) : null}
             <Refusal error={save.error} />
         </Card>

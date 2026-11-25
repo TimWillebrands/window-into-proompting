@@ -1,0 +1,102 @@
+@layer ui {
+    .ui-taskbar {
+        position: relative;
+        display: flex;
+        align-items: stretch;
+        box-sizing: border-box;
+        height: 30px;
+        background: var(--ui-taskbar);
+        backdrop-filter: var(--ui-glass-blur-clear);
+        -webkit-backdrop-filter: var(--ui-glass-blur-clear);
+        color: var(--ui-text-on-chrome);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+        user-select: none;
+    }
+
+    .ui-taskbar :focus-visible {
+        outline-color: var(--ui-focus-on-chrome);
+    }
+
+    .ui-taskbar-tasks {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        gap: var(--ui-space-1);
+        min-width: 0;
+        padding: 0 var(--ui-space-3);
+        overflow: hidden;
+    }
+
+    .ui-taskbar-button {
+        position: relative;
+        display: flex;
+        flex: 0 1 160px;
+        align-items: center;
+        gap: var(--ui-space-3);
+        box-sizing: border-box;
+        min-width: 40px;
+        height: 24px;
+        margin: 0;
+        padding: 0 var(--ui-space-4) 0 var(--ui-space-3);
+        border: 1px solid var(--ui-chrome-edge);
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-taskbar-button);
+        box-shadow: var(--ui-chrome-gloss);
+        color: var(--ui-text-on-chrome);
+        font: inherit;
+        text-align: start;
+        text-shadow: var(--ui-chrome-text-shadow);
+        cursor: default;
+        transition:
+            filter var(--ui-dur-quick) var(--ui-ease-out),
+            box-shadow var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-taskbar-button::before {
+        content: "";
+        position: absolute;
+        inset: -3px calc(-1 * var(--ui-space-1) / 2);
+    }
+
+    .ui-taskbar-button:is(:hover, [data-ui-preview~="hover"]) {
+        background: var(--ui-taskbar-button-hover);
+        box-shadow: var(--ui-chrome-gloss), var(--ui-chrome-glow);
+    }
+
+    .ui-taskbar-button:is(:active, [data-active], [data-ui-preview~="active"]) {
+        background: var(--ui-taskbar-button-active);
+        box-shadow: var(--ui-chrome-press);
+    }
+
+    .ui-taskbar-button:focus-visible,
+    .ui-taskbar-button[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus-on-chrome);
+        outline-offset: -3px;
+    }
+
+    .ui-taskbar-button-icon {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        line-height: 1;
+    }
+
+    .ui-taskbar-button-icon > :is(img, svg) {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+    }
+
+    .ui-taskbar-button-label {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}

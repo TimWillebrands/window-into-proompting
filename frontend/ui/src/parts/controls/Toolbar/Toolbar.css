@@ -1,0 +1,147 @@
+@layer ui {
+    .ui-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ui-space-1);
+        padding: var(--ui-space-1) var(--ui-space-2);
+        background: var(--ui-face);
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-toolbar[data-variant="bare"] {
+        padding: 0;
+        background: transparent;
+    }
+
+    .ui-toolbar[data-orientation="vertical"] {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ui-toolbar-button {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--ui-space-2);
+        box-sizing: border-box;
+        min-width: 24px;
+        min-height: 24px;
+        margin: 0;
+        padding: var(--ui-space-1) var(--ui-space-3);
+        border: 1px solid transparent;
+        border-radius: var(--ui-radius-control-inner);
+        background: transparent;
+        color: var(--ui-text);
+        font: inherit;
+        white-space: nowrap;
+        cursor: default;
+        user-select: none;
+        transition:
+            background-color var(--ui-dur-quick) var(--ui-ease-out),
+            border-color var(--ui-dur-quick) var(--ui-ease-out),
+            box-shadow var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-toolbar-button::before {
+        content: "";
+        position: absolute;
+        inset: -2px -1px;
+    }
+
+    .ui-toolbar-button[data-icon-only] {
+        padding-inline: var(--ui-space-1);
+    }
+
+    .ui-toolbar[data-labels="below"] .ui-toolbar-button {
+        flex-direction: column;
+        gap: var(--ui-space-1);
+        min-width: 48px;
+        padding: var(--ui-space-2) var(--ui-space-3);
+    }
+
+    .ui-toolbar[data-labels="none"] .ui-toolbar-button-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .ui-toolbar[data-labels="none"] .ui-toolbar-button {
+        padding-inline: var(--ui-space-1);
+    }
+
+    .ui-toolbar-button-icon {
+        display: inline-flex;
+        flex: none;
+    }
+
+    .ui-toolbar-button-menu {
+        width: 0;
+        height: 0;
+        border-inline: 3px solid transparent;
+        border-top: 3px solid currentcolor;
+    }
+
+    .ui-toolbar-button:enabled:is(:hover, [data-ui-preview~="hover"]) {
+        border-color: var(--ui-face-edge);
+        background: var(--ui-control-hover);
+        box-shadow: var(--ui-shadow-control);
+    }
+
+    .ui-toolbar-button[aria-pressed="true"] {
+        border-color: var(--ui-face-edge);
+        background: var(--ui-face-lite);
+        box-shadow: inset 1px 1px 2px
+            oklch(from var(--ui-face-edge) l c h / 0.7);
+    }
+
+    .ui-toolbar-button:enabled:is(:active, [data-ui-preview~="active"]) {
+        border-color: var(--ui-face-edge);
+        background: var(--ui-control-active);
+        box-shadow: inset 1px 1px 2px
+            oklch(from var(--ui-face-edge) l c h / 0.9);
+    }
+
+    .ui-toolbar-button[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: 2px;
+    }
+
+    .ui-toolbar-button:focus-visible {
+        outline-offset: 0;
+    }
+
+    .ui-toolbar-button:disabled {
+        color: var(--ui-text-disabled);
+    }
+
+    .ui-toolbar-button:disabled .ui-toolbar-button-icon {
+        filter: grayscale(1);
+        opacity: 0.5;
+    }
+
+    .ui-toolbar-separator {
+        align-self: stretch;
+        width: 0;
+        margin: var(--ui-space-1) var(--ui-space-2);
+        border: 0;
+        border-inline-start: 1px solid var(--ui-face-edge);
+        border-inline-end: 1px solid var(--ui-face-lite);
+    }
+
+    .ui-toolbar[data-orientation="vertical"] .ui-toolbar-separator {
+        width: auto;
+        height: 0;
+        margin: var(--ui-space-2) var(--ui-space-1);
+        border-inline: 0;
+        border-block-start: 1px solid var(--ui-face-edge);
+        border-block-end: 1px solid var(--ui-face-lite);
+    }
+}

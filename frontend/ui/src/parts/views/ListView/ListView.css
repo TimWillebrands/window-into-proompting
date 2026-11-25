@@ -1,0 +1,391 @@
+@layer ui {
+    .ui-listview {
+        position: relative;
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+        border: 1px solid var(--ui-field-edge);
+        background: var(--ui-content);
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+        cursor: default;
+        user-select: none;
+    }
+
+    .ui-listview-icon {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .ui-listview-text {
+        display: grid;
+        min-width: 0;
+    }
+
+    .ui-listview-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ui-listview-detail {
+        overflow: hidden;
+        color: var(--ui-text-muted);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ui-listview-empty {
+        grid-column: 1 / -1;
+        padding: var(--ui-space-5);
+        color: var(--ui-text-muted);
+        text-align: center;
+    }
+
+    .ui-listview-item[data-tone="neutral"] {
+        color: var(--ui-tone-neutral-ink);
+    }
+
+    .ui-listview-item[data-tone="go"] {
+        color: var(--ui-tone-go-ink);
+    }
+
+    .ui-listview-item[data-tone="caution"] {
+        color: var(--ui-tone-caution-ink);
+    }
+
+    .ui-listview-item[data-tone="danger"] {
+        color: var(--ui-tone-danger-ink);
+    }
+
+    .ui-listview-item[aria-disabled="true"] {
+        color: var(--ui-text-disabled);
+    }
+
+    .ui-listview[data-activate="single"]
+        .ui-listview-item:not([aria-disabled="true"]) {
+        cursor: pointer;
+    }
+
+    .ui-listview[data-activate="single"]
+        .ui-listview-item:not([aria-disabled="true"]):is(
+            :hover,
+            [data-ui-preview~="hover"]
+        )
+        .ui-listview-label {
+        text-decoration: underline;
+    }
+
+    .ui-listview-item[aria-disabled="true"] .ui-listview-icon {
+        opacity: 0.5;
+        filter: grayscale(1);
+    }
+
+    .ui-listview {
+        --ui-lv-sel: var(--ui-select-inactive);
+        --ui-lv-sel-text: var(--ui-select-inactive-text);
+    }
+
+    .ui-listview:focus-within,
+    .ui-listview[data-ui-preview~="focus"] {
+        --ui-lv-sel: var(--ui-select);
+        --ui-lv-sel-text: var(--ui-select-text);
+    }
+
+    .ui-listview-item {
+        outline: none;
+    }
+
+    .ui-listview-item:focus-visible,
+    .ui-listview-item[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: -2px;
+    }
+
+    .ui-listview[data-view="details"]
+        .ui-listview-item[aria-selected="true"]:is(
+            :focus-visible,
+            [data-ui-preview~="focus"]
+        ) {
+        outline-color: color-mix(
+            in oklab,
+            var(--ui-select-text) 85%,
+            var(--ui-select)
+        );
+    }
+
+    .ui-listview[data-view="details"] {
+        display: grid;
+        grid-template-columns: var(--ui-listview-columns);
+        align-content: start;
+    }
+
+    .ui-listview-header,
+    .ui-listview[data-view="details"] .ui-listview-item {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: subgrid;
+    }
+
+    .ui-listview-header {
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 1;
+    }
+
+    .ui-listview-columnheader {
+        display: flex;
+        min-width: 0;
+        background: var(--ui-control-hover);
+        box-shadow:
+            inset 0 -1px 0 var(--ui-face-edge),
+            inset 0 -2px 0
+            color-mix(in oklab, var(--ui-face-edge) 55%, var(--ui-face)),
+            inset 0 -3px 0
+            color-mix(in oklab, var(--ui-face-edge) 30%, var(--ui-face));
+    }
+
+    .ui-listview-sort {
+        position: relative;
+        display: flex;
+        flex: 1;
+        align-items: center;
+        gap: var(--ui-space-2);
+        min-width: 0;
+        min-height: 22px;
+        margin: 0;
+        padding: 0 var(--ui-space-3) var(--ui-space-1);
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: var(--ui-text);
+        font: inherit;
+        text-align: start;
+    }
+
+    .ui-listview-sort::after {
+        content: "";
+        position: absolute;
+        inset-block: var(--ui-space-2) var(--ui-space-3);
+        inset-inline-end: 0;
+        border-inline-end: 1px solid var(--ui-face-edge);
+        box-shadow: 1px 0 0 var(--ui-face-lite);
+    }
+
+    [data-align="end"] > .ui-listview-sort {
+        flex-direction: row-reverse;
+        text-align: end;
+    }
+
+    [data-align="center"] > .ui-listview-sort {
+        justify-content: center;
+    }
+
+    .ui-listview-header-text {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    button.ui-listview-sort:is(:hover, [data-ui-preview~="hover"]) {
+        background: var(--ui-control-hover);
+        box-shadow: inset 0 -3px 0 var(--ui-control-hot);
+    }
+
+    button.ui-listview-sort:active {
+        background: var(--ui-control-active);
+        box-shadow: none;
+    }
+
+    .ui-listview-sort-arrow {
+        flex: none;
+        width: 0;
+        height: 0;
+        border-inline: 4px solid transparent;
+    }
+
+    [data-sorted="ascending"] .ui-listview-sort-arrow {
+        border-block-end: 4px solid var(--ui-text-muted);
+    }
+
+    [data-sorted="descending"] .ui-listview-sort-arrow {
+        border-block-start: 4px solid var(--ui-text-muted);
+    }
+
+    .ui-listview-columnheader[data-sorted] {
+        background: var(--ui-control);
+    }
+
+    .ui-listview[data-view="details"] .ui-listview-item {
+        scroll-margin-block-start: 24px;
+    }
+
+    .ui-listview-cell {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-3);
+        min-width: 0;
+        min-height: 20px;
+        padding: var(--ui-space-1) var(--ui-space-3);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ui-listview[data-wrap] .ui-listview-cell {
+        align-items: flex-start;
+    }
+
+    .ui-listview-cell[data-wrap] {
+        overflow: visible;
+        white-space: normal;
+        overflow-wrap: break-word;
+    }
+
+    .ui-listview-cell[data-wrap] .ui-listview-label,
+    [data-wrap] > .ui-listview-sort .ui-listview-header-text {
+        overflow: visible;
+        white-space: normal;
+        overflow-wrap: break-word;
+    }
+
+    .ui-listview-cell[data-align="end"] {
+        justify-content: flex-end;
+    }
+
+    .ui-listview-cell[data-align="center"] {
+        justify-content: center;
+    }
+
+    .ui-listview[data-view="details"] .ui-listview-item[aria-selected="true"] {
+        background: var(--ui-lv-sel);
+        color: var(--ui-lv-sel-text);
+    }
+
+    .ui-listview[data-view="list"] {
+        display: flex;
+        flex-flow: column wrap;
+        align-content: flex-start;
+        gap: 0 var(--ui-space-5);
+        padding: var(--ui-space-2);
+    }
+
+    .ui-listview[data-view="list"] .ui-listview-item {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-3);
+        max-width: 240px;
+        min-height: 20px;
+        padding: var(--ui-space-1) var(--ui-space-2);
+    }
+
+    .ui-listview[data-view="list"]
+        .ui-listview-item[aria-selected="true"]
+        .ui-listview-label {
+        background: var(--ui-lv-sel);
+        color: var(--ui-lv-sel-text);
+    }
+
+    .ui-listview[data-view="list"] .ui-listview-label {
+        padding: 0 var(--ui-space-1);
+    }
+
+    .ui-listview[data-view="icons"] {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, 80px);
+        align-content: start;
+        gap: var(--ui-space-4) var(--ui-space-2);
+        padding: var(--ui-space-4);
+    }
+
+    .ui-listview[data-view="icons"] .ui-listview-item {
+        display: grid;
+        justify-items: center;
+        align-content: start;
+        gap: var(--ui-space-2);
+        padding: var(--ui-space-2) var(--ui-space-1);
+        text-align: center;
+    }
+
+    .ui-listview[data-view="icons"] .ui-listview-icon {
+        min-width: 32px;
+        min-height: 32px;
+    }
+
+    .ui-listview[data-view="icons"] .ui-listview-label {
+        display: -webkit-box;
+        padding: 0 var(--ui-space-1);
+        white-space: normal;
+        overflow-wrap: anywhere;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+
+    .ui-listview[data-view="icons"]
+        .ui-listview-item[aria-selected="true"]
+        .ui-listview-label,
+    .ui-listview[data-view="tiles"]
+        .ui-listview-item[aria-selected="true"]
+        .ui-listview-text {
+        background: var(--ui-lv-sel);
+        color: var(--ui-lv-sel-text);
+    }
+
+    .ui-listview[data-view="tiles"] {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        align-content: start;
+        gap: var(--ui-space-4);
+        padding: var(--ui-space-4);
+    }
+
+    .ui-listview[data-view="tiles"] .ui-listview-item {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-4);
+        min-height: 52px;
+        padding: var(--ui-space-2);
+    }
+
+    .ui-listview[data-view="tiles"] .ui-listview-icon {
+        min-width: 48px;
+        min-height: 48px;
+    }
+
+    .ui-listview[data-view="tiles"] .ui-listview-text {
+        padding: var(--ui-space-1) var(--ui-space-2);
+    }
+
+    .ui-listview[data-view="tiles"][data-tile-size="compact"] {
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+        gap: var(--ui-space-2);
+        padding: var(--ui-space-2);
+    }
+
+    .ui-listview[data-tile-size="compact"] .ui-listview-item {
+        gap: var(--ui-space-3);
+        min-height: 36px;
+        padding: var(--ui-space-1);
+    }
+
+    .ui-listview[data-tile-size="compact"] .ui-listview-icon {
+        min-width: 32px;
+        min-height: 32px;
+    }
+
+    .ui-listview:is(
+            :focus-within,
+            [data-ui-preview~="focus"]
+        )[data-view="tiles"]
+        .ui-listview-item[aria-selected="true"]
+        .ui-listview-detail {
+        color: inherit;
+    }
+}

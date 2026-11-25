@@ -1,3 +1,19 @@
+import {
+    CheckBox,
+    CommandButton,
+    FieldRow,
+    GroupBox,
+    HudPanel,
+    Icon,
+    type IconName,
+    Stack,
+    SwatchPicker,
+    TextArea,
+    TextBox,
+    Toolbar,
+    ToolbarButton,
+    ToolbarSeparator,
+} from '@partytown/ui';
 import { useState } from 'react';
 import type { Body } from '../../api/model/body';
 import type { FurniView } from '../../api/model/furniView';
@@ -14,32 +30,33 @@ import {
     usePostWorldsPartyIdPlacesThingsRemove,
 } from '../../api/party-zone';
 import { WORLD_ID } from '../../lib/world';
+import { FLOOR_COLOURS, WALL_COLOURS } from './scene/surfaces';
 
-const POSE_ICON: Record<string, [string, string]> = {
-    lean: ['🫱', 'Lean'],
-    lounge: ['🛋️', 'Lounge'],
-    perch: ['🪑', 'Perch'],
-    dance: ['💃', 'Dance'],
-    lie: ['😴', 'Lie down'],
-    'cross-legged': ['🧘', 'Sit'],
-    think: ['🤔', 'Think'],
-    wave: ['👋', 'Wave'],
-    hug: ['🤗', 'Hug'],
-    'slow-dance': ['💞', 'Slow dance'],
-    'high-five': ['✋', 'High five'],
-    'hold-hands': ['🤝', 'Hold hands'],
+const POSE_ICON: Record<string, [IconName, string]> = {
+    lean: ['lean', 'Lean'],
+    lounge: ['sofa', 'Lounge'],
+    perch: ['chair', 'Perch'],
+    dance: ['dance', 'Dance'],
+    lie: ['lie-down', 'Lie down'],
+    'cross-legged': ['meditate', 'Sit'],
+    think: ['think', 'Think'],
+    wave: ['wave', 'Wave'],
+    hug: ['hug', 'Hug'],
+    'slow-dance': ['hearts', 'Slow dance'],
+    'high-five': ['hand', 'High five'],
+    'hold-hands': ['handshake', 'Hold hands'],
 };
 
 export function PoseBar({
     place,
     me,
     bodies,
-    bottom,
+    floating = false,
 }: {
     place: Place;
     me: Body;
     bodies: Body[];
-    bottom?: number;
+    floating?: boolean;
 }) {
     const pose = usePostWorldsPartyIdPlacesPose();
     const spot = (place.spots ?? []).find(
@@ -71,16 +88,15 @@ export function PoseBar({
             },
         });
     const button = (p: string, withBody?: Body) => {
-        const [icon, label] = POSE_ICON[p] ?? ['✨', p];
+        const [icon, label] = POSE_ICON[p] ?? ['sparkle', p];
         const on =
             me.pose === p &&
             (!withBody || me.poseWith === withBody.participantId);
         return (
-            <button
+            <ToolbarButton
                 key={`${withBody?.participantId ?? ''}:${p}`}
-                type="button"
-                className={`pl-pose${withBody ? ' pl-pose--pair' : ''}`}
-                aria-pressed={on}
+                icon={<Icon name={icon} />}
+                pressed={on}
                 disabled={pose.isPending}
                 title={withBody ? `${label} ${withBody.name}` : label}
                 onClick={() =>
@@ -89,55 +105,25 @@ export function PoseBar({
                         : strike(p, withBody?.participantId ?? undefined)
                 }
             >
-                <b>{icon}</b>
                 {withBody
                     ? `${label.split(' ')[0]} ${(withBody.name ?? '').split(' ')[0]}`
                     : label}
-            </button>
+            </ToolbarButton>
         );
     };
-    return (
-        <div
-            className="pl-dock"
-            style={
-                bottom === undefined
-                    ? {
-                          position: 'static',
-                          transform: 'none',
-                          alignSelf: 'center',
-                      }
-                    : { bottom }
-            }
+    const bar = (
+        <Toolbar
+            labels="below"
+            aria-label="Poses"
+            className="justify-center self-center"
         >
             {solo.map((p) => button(p))}
-            {company.length > 0 ? <span className="pl-dock-sep" /> : null}
+            {company.length > 0 ? <ToolbarSeparator /> : null}
             {company.slice(0, 3).flatMap((b) => pairs.map((p) => button(p, b)))}
-        </div>
+        </Toolbar>
     );
+    return floating ? <HudPanel className="mx-10">{bar}</HudPanel> : bar;
 }
-
-const WALLS = [
-    '#e9dcc4',
-    '#d8e2dc',
-    '#f1d6c4',
-    '#cfd8e6',
-    '#e8e1f0',
-    '#f3e6b8',
-    '#b8d8c8',
-    '#f4c7c3',
-    '#3d405b',
-    '#2f3e46',
-];
-const FLOORS = [
-    '#c8a173',
-    '#a67b5b',
-    '#d9c3a0',
-    '#8d6e63',
-    '#b0a090',
-    '#5e6b73',
-    '#e8e4dc',
-    '#7a2f3d',
-];
 
 export function ArrangeTools({
     place,
@@ -168,35 +154,28 @@ export function ArrangeTools({
             data: { placeId: place.id, wall, floor, participantId },
         });
     return (
-        <div className="pl-card pl-card--tool flex flex-col" style={{ gap: 5 }}>
-            <div className="flex items-center" style={{ gap: 6 }}>
-                <strong className="pl-card-title">🪑 Arranging</strong>
-                <span style={{ color: '#5b6b8c' }}>
+        <GroupBox title="Arranging" icon={<Icon name="chair" />}>
+            <Stack direction="row" align="center" gap="md">
+                <Stack.Item grow>
                     {thing
                         ? `${thing.name}: click a tile to put it there.`
                         : 'Click a thing to pick it up.'}
-                </span>
-                <button
-                    type="button"
-                    className="pl-btn pl-btn--go pl-btn--small"
-                    style={{ marginLeft: 'auto' }}
-                    onClick={onDone}
-                >
+                </Stack.Item>
+                <CommandButton size="small" tone="go" onClick={onDone}>
                     Done
-                </button>
-            </div>
+                </CommandButton>
+            </Stack>
             {thing && place.id ? (
-                <div className="flex flex-wrap" style={{ gap: 4 }}>
-                    <button
-                        type="button"
-                        className="pl-btn pl-btn--small"
+                <Stack direction="row" wrap gap="xs">
+                    <CommandButton
+                        size="small"
+                        icon={<Icon name="refresh" />}
                         onClick={onRotate}
                     >
-                        ↻ Turn ({rot * 90}°)
-                    </button>
-                    <button
-                        type="button"
-                        className="pl-btn pl-btn--small"
+                        Turn ({rot * 90}°)
+                    </CommandButton>
+                    <CommandButton
+                        size="small"
                         onClick={() =>
                             arrange.mutate({
                                 partyId: WORLD_ID,
@@ -212,12 +191,12 @@ export function ArrangeTools({
                         }
                     >
                         Put back
-                    </button>
+                    </CommandButton>
                     {thing.kind === 'decor' ? (
                         <>
-                            <button
-                                type="button"
-                                className="pl-btn pl-btn--warm pl-btn--small"
+                            <CommandButton
+                                size="small"
+                                tone="caution"
                                 onClick={() =>
                                     remove.mutate({
                                         partyId: WORLD_ID,
@@ -230,10 +209,9 @@ export function ArrangeTools({
                                 }
                             >
                                 Take down
-                            </button>
-                            <button
-                                type="button"
-                                className="pl-btn pl-btn--small"
+                            </CommandButton>
+                            <CommandButton
+                                size="small"
                                 title="Have the model made again"
                                 onClick={() =>
                                     remodel.mutate({
@@ -247,24 +225,24 @@ export function ArrangeTools({
                                 }
                             >
                                 Remake
-                            </button>
+                            </CommandButton>
                         </>
                     ) : null}
-                </div>
+                </Stack>
             ) : null}
             <Swatches
                 label="Walls"
-                colours={WALLS}
+                colours={WALL_COLOURS}
                 current={place.wallColour}
                 onPick={(c) => setStyle(c, place.floorColour ?? null)}
             />
             <Swatches
                 label="Floor"
-                colours={FLOORS}
+                colours={FLOOR_COLOURS}
                 current={place.floorColour}
                 onPick={(c) => setStyle(place.wallColour ?? null, c)}
             />
-        </div>
+        </GroupBox>
     );
 }
 
@@ -280,28 +258,16 @@ function Swatches({
     onPick: (c: string | null) => void;
 }) {
     return (
-        <div className="flex items-center" style={{ gap: 3 }}>
-            <span style={{ color: '#5b6b8c', width: 40 }}>{label}</span>
-            {colours.map((c) => (
-                <button
-                    key={c}
-                    type="button"
-                    className="pl-swatch"
-                    title={c}
-                    aria-pressed={current === c}
-                    onClick={() => onPick(c)}
-                    style={{ background: c }}
-                />
-            ))}
-            <button
-                type="button"
-                className="pl-btn pl-btn--ghost pl-btn--small"
-                style={{ color: '#245edb', borderColor: '#9fb3df' }}
-                onClick={() => onPick(null)}
-            >
-                Default
-            </button>
-        </div>
+        <Stack direction="row" align="center" gap="md">
+            <span className="w-10 flex-none">{label}</span>
+            <SwatchPicker
+                label={label}
+                colours={colours}
+                value={current ?? null}
+                noneLabel="Default"
+                onValueChange={onPick}
+            />
+        </Stack>
     );
 }
 
@@ -319,10 +285,8 @@ export function MakerTools({
     const [outdoor, setOutdoor] = useState(false);
     const [what, setWhat] = useState('');
     return (
-        <div className="pl-card pl-card--tool flex flex-col" style={{ gap: 5 }}>
+        <GroupBox title="Maker" icon={<Icon name="tools" />}>
             <form
-                className="flex items-center"
-                style={{ gap: 4 }}
                 onSubmit={(e) => {
                     e.preventDefault();
                     if (!idea.trim()) return;
@@ -335,37 +299,46 @@ export function MakerTools({
                     );
                 }}
             >
-                <strong className="pl-card-title">✨ New Place:</strong>
-                <input
-                    value={idea}
-                    style={{ flex: 1 }}
-                    placeholder="a rooftop bar with fairy lights, a record shop, a little park…"
-                    onChange={(e) => setIdea(e.currentTarget.value)}
-                />
-                <label style={{ whiteSpace: 'nowrap' }}>
-                    <input
-                        type="checkbox"
-                        checked={outdoor}
-                        onChange={(e) => setOutdoor(e.currentTarget.checked)}
-                    />{' '}
-                    outdoors
-                </label>
-                <button
-                    type="submit"
-                    className="pl-btn pl-btn--go"
-                    disabled={create.isPending}
+                <FieldRow
+                    label="New Place"
+                    labelWidth="auto"
+                    error={
+                        create.isError
+                            ? "Couldn't design that one. Try describing it differently."
+                            : undefined
+                    }
                 >
-                    {create.isPending ? 'Designing…' : 'Build'}
-                </button>
+                    <Stack
+                        direction="row"
+                        align="center"
+                        gap="md"
+                        className="justify-self-stretch"
+                    >
+                        <TextBox
+                            value={idea}
+                            className="min-w-0 flex-1"
+                            placeholder="a rooftop bar with fairy lights, a record shop, a little park…"
+                            onChange={(e) => setIdea(e.currentTarget.value)}
+                        />
+                        <CheckBox
+                            checked={outdoor}
+                            onChange={(e) =>
+                                setOutdoor(e.currentTarget.checked)
+                            }
+                        >
+                            outdoors
+                        </CheckBox>
+                        <CommandButton
+                            type="submit"
+                            tone="go"
+                            disabled={create.isPending}
+                        >
+                            {create.isPending ? 'Designing…' : 'Build'}
+                        </CommandButton>
+                    </Stack>
+                </FieldRow>
             </form>
-            {create.isError ? (
-                <span style={{ color: '#a00' }}>
-                    Couldn't design that one. Try describing it differently.
-                </span>
-            ) : null}
             <form
-                className="flex items-center"
-                style={{ gap: 4 }}
                 onSubmit={(e) => {
                     e.preventDefault();
                     if (!what.trim() || !place.id) return;
@@ -382,20 +355,28 @@ export function MakerTools({
                     );
                 }}
             >
-                <strong className="pl-card-title">🎁 Make a thing:</strong>
-                <input
-                    value={what}
-                    style={{ flex: 1 }}
-                    placeholder="a lava lamp shaped like a cat"
-                    onChange={(e) => setWhat(e.currentTarget.value)}
-                />
-                <button
-                    type="submit"
-                    className="pl-btn pl-btn--go"
-                    disabled={thing.isPending}
-                >
-                    Make
-                </button>
+                <FieldRow label="Make a thing">
+                    <Stack
+                        direction="row"
+                        align="center"
+                        gap="md"
+                        className="justify-self-stretch"
+                    >
+                        <TextBox
+                            value={what}
+                            className="min-w-0 flex-1"
+                            placeholder="a lava lamp shaped like a cat"
+                            onChange={(e) => setWhat(e.currentTarget.value)}
+                        />
+                        <CommandButton
+                            type="submit"
+                            tone="go"
+                            disabled={thing.isPending}
+                        >
+                            Make
+                        </CommandButton>
+                    </Stack>
+                </FieldRow>
             </form>
             {(place.kind === 'home' || place.kind === 'public') && place.id ? (
                 <Redesign
@@ -405,10 +386,11 @@ export function MakerTools({
                 />
             ) : null}
             {place.customScene && place.id && place.kind === 'public' ? (
-                <button
-                    type="button"
-                    className="pl-btn pl-btn--warm pl-btn--small"
-                    style={{ alignSelf: 'flex-start' }}
+                <CommandButton
+                    size="small"
+                    tone="danger"
+                    className="justify-self-start"
+                    icon={<Icon name="delete" />}
                     onClick={() => {
                         if (
                             place.id &&
@@ -423,9 +405,9 @@ export function MakerTools({
                     }}
                 >
                     Remove this Place
-                </button>
+                </CommandButton>
             ) : null}
-        </div>
+        </GroupBox>
     );
 }
 
@@ -443,9 +425,9 @@ function Redesign({
     const [rename, setRename] = useState('');
     const [outdoor, setOutdoor] = useState(false);
     return (
-        <form
-            className="flex flex-col"
-            style={{ gap: 4 }}
+        <Stack
+            as="form"
+            gap="xs"
             onSubmit={(e) => {
                 e.preventDefault();
                 if (!text.trim()) return;
@@ -474,45 +456,46 @@ function Redesign({
                 );
             }}
         >
-            <strong className="pl-card-title">
-                🏚️ Redesign this {home ? 'Home' : 'Place'}:
-            </strong>
-            <textarea
-                value={text}
-                rows={3}
-                maxLength={1500}
-                placeholder="a tarp under the bridge by the canal, an upturned crate, a barrel he sleeps beside…"
-                onChange={(e) => setText(e.currentTarget.value)}
-            />
-            <div className="flex items-center" style={{ gap: 4 }}>
-                <input
+            <FieldRow
+                layout="stacked"
+                label={`Redesign this ${home ? 'Home' : 'Place'}`}
+                error={
+                    redesign.isError
+                        ? "Couldn't design that one. Try describing it differently."
+                        : undefined
+                }
+            >
+                <TextArea
+                    value={text}
+                    rows={3}
+                    maxLength={1500}
+                    placeholder="a tarp under the bridge by the canal, an upturned crate, a barrel he sleeps beside…"
+                    onChange={(e) => setText(e.currentTarget.value)}
+                />
+            </FieldRow>
+            <Stack direction="row" align="center" gap="md">
+                <TextBox
                     value={rename}
-                    style={{ flex: 1 }}
+                    aria-label="New name"
+                    className="min-w-0 flex-1"
                     maxLength={40}
                     placeholder={`new name (keeps "${name}")`}
                     onChange={(e) => setRename(e.currentTarget.value)}
                 />
-                <label style={{ whiteSpace: 'nowrap' }}>
-                    <input
-                        type="checkbox"
-                        checked={outdoor}
-                        onChange={(e) => setOutdoor(e.currentTarget.checked)}
-                    />{' '}
+                <CheckBox
+                    checked={outdoor}
+                    onChange={(e) => setOutdoor(e.currentTarget.checked)}
+                >
                     outdoors
-                </label>
-                <button
+                </CheckBox>
+                <CommandButton
                     type="submit"
-                    className="pl-btn pl-btn--go"
+                    tone="go"
                     disabled={redesign.isPending}
                 >
                     {redesign.isPending ? 'Designing…' : 'Redesign'}
-                </button>
-            </div>
-            {redesign.isError ? (
-                <span style={{ color: '#a00' }}>
-                    Couldn't design that one. Try describing it differently.
-                </span>
-            ) : null}
-        </form>
+                </CommandButton>
+            </Stack>
+        </Stack>
     );
 }

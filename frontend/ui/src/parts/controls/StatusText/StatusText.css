@@ -1,0 +1,80 @@
+@layer ui {
+    .ui-status-text {
+        --ui-status-ink: var(--ui-text);
+        --ui-status-tone: var(--ui-tone-neutral);
+        display: flex;
+        align-items: flex-start;
+        gap: var(--ui-space-3);
+        margin: 0;
+        color: var(--ui-status-ink);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-status-text[data-tone="go"] {
+        --ui-status-ink: var(--ui-tone-go-ink);
+        --ui-status-tone: var(--ui-tone-go);
+    }
+
+    .ui-status-text[data-tone="caution"] {
+        --ui-status-ink: var(--ui-tone-caution-ink);
+        --ui-status-tone: var(--ui-tone-caution);
+    }
+
+    .ui-status-text[data-tone="danger"] {
+        --ui-status-ink: var(--ui-tone-danger-ink);
+        --ui-status-tone: var(--ui-tone-danger);
+    }
+
+    span.ui-status-text {
+        display: inline-flex;
+        vertical-align: top;
+    }
+
+    .ui-status-text-icon {
+        display: inline-flex;
+        flex: none;
+        align-self: flex-start;
+    }
+
+    .ui-status-text-body {
+        align-self: baseline;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .ui-status-text-actions {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: var(--ui-space-2);
+    }
+
+    .ui-status-text[data-variant="bar"] {
+        box-sizing: border-box;
+        align-items: center;
+        min-width: 0;
+        min-height: 26px;
+        padding: var(--ui-space-2) var(--ui-space-4);
+        border: 1px solid
+            color-mix(in oklab, var(--ui-status-tone) 55%, var(--ui-field));
+        border-radius: var(--ui-radius-control);
+        background: color-mix(
+            in oklab,
+            var(--ui-status-tone) 16%,
+            var(--ui-field)
+        );
+        color: var(--ui-text);
+    }
+
+    .ui-status-text[data-variant="bar"] > .ui-status-text-icon {
+        align-self: auto;
+    }
+
+    .ui-status-text[data-variant="bar"] > .ui-status-text-body {
+        flex: 1;
+        align-self: auto;
+        overflow-wrap: normal;
+    }
+}

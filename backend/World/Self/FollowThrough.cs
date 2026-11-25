@@ -103,7 +103,7 @@ public sealed class FollowThrough(ISystemOneJudge judge, IGrainFactory grains, I
             logger.LogInformation("Follow-through {Speaker} → {Other}: already planned as \"{Title}\"", name(speakerId), name(otherId), already.Title);
             return true;
         }
-        var planned = await calendar.PlanAsync(hostId, name(hostId), PromiseRules.Title(name(guestId), name(hostId)), Guid.Empty, home.Name, startsAt, home.Id);
+        var planned = await calendar.PlanAsync(hostId, name(hostId), PromiseRules.Title(name(guestId), name(hostId)), home.Id, home.Name, startsAt);
         await calendar.RsvpAsync(planned.Id, guestId, true);
         await grains.GetGrain<IWorldClockGrain>(partyId).RecordAsync(new WorldActivity
         {

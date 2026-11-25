@@ -1,3 +1,11 @@
+import {
+    CommandButton,
+    Icon,
+    LogonAction,
+    LogonTile,
+    Text,
+    TextBox,
+} from '@partytown/ui';
 import { useId, useState } from 'react';
 import { useGetWorldsPartyIdPlayerFree } from '#api/party-zone';
 import { ProblemDetailsError } from '../../api/custom-fetch';
@@ -8,12 +16,10 @@ import {
     WORLD_ID,
 } from '../../lib/world';
 import Portrait from '../Portrait';
-import { LoginShell } from './WelcomeScreen';
+import { LoginError, LoginShell } from './WelcomeScreen';
 
 const MAX_NAME = 40;
-
-const TILE =
-    'flex w-72 items-center gap-3 rounded-md border-0 bg-transparent p-2 text-left text-lg text-white hover:bg-[#2c5bd3]';
+const NEW = 'new';
 
 const said = (err: unknown) =>
     (err instanceof ProblemDetailsError ? err.detail || err.title : null) ||
@@ -25,9 +31,9 @@ export default function CreateCharacterScreen() {
     const leaveWorld = useWorldChoice((s) => s.leave);
     const { data } = useGetWorldsPartyIdPlayerFree(WORLD_ID);
     const free = data?.data ?? [];
-    const nameId = useId();
     const [name, setName] = useState('');
-    const [picked, setPicked] = useState<string | null>(null);
+    const [picked, setPicked] = useState<string>(NEW);
+    const nameId = useId();
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -51,96 +57,70 @@ export default function CreateCharacterScreen() {
         <LoginShell
             prompt="Who will you be?"
             blurb="Make someone new, or become someone who already lives here and carry on their life."
+            footerStart={
+                <LogonAction
+                    icon={<Icon name="back" size={32} />}
+                    onClick={leaveWorld}
+                >
+                    Pick another World
+                </LogonAction>
+            }
         >
-            <form
-                onSubmit={submit}
-                className="flex w-72 flex-col gap-2 p-2 text-left"
+            <LogonTile
+                name="Someone new"
+                subtitle="Start a life of your own"
+                picture={<Icon name="new" size={48} />}
+                selected={picked === NEW}
+                onClick={() => setPicked(NEW)}
             >
-                <label htmlFor={nameId} className="text-lg">
-                    Your name
-                </label>
-                <div className="flex items-center gap-2">
-                    <input
-                        id={nameId}
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        maxLength={MAX_NAME}
-                        className="flex-1 bg-white text-black"
-                        autoComplete="off"
-                    />
-                    <button type="submit" disabled={busy || !name.trim()}>
-                        Go
-                    </button>
-                </div>
-            </form>
-            {error && (
-                <p role="alert" className="w-72 p-2 text-sm">
-                    {error}
-                </p>
-            )}
-            {free.length > 0 && (
-                <>
-                    <p className="m-0 w-72 p-2 text-sm opacity-80">
-                        Or play as someone already here:
-                    </p>
-                    <ul className="m-0 flex list-none flex-col gap-2 p-0">
-                        {free.map((p) => {
-                            const chosen = picked === p.id;
-                            return (
-                                <li key={p.id} className="flex flex-col gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setPicked(chosen ? null : p.id)
-                                        }
-                                        aria-pressed={chosen}
-                                        className={`${TILE} ${chosen ? 'bg-[#2c5bd3]' : ''}`}
-                                    >
-                                        <Portrait
-                                            who={p.id}
-                                            className="h-12 w-12 shrink-0 rounded-md border-2 border-white object-cover"
-                                        />
-                                        <span className="flex min-w-0 flex-col leading-tight">
-                                            <span>{p.name}</span>
-                                            {p.bio && (
-                                                <span className="line-clamp-2 text-xs opacity-80">
-                                                    {p.bio}
-                                                </span>
-                                            )}
-                                        </span>
-                                    </button>
-                                    {chosen && (
-                                        <div className="ml-16 flex w-56 flex-col gap-1 text-xs">
-                                            <span className="opacity-80">
-                                                They'll be yours from now on.
-                                                Put them on auto to let them
-                                                live on their own.
-                                            </span>
-                                            <button
-                                                type="button"
-                                                disabled={busy}
-                                                className="self-start"
-                                                onClick={() =>
-                                                    run(() => takePersona(p.id))
-                                                }
-                                            >
-                                                Play as {p.name}
-                                            </button>
-                                        </div>
-                                    )}
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </>
-            )}
-            <button
-                type="button"
-                onClick={leaveWorld}
-                className="w-72 border-0 bg-transparent p-2 text-left text-sm text-white underline"
-            >
-                Pick another World
-            </button>
+                <form onSubmit={submit} className="flex flex-col gap-1">
+                    <label htmlFor={nameId}>Type your name</label>
+                    <div className="flex items-center gap-2">
+                        <TextBox
+                            id={nameId}
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            maxLength={MAX_NAME}
+                            className="w-[200px]"
+                            autoComplete="off"
+                        />
+                        <CommandButton
+                            isDefault
+                            disabled={busy || !name.trim()}
+                        >
+                            Go
+                        </CommandButton>
+                    </div>
+                </form>
+            </LogonTile>
+            {free.map((p) => (
+                <LogonTile
+                    key={p.id}
+                    name={p.name}
+                    subtitle={
+                        p.bio ? (
+                            <span className="line-clamp-2 whitespace-normal">
+                                {p.bio}
+                            </span>
+                        ) : undefined
+                    }
+                    picture={<Portrait who={p.id} size={48} />}
+                    selected={picked === p.id}
+                    onClick={() => setPicked(p.id ?? NEW)}
+                >
+                    <Text as="p" tone="muted">
+                        They'll be yours from now on. Put them on auto to let
+                        them live on their own.
+                    </Text>
+                    <CommandButton
+                        disabled={busy}
+                        onClick={() => run(() => takePersona(p.id))}
+                    >
+                        Play as {p.name}
+                    </CommandButton>
+                </LogonTile>
+            ))}
+            {error && <LoginError>{error}</LoginError>}
         </LoginShell>
     );
 }

@@ -1,3 +1,23 @@
+import {
+    Columns,
+    CommandButton,
+    FieldRow,
+    GroupBox,
+    HudPanel,
+    Icon,
+    ItemPicker,
+    ListView,
+    Pane,
+    ProgressBar,
+    Stack,
+    StatusBar,
+    StatusBarField,
+    Tabs,
+    TextBox,
+    Toolbar,
+    ToolbarButton,
+    WindowLayout,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -26,8 +46,8 @@ import {
     WORLD_ID,
 } from '../../lib/world';
 import { lookOf } from '../places/iso/appearance';
+import FaceGlyph from '../places/iso/FaceGlyph';
 import { avatarColour } from '../places/places-lib';
-import './wardrobe.css';
 import {
     inTab,
     isService,
@@ -38,7 +58,7 @@ import {
     tryOn,
 } from './wardrobe-lib';
 
-const DressingRoom = lazy(() => import('./DressingRoom'));
+const DressingRoom = lazy(() => import('../places/scene/DressingRoom'));
 
 const OPENS = 9;
 const CLOSES = 21;
@@ -87,29 +107,33 @@ export default function WardrobeApp({
     };
 
     return (
-        <div className="wr-app">
-            <header className="wr-awning">
-                <div className="wr-brand">
-                    <span className="wr-logo">👗</span>
-                    <div>
-                        <b>Partytown Boutique</b>
-                        <small>try before you buy · gifts wrapped free</small>
-                    </div>
-                </div>
-                <OpenSign />
-                {me ? <Purse wallet={me} /> : null}
-            </header>
-            <nav className="wr-people" aria-label="Whose wardrobe">
-                {ordered.map((w) => (
-                    <Portrait
-                        key={w.participantId}
-                        wallet={w}
-                        me={w.participantId === playerId}
-                        on={w.participantId === viewingId}
-                        onClick={() => select(w.participantId)}
-                    />
-                ))}
-            </nav>
+        <WindowLayout
+            scroll="none"
+            contentLabel="Boutique"
+            toolbar={
+                <Toolbar labels="below" aria-label="Whose wardrobe">
+                    {ordered.map((w) => (
+                        <Portrait
+                            key={w.participantId}
+                            wallet={w}
+                            me={w.participantId === playerId}
+                            on={w.participantId === viewingId}
+                            onClick={() => select(w.participantId)}
+                        />
+                    ))}
+                </Toolbar>
+            }
+            statusBar={
+                <StatusBar>
+                    <StatusBarField grow icon={<Icon name="wardrobe" />}>
+                        Partytown Boutique · try before you buy · gifts wrapped
+                        free
+                    </StatusBarField>
+                    <OpenSign />
+                    {me ? <Purse wallet={me} /> : null}
+                </StatusBar>
+            }
+        >
             {viewing ? (
                 <Boutique
                     key={viewing.participantId}
@@ -118,9 +142,9 @@ export default function WardrobeApp({
                     playerId={playerId}
                 />
             ) : (
-                <div className="wr-empty">Nobody to dress yet.</div>
+                <p className="p-4">Nobody to dress yet.</p>
             )}
-        </div>
+        </WindowLayout>
     );
 }
 
@@ -143,12 +167,21 @@ function AuraField() {
         }
     };
     return (
-        <label className="wr-aura">
-            <span>
-                ✨ Aura <small>felt by whoever stands right next to you</small>
-            </span>
-            <input
-                type="text"
+        <FieldRow
+            layout="stacked"
+            label="Aura, felt by whoever stands right next to you"
+            hint={
+                status === 'saving'
+                    ? 'Saving…'
+                    : status === 'saved'
+                      ? 'Saved'
+                      : status === 'failed'
+                        ? undefined
+                        : `${draft.length}/${AURA_MAX}`
+            }
+            error={status === 'failed' ? "Couldn't save that" : undefined}
+        >
+            <TextBox
                 maxLength={AURA_MAX}
                 value={draft}
                 placeholder="e.g. an unsettling calm, like he's not from here"
@@ -161,16 +194,7 @@ function AuraField() {
                     if (e.key === 'Enter') e.currentTarget.blur();
                 }}
             />
-            <small data-status={status}>
-                {status === 'saving'
-                    ? 'Saving…'
-                    : status === 'saved'
-                      ? 'Saved'
-                      : status === 'failed'
-                        ? "Couldn't save that"
-                        : `${draft.length}/${AURA_MAX}`}
-            </small>
-        </label>
+        </FieldRow>
     );
 }
 
@@ -213,53 +237,49 @@ function WorkClothesField({ participantId }: { participantId: string }) {
     const busy = tailor.isPending || clear.isPending;
     const dressed = view.designed && !view.ownClothes;
     return (
-        <div className="wr-aura wr-work">
-            <span>
-                👔 Work clothes <small>as {view.title}</small>
-            </span>
-            <small>
-                {dressed
-                    ? `${view.summary ?? 'Designed'}${view.wearing ? ' · wearing them now' : ' · on at the start of your shift'}`
-                    : 'You go to work in your own clothes.'}
-            </small>
-            <input
-                type="text"
-                aria-label="What to wear for work"
-                maxLength={300}
-                value={wish}
-                disabled={busy}
-                placeholder="e.g. chef whites and clogs"
-                onChange={(e) => setWish(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') void design();
-                }}
-            />
-            <div className="wr-work-actions">
-                <button
-                    type="button"
-                    className="wr-btn wr-btn--ghost"
+        <GroupBox
+            title={`Work clothes, as ${view.title}`}
+            icon={<Icon name="tie" />}
+        >
+            <FieldRow
+                layout="stacked"
+                label="What to wear for work"
+                hint={
+                    dressed
+                        ? `${view.summary ?? 'Designed'}${view.wearing ? ' · wearing them now' : ' · on at the start of your shift'}`
+                        : 'You go to work in your own clothes.'
+                }
+                error={
+                    tailor.error || clear.error
+                        ? ((tailor.error ?? clear.error) as Error).message
+                        : undefined
+                }
+            >
+                <TextBox
+                    maxLength={300}
+                    value={wish}
+                    disabled={busy}
+                    placeholder="e.g. chef whites and clogs"
+                    onChange={(e) => setWish(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') void design();
+                    }}
+                />
+            </FieldRow>
+            <Stack direction="row" wrap gap="sm">
+                <CommandButton
                     disabled={busy || !wish.trim()}
                     onClick={() => void design()}
                 >
                     {tailor.isPending ? 'Designing…' : 'Design them'}
-                </button>
+                </CommandButton>
                 {dressed ? (
-                    <button
-                        type="button"
-                        className="wr-btn wr-btn--ghost"
-                        disabled={busy}
-                        onClick={() => void stop()}
-                    >
+                    <CommandButton disabled={busy} onClick={() => void stop()}>
                         Come in my own clothes
-                    </button>
+                    </CommandButton>
                 ) : null}
-            </div>
-            {tailor.error || clear.error ? (
-                <small data-status="failed">
-                    {((tailor.error ?? clear.error) as Error).message}
-                </small>
-            ) : null}
-        </div>
+            </Stack>
+        </GroupBox>
     );
 }
 
@@ -267,13 +287,12 @@ function OpenSign() {
     const hour = new Date().getHours();
     const open = hour >= OPENS && hour < CLOSES;
     return (
-        <span
-            className="wr-sign"
-            data-open={open}
+        <StatusBarField
+            icon={<Icon name={open ? 'sun' : 'moon'} />}
             title={`Open ${OPENS}:00–${CLOSES}:00 for everyone in town`}
         >
-            {open ? 'OPEN' : '🌙 CLOSED'}
-        </span>
+            {open ? 'Open' : 'Closed'}
+        </StatusBarField>
     );
 }
 
@@ -295,23 +314,28 @@ function Purse({ wallet }: { wallet: WalletSummary }) {
             if (k < 1) raf = requestAnimationFrame(step);
         };
         raf = requestAnimationFrame(step);
-        return () => cancelAnimationFrame(raf);
+        const fade = setTimeout(() => setDelta(null), 1400);
+        return () => {
+            cancelAnimationFrame(raf);
+            clearTimeout(fade);
+        };
     }, [balance]);
     return (
-        <div
-            className="wr-purse"
+        <StatusBarField
+            icon={<Icon name="money" />}
             title={`${wallet.means} · +${wallet.dailyPay} a day${wallet.paidToday ? ' (paid today)' : ''}`}
         >
-            <span className="wr-coin">¢</span>
-            <b>{shown}</b>
-            <small>+{wallet.dailyPay}/day</small>
-            {delta ? (
-                <span key={delta.id} className="wr-delta" data-up={delta.n > 0}>
-                    {delta.n > 0 ? '+' : '−'}
-                    {Math.abs(delta.n)}
-                </span>
-            ) : null}
-        </div>
+            <span>
+                {shown}¢ · +{wallet.dailyPay}/day
+                {delta ? (
+                    <span key={delta.id}>
+                        {' '}
+                        ({delta.n > 0 ? '+' : '−'}
+                        {Math.abs(delta.n)})
+                    </span>
+                ) : null}
+            </span>
+        </StatusBarField>
     );
 }
 
@@ -332,31 +356,18 @@ function Portrait({
     );
     const look = lookOf(body?.appearance, avatarColour(wallet.participantId));
     return (
-        <button
-            type="button"
-            className="wr-portrait"
-            aria-pressed={on}
+        <ToolbarButton
+            pressed={on}
             onClick={onClick}
             title={wallet.name}
+            icon={<FaceGlyph look={look} size={32} eyes />}
         >
-            <span
-                className="wr-face"
-                style={{
-                    background: look.skin,
-                    boxShadow: `inset 0 9px 0 ${look.hair}, 0 0 0 3px ${look.top}`,
-                }}
-            >
-                <i />
-                <i />
-            </span>
-            <span>
-                {wallet.name.split(' ')[0]}
-                {me ? ' ★' : ''}
-            </span>
+            {wallet.name.split(' ')[0]}
+            {me ? ' ★' : ''}
             {wallet.newGifts.length > 0 ? (
-                <em className="wr-badge">🎁</em>
+                <Icon name="gift" label="has presents" />
             ) : null}
-        </button>
+        </ToolbarButton>
     );
 }
 
@@ -470,210 +481,256 @@ function Boutique({
                 ? toBuy.length
                     ? `New look! −${total}¢`
                     : 'Looking good!'
-                : `🎁 Wrapped and sent to ${viewing.name.split(' ')[0]}`,
+                : `Wrapped and sent to ${viewing.name.split(' ')[0]}`,
         );
     };
 
-    return (
-        <div className="wr-body">
-            <section className="wr-fitting">
-                <Suspense fallback={<div className="wr-stage" />}>
-                    <DressingRoom
-                        appearance={preview}
-                        fallbackColour={avatarColour(viewing.participantId)}
-                        mood={mood}
-                    />
-                </Suspense>
-                <div className="wr-mirror-name">
-                    {mine ? 'You' : viewing.name}
-                    <small>{viewing.means}</small>
-                </div>
-                {toast ? <div className="wr-toast">{toast}</div> : null}
-                <div className="wr-tray">
-                    {tried.length === 0 ? (
-                        <span className="wr-tray-hint">
-                            Click anything to try it on{' '}
-                            {mine
-                                ? 'yourself'
-                                : `${viewing.name.split(' ')[0]}`}
-                        </span>
-                    ) : (
-                        tried.map((t) => (
-                            <button
-                                key={t.key}
-                                type="button"
-                                className="wr-tray-item"
-                                title={`Take off ${t.name}`}
-                                onClick={() => setTried((x) => toggleTry(x, t))}
-                            >
-                                <span style={{ background: itemColour(t) }}>
-                                    {itemIcon(t)}
-                                </span>
-                                ×
-                            </button>
-                        ))
-                    )}
-                </div>
-                <div className="wr-checkout">
-                    <button
-                        type="button"
-                        className="wr-btn wr-btn--ghost"
-                        disabled={tried.length === 0}
-                        onClick={() => setTried([])}
+    const catalogue = (
+        <Stack gap="sm" className="h-full">
+            <Toolbar aria-label="Departments">
+                {TABS.map((t) => (
+                    <ToolbarButton
+                        key={t.id}
+                        icon={<Icon name={t.icon} />}
+                        pressed={tab === t.id}
+                        onClick={() => setTab(t.id)}
                     >
-                        ↺ Undo
-                    </button>
-                    {me && (toBuy.length > 0 || toWear.length > 0) ? (
-                        <button
-                            type="button"
-                            className="wr-btn wr-btn--buy"
-                            disabled={busy || total > purse}
-                            onClick={() => void checkout()}
+                        {t.label}
+                    </ToolbarButton>
+                ))}
+            </Toolbar>
+            <ItemPicker
+                label={page === 'closet' ? 'Wardrobe' : 'Shop today'}
+                className="min-h-0 flex-1 overflow-y-auto"
+                empty={page === 'closet' ? 'Nothing here yet.' : 'Sold out!'}
+                selected={tried.map((t) => t.key)}
+                onToggle={(key) => {
+                    const item = items.find((i) => i.key === key);
+                    if (item) setTried((x) => toggleTry(x, item));
+                }}
+                items={items.map((item) => {
+                    const trying = tried.some((t) => t.key === item.key);
+                    const wearing = viewing.wearing.includes(item.key);
+                    const has = owned.has(item.key);
+                    return {
+                        id: item.key,
+                        label: item.name,
+                        picture: itemIcon(item),
+                        swatch: itemColour(item),
+                        detail: page === 'shop' ? `${item.price}¢` : undefined,
+                        detailTone:
+                            page === 'shop' && Number(item.price) > purse
+                                ? 'danger'
+                                : undefined,
+                        badge: wearing
+                            ? 'wearing'
+                            : has && page === 'shop'
+                              ? 'owned'
+                              : undefined,
+                        badgeTone: wearing ? 'go' : 'neutral',
+                        tag: isService(item) ? 'salon' : undefined,
+                        hint: trying ? 'Take it off' : 'Try it on',
+                    };
+                })}
+            />
+        </Stack>
+    );
+
+    return (
+        <Columns gap="lg" pad="md" narrowBelow={520}>
+            <Columns.Column
+                as="section"
+                aria-label="Fitting room"
+                weight={0.85}
+                minWidth="220px"
+            >
+                <Pane>
+                    <Stack gap="sm" className="h-full">
+                        <Stack
+                            direction="row"
+                            grow
+                            className="relative min-h-[260px]"
                         >
-                            {mine
-                                ? toBuy.length
-                                    ? `Buy the look · ${total}¢`
-                                    : 'Wear it'
-                                : `🎁 Give it · ${total}¢`}
-                        </button>
-                    ) : null}
-                </div>
-                {total > purse ? (
-                    <div className="wr-warn">
-                        That's {total - purse}¢ more than you have.
-                    </div>
-                ) : null}
-                {failure ? (
-                    <div className="wr-warn">{failure.message}</div>
-                ) : null}
-                {mine ? <AuraField /> : null}
-                {mine ? (
-                    <WorkClothesField participantId={viewing.participantId} />
-                ) : null}
-            </section>
-            <section className="wr-catalogue">
+                            <Suspense
+                                fallback={
+                                    <Stack grow align="center" justify="center">
+                                        <ProgressBar
+                                            marquee
+                                            label="Setting up the mirror"
+                                        />
+                                    </Stack>
+                                }
+                            >
+                                <DressingRoom
+                                    appearance={preview}
+                                    fallbackColour={avatarColour(
+                                        viewing.participantId,
+                                    )}
+                                    mood={mood}
+                                />
+                            </Suspense>
+                            <Stack
+                                align="start"
+                                justify="between"
+                                pad="md"
+                                className="pointer-events-none absolute inset-0"
+                            >
+                                <HudPanel title={mine ? 'You' : viewing.name}>
+                                    {viewing.means}
+                                </HudPanel>
+                                <HudPanel className="pointer-events-none self-center">
+                                    <Stack
+                                        as="span"
+                                        direction="row"
+                                        align="center"
+                                        gap="xs"
+                                    >
+                                        <Icon name="refresh" />
+                                        drag to turn
+                                    </Stack>
+                                </HudPanel>
+                            </Stack>
+                            {toast ? (
+                                <HudPanel
+                                    anchor="top"
+                                    role="status"
+                                    icon={
+                                        <Icon
+                                            name={mine ? 'sparkle' : 'gift'}
+                                        />
+                                    }
+                                    title={toast}
+                                />
+                            ) : null}
+                        </Stack>
+                        <GroupBox
+                            title="Trying on"
+                            icon={<Icon name="shirt" />}
+                        >
+                            {tried.length === 0 ? (
+                                <span>
+                                    Click anything to try it on{' '}
+                                    {mine
+                                        ? 'yourself'
+                                        : `${viewing.name.split(' ')[0]}`}
+                                </span>
+                            ) : (
+                                <ItemPicker
+                                    size="small"
+                                    label="Trying on"
+                                    selected={tried.map((t) => t.key)}
+                                    onToggle={(key) => {
+                                        const item = tried.find(
+                                            (t) => t.key === key,
+                                        );
+                                        if (item)
+                                            setTried((x) => toggleTry(x, item));
+                                    }}
+                                    items={tried.map((t) => ({
+                                        id: t.key,
+                                        label: `Take off ${t.name}`,
+                                        picture: itemIcon(t),
+                                        swatch: itemColour(t),
+                                        hint: `Take off ${t.name}`,
+                                    }))}
+                                />
+                            )}
+                        </GroupBox>
+                        <Stack direction="row" gap="sm">
+                            <CommandButton
+                                className="flex-1"
+                                icon={<Icon name="undo" />}
+                                disabled={tried.length === 0}
+                                onClick={() => setTried([])}
+                            >
+                                Undo
+                            </CommandButton>
+                            {me && (toBuy.length > 0 || toWear.length > 0) ? (
+                                <CommandButton
+                                    className="flex-1"
+                                    tone="go"
+                                    icon={
+                                        mine ? undefined : <Icon name="gift" />
+                                    }
+                                    disabled={busy || total > purse}
+                                    onClick={() => void checkout()}
+                                >
+                                    {mine
+                                        ? toBuy.length
+                                            ? `Buy the look · ${total}¢`
+                                            : 'Wear it'
+                                        : `Give it · ${total}¢`}
+                                </CommandButton>
+                            ) : null}
+                        </Stack>
+                        {total > purse ? (
+                            <Stack
+                                as="p"
+                                direction="row"
+                                align="center"
+                                gap="xs"
+                            >
+                                <Icon name="warning" />
+                                That's {total - purse}¢ more than you have.
+                            </Stack>
+                        ) : null}
+                        {failure ? (
+                            <Stack
+                                as="p"
+                                direction="row"
+                                align="center"
+                                gap="xs"
+                            >
+                                <Icon name="error" />
+                                {failure.message}
+                            </Stack>
+                        ) : null}
+                        {mine ? <AuraField /> : null}
+                        {mine ? (
+                            <WorkClothesField
+                                participantId={viewing.participantId}
+                            />
+                        ) : null}
+                    </Stack>
+                </Pane>
+            </Columns.Column>
+            <Columns.Column
+                as="section"
+                aria-label="Catalogue"
+                weight={1.15}
+                gap="sm"
+            >
                 {viewing.newGifts.length > 0 ? (
                     <Presents wallet={viewing} />
                 ) : null}
-                <div className="wr-pages" role="tablist">
-                    {(
-                        [
-                            ['shop', '🛍️ Shop today'],
-                            [
-                                'closet',
-                                `🚪 ${mine ? 'My' : `${viewing.name.split(' ')[0]}'s`} wardrobe (${viewing.wardrobe.length})`,
-                            ],
-                            ['receipt', '🧾 Receipts'],
-                        ] as const
-                    ).map(([id, label]) => (
-                        <button
-                            key={id}
-                            type="button"
-                            role="tab"
-                            aria-selected={page === id}
-                            onClick={() => setPage(id)}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                </div>
-                {page === 'receipt' ? (
-                    <Receipt wallet={viewing} />
-                ) : (
-                    <>
-                        <div className="wr-tabs">
-                            {TABS.map((t) => (
-                                <button
-                                    key={t.id}
-                                    type="button"
-                                    aria-pressed={tab === t.id}
-                                    onClick={() => setTab(t.id)}
-                                >
-                                    <b>{t.icon}</b>
-                                    {t.label}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="wr-grid">
-                            {items.length === 0 ? (
-                                <div className="wr-empty">
-                                    {page === 'closet'
-                                        ? 'Nothing here yet.'
-                                        : 'Sold out!'}
-                                </div>
-                            ) : null}
-                            {items.map((item, i) => {
-                                const trying = tried.some(
-                                    (t) => t.key === item.key,
-                                );
-                                const wearing = viewing.wearing.includes(
-                                    item.key,
-                                );
-                                const has = owned.has(item.key);
-                                return (
-                                    <button
-                                        key={item.key}
-                                        type="button"
-                                        className="wr-tile"
-                                        data-trying={trying}
-                                        style={{
-                                            animationDelay: `${i * 30}ms`,
-                                        }}
-                                        onClick={() =>
-                                            setTried((x) => toggleTry(x, item))
-                                        }
-                                        title={
-                                            trying ? 'Take it off' : 'Try it on'
-                                        }
-                                    >
-                                        <span
-                                            className="wr-swatch"
-                                            style={{
-                                                background: `radial-gradient(circle at 35% 30%, #fff8, ${itemColour(item)} 60%)`,
-                                            }}
-                                        >
-                                            {itemIcon(item)}
-                                        </span>
-                                        <span className="wr-tile-name">
-                                            {item.name}
-                                        </span>
-                                        {page === 'shop' ? (
-                                            <span
-                                                className="wr-price"
-                                                data-dear={
-                                                    Number(item.price) > purse
-                                                }
-                                            >
-                                                {item.price}¢
-                                            </span>
-                                        ) : null}
-                                        {wearing ? (
-                                            <span className="wr-ribbon">
-                                                wearing
-                                            </span>
-                                        ) : has && page === 'shop' ? (
-                                            <span className="wr-ribbon wr-ribbon--owned">
-                                                owned
-                                            </span>
-                                        ) : null}
-                                        {isService(item) ? (
-                                            <span className="wr-salon">
-                                                salon
-                                            </span>
-                                        ) : null}
-                                        {trying ? (
-                                            <span className="wr-trying">
-                                                👀
-                                            </span>
-                                        ) : null}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </>
-                )}
-            </section>
-        </div>
+                <Tabs
+                    label="Boutique"
+                    className="min-h-0 flex-1"
+                    value={page}
+                    onValueChange={(v) => setPage(v as Page)}
+                    items={[
+                        {
+                            value: 'shop',
+                            label: 'Shop today',
+                            icon: <Icon name="shopping" />,
+                            content: catalogue,
+                        },
+                        {
+                            value: 'closet',
+                            label: `${mine ? 'My' : `${viewing.name.split(' ')[0]}'s`} wardrobe (${viewing.wardrobe.length})`,
+                            icon: <Icon name="door" />,
+                            content: catalogue,
+                        },
+                        {
+                            value: 'receipt',
+                            label: 'Receipts',
+                            icon: <Icon name="receipt" />,
+                            content: <Receipt wallet={viewing} />,
+                        },
+                    ]}
+                />
+            </Columns.Column>
+        </Columns>
     );
 }
 
@@ -681,18 +738,16 @@ function Presents({ wallet }: { wallet: WalletSummary }) {
     const [opened, setOpened] = useState<string[]>([]);
     const key = (g: WalletSummary['newGifts'][number]) => `${g.fromId}:${g.at}`;
     return (
-        <div className="wr-presents">
+        <GroupBox title="Presents" icon={<Icon name="gift" />}>
             {wallet.newGifts.map((g) => {
                 const open = opened.includes(key(g));
                 return (
-                    <button
+                    <CommandButton
                         key={key(g)}
-                        type="button"
-                        className="wr-present"
-                        data-open={open}
+                        className="justify-start justify-self-start"
+                        icon={<Icon name={open ? 'sparkle' : 'gift'} />}
                         onClick={() => setOpened((o) => [...o, key(g)])}
                     >
-                        <span className="wr-box">{open ? '✨' : '🎁'}</span>
                         {open ? (
                             <span>
                                 <b>{g.item}</b> from {g.fromName}
@@ -703,41 +758,53 @@ function Presents({ wallet }: { wallet: WalletSummary }) {
                                 unwrap
                             </span>
                         )}
-                    </button>
+                    </CommandButton>
                 );
             })}
-        </div>
+        </GroupBox>
     );
 }
 
 function Receipt({ wallet }: { wallet: WalletSummary }) {
     return (
-        <div className="wr-receipt">
-            <div className="wr-receipt-head">
-                PARTYTOWN BOUTIQUE
-                <small>{wallet.name}</small>
-            </div>
-            {wallet.ledger.length === 0 ? (
-                <div style={{ textAlign: 'center' }}>— nothing yet —</div>
-            ) : null}
-            {wallet.ledger.map((e) => (
-                <div key={`${e.at}-${e.reason}`} className="wr-receipt-line">
-                    <span>{time(e.at)}</span>
-                    <span>{e.reason}</span>
-                    <b data-up={Number(e.amount) > 0}>
-                        {Number(e.amount) > 0 ? '+' : ''}
-                        {e.amount}
-                    </b>
-                </div>
-            ))}
-            <div className="wr-receipt-line wr-receipt-total">
-                <span />
-                <span>BALANCE</span>
+        <Stack gap="md" className="h-full">
+            <p>
+                <b>Partytown Boutique</b> · {wallet.name}
+            </p>
+            <ListView
+                view="details"
+                selectionMode="none"
+                label="Receipts"
+                className="min-h-0 flex-1"
+                empty="Nothing yet."
+                columns={[
+                    {
+                        key: 'label',
+                        header: 'When',
+                        width: 'minmax(110px, 1fr)',
+                    },
+                    { key: 'reason', header: 'What', width: 'minmax(0, 2fr)' },
+                    {
+                        key: 'amount',
+                        header: 'Amount',
+                        align: 'end',
+                        width: 'minmax(64px, auto)',
+                    },
+                ]}
+                items={wallet.ledger.map((e) => ({
+                    id: `${e.at}-${e.reason}`,
+                    label: time(e.at),
+                    cells: {
+                        reason: e.reason,
+                        amount: `${Number(e.amount) > 0 ? '+' : ''}${e.amount}`,
+                    },
+                }))}
+            />
+            <Stack as="p" direction="row" justify="between" gap="md">
+                <span>Balance</span>
                 <b>{wallet.balance}¢</b>
-            </div>
-            <div className="wr-receipt-foot">
-                thank you for shopping · {wallet.means}
-            </div>
-        </div>
+            </Stack>
+            <p>Thank you for shopping · {wallet.means}</p>
+        </Stack>
     );
 }

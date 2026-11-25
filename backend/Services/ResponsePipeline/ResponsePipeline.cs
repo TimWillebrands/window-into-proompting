@@ -89,7 +89,7 @@ public sealed class ResponsePipeline(
 
         var deliberate = false;
         var coldOpen = preUrge.ColdOpenScore > 0 && !isDirect;
-        if (reflex is not null && !coldOpen && string.IsNullOrWhiteSpace(await chatGroupGrain.GetScenarioAsync()))
+        if (reflex is not null && !coldOpen)
         {
             var verdict = await reflex.PerceiveAsync(partyId, persona.Id, PerceptOf(triggeringMessage, roomCast, preHistory, preUrge, chatGroupId));
             turnSpan?.SetTag("reflex.proceed", verdict.Proceed);
@@ -167,7 +167,6 @@ public sealed class ResponsePipeline(
         try
         {
             var history = await chatGroupGrain.GetMessagesUntilAsync(messageId, listener: persona.Id);
-            var scenario = await chatGroupGrain.GetScenarioAsync();
 
             var decisionParticipants = participantViews;
 
@@ -201,7 +200,7 @@ public sealed class ResponsePipeline(
             turnSpan?.SetTag("stance.ambivalence_count", ambivalenceCount);
 
             var decision = await RunDecisionPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, isDirect, scenario,
+                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, isDirect,
                 recollections.Select(r => r.Snippet).ToList(), linkedCt,
                 repairHint, stanceLines, deliberate, roomCast.Kind == ChatGroupKinds.Place);
             if (answer && !decision.Respond)
@@ -288,7 +287,7 @@ public sealed class ResponsePipeline(
             var result = await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
                 decision.Shortcut ? null : decision.Instruction, decision.Shortcut ? null : decision.Reason,
-                scenario, pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt,
+                pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt,
                 roomCast.Kind == ChatGroupKinds.Place);
 
             var appraisalJson = JsonSerializer.Serialize(new
@@ -435,7 +434,6 @@ public sealed class ResponsePipeline(
         try
         {
             var history = await chatGroupGrain.GetMessagesUntilAsync(messageId, listener: persona.Id);
-            var scenario = await chatGroupGrain.GetScenarioAsync();
             var presentIds = participantViews.Select(p => p.Id).ToList();
 
             var beat = await PersonaRecall.ForBeatAsync(memoryRepository, grainFactory,
@@ -447,7 +445,7 @@ public sealed class ResponsePipeline(
             inFlight.MarkGenerationStarted(feeling, intent);
             var result = await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
-                intent, feeling, scenario, memory, stanceLines, persona.Name, inFlight, linkedCt,
+                intent, feeling, memory, stanceLines, persona.Name, inFlight, linkedCt,
                 roomCast.Kind == ChatGroupKinds.Place);
 
             if (string.IsNullOrWhiteSpace(result.Message))
@@ -535,7 +533,6 @@ public sealed class ResponsePipeline(
         IReadOnlyList<ChatMessage> history,
         string? turnInstruction,
         string? gutReaction,
-        string? scenario,
         string? memoryToReference,
         IReadOnlyList<string> stances,
         string personaName,
@@ -545,7 +542,7 @@ public sealed class ResponsePipeline(
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
-        var presence = await PresenceAsync(chatGroupGrain, self, scenario, fullParticipants, history);
+        var presence = await PresenceAsync(chatGroupGrain, self, fullParticipants, history);
         if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived)
             self = self with { Bio = null, SystemPrompt = lived };
         var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
@@ -573,7 +570,6 @@ public sealed class ResponsePipeline(
                     onEvent: TrackingOnEvent,
                     ct,
                     turnInstruction,
-                    scenario,
                     memoryToReference,
                     stances,
                     gutReaction,
@@ -604,7 +600,7 @@ public sealed class ResponsePipeline(
 
     private const int SkillWindow = 4;
 
-    private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, string? scenario, IReadOnlyList<ParticipantView> present, IReadOnlyList<ChatMessage> history)
+    private async Task<string?> PresenceAsync(IChatGroupGrain chatGroupGrain, SelfView self, IReadOnlyList<ParticipantView> present, IReadOnlyList<ChatMessage> history)
     {
         var knowHow = await KnowHowAsync(chatGroupGrain, self.Id, history);
         try
@@ -612,19 +608,16 @@ public sealed class ResponsePipeline(
             var partyId = await chatGroupGrain.GetPartyIdAsync();
             var key = WorldKeys.Life(partyId, self.Id);
             var presenceTask = grainFactory.GetGrain<IPersonaSelfGrain>(key)
-                .GetPresenceAsync(withDay: string.IsNullOrWhiteSpace(scenario));
+                .GetPresenceAsync(withDay: true);
             var tiesTask = grainFactory.GetGrain<IPersonaTiesGrain>(key).RenderAsync(present.Select(p => p.Id).ToList());
             var cueTask = grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).GetCueAsync();
             var (presence, ties, cue) = (await presenceTask, await tiesTask, await cueTask);
-            if (string.IsNullOrWhiteSpace(scenario))
-            {
-                presence += World.Economy.Money.Render(await grainFactory.GetGrain<World.Economy.IWalletGrain>(key).GetAsync(), DateTimeOffset.UtcNow);
-                presence += await grainFactory.GetGrain<World.Places.IPlacesGrain>(partyId).GetKeyLinesAsync(self.Id);
-                if (responsibilities is not null)
-                    presence += await responsibilities.RoleAsync(partyId, self.Id) + await responsibilities.RenderAsync(partyId, self.Id, DateTimeOffset.UtcNow);
-            }
+            presence += World.Economy.Money.Render(await grainFactory.GetGrain<World.Economy.IWalletGrain>(key).GetAsync(), DateTimeOffset.UtcNow);
+            presence += await grainFactory.GetGrain<World.Places.IPlacesGrain>(partyId).GetKeyLinesAsync(self.Id);
+            if (responsibilities is not null)
+                presence += await responsibilities.RoleAsync(partyId, self.Id) + await responsibilities.RenderAsync(partyId, self.Id, DateTimeOffset.UtcNow);
             var block = string.IsNullOrWhiteSpace(ties) ? presence : $"{presence}\n{ties}";
-            if (reflex is not null && string.IsNullOrWhiteSpace(scenario)) block += await reflex.MindAsync(partyId, self.Id);
+            if (reflex is not null) block += await reflex.MindAsync(partyId, self.Id);
             block += knowHow;
             return string.IsNullOrWhiteSpace(cue) ? block : $"{block}\n# The conversation\n{cue}\n";
         }
@@ -731,7 +724,6 @@ public sealed class ResponsePipeline(
         IReadOnlyList<ChatMessage> history,
         IReadOnlyList<ParticipantView> participants,
         bool isDirect,
-        string? scenario,
         IReadOnlyList<string> recollections,
         CancellationToken ct,
         RepairHint? repairHint = null,
@@ -744,7 +736,7 @@ public sealed class ResponsePipeline(
         var totalAiRounds = UrgeMath.CountExchangeRounds(history);
         if (await SleepsThroughAsync(chatGroupGrain, self, history, participants))
             return new ShouldRespondResult { Respond = false, Instruction = string.Empty, Reason = "Asleep." };
-        var presence = await PresenceAsync(chatGroupGrain, self, scenario, participants, history);
+        var presence = await PresenceAsync(chatGroupGrain, self, participants, history);
         if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived && LivedSheets.Bio(lived) is { } livedBio)
             self = self with { Bio = livedBio };
         var windingDown = await WindingDownAsync(chatGroupGrain);
@@ -756,7 +748,6 @@ public sealed class ResponsePipeline(
             totalAiRounds,
             onEvent: (eventType, data, done) => NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done),
             cancellationToken: ct,
-            scenario: scenario,
             repairHint: repairHint,
             recollections: recollections,
             stances: stances,

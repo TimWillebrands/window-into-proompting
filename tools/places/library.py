@@ -65,15 +65,15 @@ model("cafe-set", "small table with two chairs facing each other", size=(3, 1), 
 model("lounge-set", "sofa, two armchairs and a coffee table on a rug", size=(3, 2), group="sets",
       seats=[seat(0.5, 0, 0.43), seat(1.5, 0, 0.43), seat(0, 1, 0.43, 1), seat(2, 1, 0.43, 3)],
       parts=[box(2.7, 0.012, 1.7, 0, 0.001, 0.1, "$rug", flat=True), box(2.3, 0.014, 1.3, 0, 0.001, 0.1, "cream", flat=True),
-             use("sofa", -0.5, 0, -0.5), use("armchair", -1, 0, 0.5, H), use("armchair", 1, 0, 0.5, -H), use("coffee-table", 0, 0, 0.5)],
+             use("sofa", 0, 0, -0.5), use("armchair", -1, 0, 0.5, H), use("armchair", 1, 0, 0.5, -H), use("coffee-table", 0, 0, 0.5)],
       tint={"rug": "crimson"})
 model("bar-set", "bar counter with three stools in front", size=(3, 2), group="sets",
       seats=[seat(0, 1, 0.7, 2), seat(1, 1, 0.7, 2), seat(2, 1, 0.7, 2)],
       parts=[use("counter", 0, 0, -0.5), use("stool", -1, 0, 0.5), use("stool", 0, 0, 0.5), use("stool", 1, 0, 0.5),
              cyl(0.04, 0.16, 0.9, 1.04, -0.6, "brass"), cyl(0.04, 0.16, 0.7, 1.04, -0.6, "brass"),
              cyl(0.05, 0.12, -0.6, 1.04, -0.45, "glass", opacity=0.6)])
-model("desk-set", "desk with a chair, lamp and laptop", size=(2, 2), group="sets", seats=[seat(0.5, 1, 0.46, 2)],
-      parts=[use("desk", 0, 0, -0.5), use("chair", -0.5, 0, 0.5, math.pi), use("laptop", -0.4, 0.79, -0.5),
+model("desk-set", "desk with a chair, lamp and laptop", size=(2, 2), group="sets", seats=[seat(0, 1, 0.46, 2)],
+      parts=[use("desk", 0, 0, -0.5), use("chair", -0.5, 0, 0.5, math.pi), use("laptop", -0.4, 0, -0.5),
              cyl(0.08, 0.02, 0.7, 0.79, -0.7, "charcoal"), P("tube", [[0.7, 0.8, -0.7], [0.7, 1.1, -0.7], [0.55, 1.2, -0.6]], c="charcoal", r=0.015),
              P("cone", [0.09, 0.1], (0.5, 1.12, -0.56), "amber", glow=True)],
       light={"at": [0.5, 1.1, -0.5], "colour": "#ffd9a0", "power": 1.2})

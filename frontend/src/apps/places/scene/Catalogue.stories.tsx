@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { Place } from '../../../api/model/place';
-import '../places.css';
 import { CATALOGUE } from './catalogue.gen';
 import PlaceScene from './PlaceScene';
 import type { PropDef, SceneDef } from './scene';

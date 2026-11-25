@@ -1,3 +1,24 @@
+import {
+    ComboBox,
+    CommandButton,
+    ControlGrid,
+    FieldRow,
+    GroupBox,
+    Icon,
+    Meter,
+    ProgressBar,
+    RadioButton,
+    RadioGroup,
+    Slider,
+    Stack,
+    StatusText,
+    TaskPane,
+    TaskPaneSection,
+    Text,
+    TextArea,
+    TextBox,
+    WindowLayout,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -27,88 +48,81 @@ export default function StanceFloorApp() {
     );
 
     return (
-        <div
-            className="app-surface flex h-full"
-            style={{ background: 'transparent', fontSize: 12 }}
+        <WindowLayout
+            taskPaneLabel="Stance Floor"
+            taskPaneWidth="wide"
+            contentLabel="Stances"
+            taskPane={
+                <TaskPane>
+                    <TaskPaneSection
+                        title="Whose stance?"
+                        special
+                        collapsible={false}
+                    >
+                        <ComboBox
+                            aria-label="Whose stance?"
+                            value={sourceId ?? ''}
+                            onChange={(e) =>
+                                setSourceId(e.target.value || null)
+                            }
+                            options={[
+                                { value: '', label: '— pick a persona —' },
+                                ...personas.map((p) => ({
+                                    value: p.id as string,
+                                    label: p.name,
+                                })),
+                            ]}
+                        />
+                        {sourceId ? null : (
+                            <Text as="p" tone="muted">
+                                Pick the persona who holds the stance to begin.
+                            </Text>
+                        )}
+                    </TaskPaneSection>
+
+                    {sourceId ? (
+                        <>
+                            <ConsolidatePanel
+                                partyId={partyId}
+                                sourceId={sourceId}
+                            />
+                            <StanceAuthor
+                                partyId={partyId}
+                                sourceId={sourceId}
+                                personas={personas.map((p) => ({
+                                    id: p.id as string,
+                                    name: p.name as string,
+                                }))}
+                            />
+                        </>
+                    ) : null}
+                </TaskPane>
+            }
         >
-            <div
-                className="xp-glass-panel flex flex-col"
-                style={{
-                    width: 280,
-                    borderRight: '1px solid rgba(255,255,255,0.7)',
-                    padding: 8,
-                    gap: 8,
-                    overflowY: 'auto',
-                }}
-            >
-                <SectionTitle>Whose stance?</SectionTitle>
-                <select
-                    value={sourceId ?? ''}
-                    onChange={(e) => setSourceId(e.target.value || null)}
-                >
-                    <option value="">— pick a persona —</option>
-                    {personas.map((p) => (
-                        <option key={p.id} value={p.id as string}>
-                            {p.name}
-                        </option>
-                    ))}
-                </select>
-
-                {sourceId ? (
-                    <>
-                        <ConsolidatePanel
-                            partyId={partyId}
-                            sourceId={sourceId}
-                        />
-                        <StanceAuthor
-                            partyId={partyId}
-                            sourceId={sourceId}
-                            personas={personas.map((p) => ({
-                                id: p.id as string,
-                                name: p.name as string,
-                            }))}
-                        />
-                    </>
-                ) : (
-                    <p style={{ color: '#808080' }}>
-                        Pick the persona who holds the stance to begin.
-                    </p>
-                )}
-            </div>
-
-            <div className="flex-1" style={{ overflowY: 'auto', padding: 8 }}>
-                {sourceId ? (
+            {sourceId ? (
+                <Stack pad="md">
                     <StanceLog
                         partyId={partyId}
                         sourceId={sourceId}
                         personaNameById={personaNameById}
                     />
-                ) : (
-                    <div className="h-full flex items-center justify-center">
-                        <div
-                            className="xp-glass-card"
-                            style={{
-                                maxWidth: 340,
-                                padding: '20px 24px',
-                                textAlign: 'center',
-                            }}
-                        >
-                            <div style={{ fontSize: 28, marginBottom: 6 }}>
-                                ⚖️
-                            </div>
-                            <p style={{ fontWeight: 700, margin: '0 0 4px' }}>
-                                Stances are how a persona feels
-                            </p>
-                            <p style={{ color: '#555', margin: 0 }}>
-                                Pick a persona on the left to see its opinions
-                                about other participants, concepts, and itself —
-                                and to author or retract them.
-                            </p>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+                </Stack>
+            ) : (
+                <Stack align="center" justify="center" pad="md">
+                    <GroupBox
+                        title="Stances are how a persona feels"
+                        icon={<Icon name="scales" />}
+                        className="max-w-[340px]"
+                    >
+                        <Text as="p" tone="muted">
+                            Pick a persona on the left to see its opinions about
+                            other participants, concepts, and itself — and to
+                            author or retract them.
+                        </Text>
+                    </GroupBox>
+                </Stack>
+            )}
+        </WindowLayout>
     );
 }
 
@@ -150,10 +164,8 @@ function ConsolidatePanel({
     useEffect(() => setReport(null), [sourceId]);
 
     return (
-        <>
-            <SectionTitle>Consolidation</SectionTitle>
-            <button
-                type="button"
+        <TaskPaneSection title="Consolidation">
+            <CommandButton
                 title="Walk this persona's unconsolidated recollections (one LLM call) and append the stances they crystallise into"
                 disabled={consolidate.isPending}
                 onClick={() =>
@@ -161,11 +173,13 @@ function ConsolidatePanel({
                 }
             >
                 {consolidate.isPending ? 'Sleeping on it…' : 'Consolidate now'}
-            </button>
+            </CommandButton>
             {report ? (
-                <p style={{ color: '#555', margin: 0 }}>{report}</p>
+                <Text as="p" tone="muted">
+                    {report}
+                </Text>
             ) : null}
-        </>
+        </TaskPaneSection>
     );
 }
 
@@ -243,91 +257,81 @@ function StanceAuthor({
     }
 
     return (
-        <>
-            <SectionTitle>Toward…</SectionTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <KindRadio
-                    kind={StanceTargetKind.Participant}
-                    current={targetKind}
-                    onPick={setTargetKind}
-                    label="A participant"
-                />
-                <KindRadio
-                    kind={StanceTargetKind.Concept}
-                    current={targetKind}
-                    onPick={setTargetKind}
-                    label="A concept"
-                />
-                <KindRadio
-                    kind={StanceTargetKind.Self}
-                    current={targetKind}
-                    onPick={setTargetKind}
-                    label="Themselves"
-                />
-            </div>
+        <TaskPaneSection title="Toward…">
+            <RadioGroup
+                name="stance-target"
+                aria-label="Toward…"
+                value={targetKind}
+                onValueChange={(v) => setTargetKind(v as StanceTargetKind)}
+            >
+                <RadioButton value={StanceTargetKind.Participant}>
+                    A participant
+                </RadioButton>
+                <RadioButton value={StanceTargetKind.Concept}>
+                    A concept
+                </RadioButton>
+                <RadioButton value={StanceTargetKind.Self}>
+                    Themselves
+                </RadioButton>
+            </RadioGroup>
 
             {targetKind === StanceTargetKind.Participant ? (
-                <select
+                <ComboBox
+                    aria-label="Participant"
                     value={targetPersonaId}
                     onChange={(e) => setTargetPersonaId(e.target.value)}
-                >
-                    <option value="">— pick a participant —</option>
-                    {others.map((p) => (
-                        <option key={p.id} value={p.id}>
-                            {p.name}
-                        </option>
-                    ))}
-                </select>
+                    options={[
+                        { value: '', label: '— pick a participant —' },
+                        ...others.map((p) => ({ value: p.id, label: p.name })),
+                    ]}
+                />
             ) : null}
 
             {targetKind === StanceTargetKind.Concept ? (
-                <input
-                    type="text"
+                <TextBox
+                    aria-label="Concept"
                     placeholder="Concept (e.g. Lisp)"
                     value={conceptName}
                     onChange={(e) => setConceptName(e.target.value)}
                 />
             ) : null}
 
-            <SectionTitle>Valence ({valence.toFixed(2)})</SectionTitle>
-            <input
-                type="range"
-                min={-1}
-                max={1}
-                step={0.05}
-                value={valence}
-                onChange={(e) => setValence(Number(e.target.value))}
-            />
-            <div
-                style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    color: '#808080',
-                    fontSize: 10,
-                }}
+            <FieldRow
+                label={`Valence (${valence.toFixed(2)})`}
+                layout="stacked"
             >
-                <span>−1 hostile</span>
-                <span>+1 warm</span>
-            </div>
+                <Slider
+                    min={-1}
+                    max={1}
+                    step={0.05}
+                    value={valence}
+                    startLabel="−1 hostile"
+                    endLabel="+1 warm"
+                    onChange={(e) => setValence(Number(e.target.value))}
+                    className="w-full"
+                />
+            </FieldRow>
 
-            <SectionTitle>Reasoning (second person)</SectionTitle>
-            <textarea
-                rows={3}
-                placeholder="Vlad exaggerates — you've watched him inflate three stories"
-                value={reasoning}
-                onChange={(e) => setReasoning(e.target.value)}
-                maxLength={600}
-            />
+            <FieldRow label="Reasoning (second person)" layout="stacked">
+                <TextArea
+                    rows={3}
+                    placeholder="Vlad exaggerates — you've watched him inflate three stories"
+                    value={reasoning}
+                    onChange={(e) => setReasoning(e.target.value)}
+                    maxLength={600}
+                />
+            </FieldRow>
 
-            <button
+            <CommandButton
+                isDefault
                 type="button"
                 disabled={!canSubmit || append.isPending}
                 onClick={submit}
             >
                 {append.isPending ? 'Appending…' : 'Append stance'}
-            </button>
-            {error ? <p style={{ color: '#c00' }}>{error}</p> : null}
-        </>
+            </CommandButton>
+            {error ? <StatusText tone="danger">{error}</StatusText> : null}
+        </TaskPaneSection>
     );
 }
 
@@ -366,115 +370,113 @@ function StanceLog({
         });
 
     if (stancesQuery.isLoading) {
-        return <p style={{ color: '#808080' }}>Loading stances…</p>;
+        return (
+            <Stack gap="md">
+                <ProgressBar marquee label="Loading stances" className="w-40" />
+                <Text as="p" tone="muted">
+                    Loading stances…
+                </Text>
+            </Stack>
+        );
     }
     if (stances.length === 0) {
         return (
-            <p style={{ color: '#808080' }}>
+            <Text as="p" tone="muted">
                 This persona holds no stances yet. Author one on the left, or
                 run Consolidation to crystallise them from its recollections.
-            </p>
+            </Text>
         );
     }
 
+    const current = (
+        <StatusText as="span" icon={<Icon name="check" />}>
+            current
+        </StatusText>
+    );
+
     return (
-        <>
-            <p style={{ color: '#666', margin: '0 0 6px' }}>
+        <Stack gap="sm">
+            <Text as="p" tone="muted">
                 Append-only log — the latest stance per target counts (marked{' '}
-                <span
-                    style={{
-                        fontSize: 9,
-                        background: '#316AC5',
-                        color: '#fff',
-                        borderRadius: 6,
-                        padding: '0 4px',
-                    }}
-                >
-                    current
-                </span>
-                ); older entries stay for history.
-            </p>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                    <tr style={{ textAlign: 'left', color: '#555' }}>
-                        <th style={th}>Target</th>
-                        <th style={th}>Valence</th>
-                        <th style={th}>Reasoning</th>
-                        <th style={th}>By</th>
-                        <th style={th}>When</th>
-                        <th style={th} />
-                    </tr>
-                </thead>
-                <tbody>
-                    {stances.map((s) => (
-                        <tr
-                            key={s.id}
-                            style={{
-                                background: s.isCurrent
-                                    ? 'rgba(255,255,255,0.85)'
-                                    : 'transparent',
-                                color: s.isCurrent ? '#000' : '#999',
-                                borderBottom: '1px solid rgba(172,168,153,0.4)',
-                            }}
-                        >
-                            <td style={td}>
+                {current}); older entries stay for history.
+            </Text>
+            <ControlGrid
+                label="Stances"
+                minWidth="760px"
+                columns={[
+                    { key: 'target', header: 'Target', width: '140px' },
+                    { key: 'valence', header: 'Valence', width: '110px' },
+                    { key: 'reasoning', header: 'Reasoning' },
+                    { key: 'by', header: 'By', width: '140px', nowrap: true },
+                    {
+                        key: 'when',
+                        header: 'When',
+                        width: '150px',
+                        nowrap: true,
+                    },
+                    { key: 'retract', header: '', width: '84px', align: 'end' },
+                ]}
+                rows={stances.map((s) => ({
+                    id: s.id,
+                    muted: !s.isCurrent,
+                    cells: {
+                        target: (
+                            <Stack
+                                as="span"
+                                direction="row"
+                                wrap
+                                align="center"
+                                gap="xs"
+                            >
                                 {targetLabel(s, personaNameById)}
-                                {s.isCurrent ? (
-                                    <span
-                                        style={{
-                                            marginLeft: 4,
-                                            fontSize: 9,
-                                            background: '#316AC5',
-                                            color: '#fff',
-                                            borderRadius: 6,
-                                            padding: '0 4px',
-                                        }}
-                                    >
-                                        current
-                                    </span>
-                                ) : null}
-                            </td>
-                            <td
-                                style={{
-                                    ...td,
-                                    fontWeight: 600,
-                                    color: valenceColour(Number(s.valence)),
-                                }}
+                                {s.isCurrent ? current : null}
+                            </Stack>
+                        ),
+                        valence: (
+                            <Stack
+                                as="span"
+                                direction="row"
+                                align="center"
+                                gap="sm"
                                 title="−1 hostile · 0 neutral · +1 warm"
                             >
+                                <Meter
+                                    diverging
+                                    value={Number(s.valence)}
+                                    label={`Valence ${Number(s.valence).toFixed(2)}`}
+                                    className="w-12"
+                                />
                                 {Number(s.valence).toFixed(2)}
-                            </td>
-                            <td style={td}>{s.reasoning}</td>
-                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                                <OriginBadge stance={s} />
-                            </td>
-                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                                {new Date(s.ts).toLocaleString()}
-                            </td>
-                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                                {s.isCurrent &&
-                                s.origin !== StanceOrigin.Retract ? (
-                                    <button
-                                        type="button"
-                                        disabled={retract.isPending}
-                                        title="Append a neutralizing edge — history stays"
-                                        onClick={() =>
-                                            retract.mutate({
-                                                partyId,
-                                                personaId: sourceId,
-                                                stanceId: s.id,
-                                            })
-                                        }
-                                    >
-                                        Retract
-                                    </button>
-                                ) : null}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </>
+                            </Stack>
+                        ),
+                        reasoning: (
+                            <Text as="span" size="reading">
+                                {s.reasoning}
+                            </Text>
+                        ),
+                        by: <OriginBadge stance={s} />,
+                        when: new Date(s.ts).toLocaleString(),
+                        retract:
+                            s.isCurrent && s.origin !== StanceOrigin.Retract ? (
+                                <CommandButton
+                                    size="small"
+                                    disabled={retract.isPending}
+                                    title="Append a neutralizing edge — history stays"
+                                    onClick={() =>
+                                        retract.mutate({
+                                            partyId,
+                                            personaId: sourceId,
+                                            stanceId: s.id,
+                                        })
+                                    }
+                                >
+                                    Retract
+                                </CommandButton>
+                            ) : null,
+                    },
+                }))}
+            />
+        </Stack>
     );
 }
 
@@ -492,29 +494,23 @@ function OriginBadge({
             return (
                 <span title={`run ${stance.runId ?? '?'}`}>
                     consolidation{' '}
-                    <span style={{ color: '#808080' }}>
+                    <Text as="span" tone="muted">
                         ({(stance.runId ?? '').slice(0, 8)})
-                    </span>
+                    </Text>
                 </span>
             );
         case StanceOrigin.Retract:
             return (
                 <span title={`masks ${stance.retractsId ?? '?'}`}>
                     retract{' '}
-                    <span style={{ color: '#808080' }}>
+                    <Text as="span" tone="muted">
                         (⊘{(stance.retractsId ?? '').slice(0, 8)})
-                    </span>
+                    </Text>
                 </span>
             );
         default:
             return <span>curator</span>;
     }
-}
-
-function valenceColour(v: number): string {
-    if (v <= -0.25) return '#B22222';
-    if (v >= 0.25) return '#1F7A1F';
-    return '#555';
 }
 
 function targetLabel(
@@ -537,44 +533,3 @@ function targetLabel(
         }
     }
 }
-
-function KindRadio({
-    kind,
-    current,
-    onPick,
-    label,
-}: {
-    kind: StanceTargetKind;
-    current: StanceTargetKind;
-    onPick: (k: StanceTargetKind) => void;
-    label: string;
-}) {
-    return (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <input
-                type="radio"
-                checked={current === kind}
-                onChange={() => onPick(kind)}
-            />
-            {label}
-        </label>
-    );
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-    return (
-        <div style={{ fontWeight: 700, color: '#003399', marginTop: 4 }}>
-            {children}
-        </div>
-    );
-}
-
-const th: React.CSSProperties = {
-    padding: '2px 6px',
-    borderBottom: '1px solid #ACA899',
-    fontWeight: 600,
-};
-const td: React.CSSProperties = {
-    padding: '3px 6px',
-    verticalAlign: 'top',
-};

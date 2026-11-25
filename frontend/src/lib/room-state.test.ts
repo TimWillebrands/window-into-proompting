@@ -177,22 +177,6 @@ describe('reduceRooms', () => {
             },
         ]);
     });
-
-    it('truncation keeps messages up to the cut', () => {
-        const rooms = fold([
-            ...[1, 2, 3].map((id) =>
-                env('party.message.created', {
-                    chatGroupId: ROOM,
-                    message: msg(id),
-                }),
-            ),
-            env('party.messages.truncated', {
-                chatGroupId: ROOM,
-                messageId: 1,
-            }),
-        ]);
-        expect(rooms[ROOM].messages.map((m) => m.messageId)).toEqual([1]);
-    });
 });
 
 describe('phaseOf', () => {

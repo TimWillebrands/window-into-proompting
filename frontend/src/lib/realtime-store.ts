@@ -169,7 +169,8 @@ export const useRealtimeStore = create<RealtimeStoreState>((set, get) => {
 
         if (
             envelope.type.startsWith('world.') ||
-            envelope.type === 'party.message.created'
+            envelope.type === 'party.message.created' ||
+            envelope.type === 'party.conversation'
         ) {
             worldBus.emit(envelope);
         }

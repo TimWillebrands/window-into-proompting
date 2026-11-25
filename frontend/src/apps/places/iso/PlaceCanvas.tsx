@@ -1,3 +1,4 @@
+import { useWindowMinimised } from '@partytown/ui';
 import { useEffect, useMemo, useRef } from 'react';
 import { useChatGroupMessages } from '#lib/realtime-store';
 import type { Body } from '../../../api/model/body';
@@ -64,6 +65,7 @@ export default function PlaceCanvas({
     const shown = useRef(new Map<string, Pt>());
     const hover = useRef<Pt | null>(null);
     const feet = useRef(new Map<string, Pt>());
+    const minimised = useWindowMinimised();
     const latest = useRef({ bodies, furni, messages, playerId, allEars });
     latest.current = { bodies, furni, messages, playerId, allEars };
 
@@ -87,6 +89,7 @@ export default function PlaceCanvas({
     }, [bodies, layout, place.id]);
 
     useEffect(() => {
+        if (minimised) return;
         let raf = 0;
         const draw = () => {
             const canvas = canvasRef.current;
@@ -107,7 +110,7 @@ export default function PlaceCanvas({
         };
         raf = requestAnimationFrame(draw);
         return () => cancelAnimationFrame(raf);
-    }, [layout, place]);
+    }, [layout, place, minimised]);
 
     const bodyAt = (e: React.MouseEvent<HTMLCanvasElement>): string | null => {
         const canvas = canvasRef.current;

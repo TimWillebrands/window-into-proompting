@@ -1,15 +1,18 @@
+import {
+    UserPicture,
+    type UserPictureProps,
+    type UserPictureSize,
+} from '@partytown/ui';
 import { type ImgHTMLAttributes, useEffect, useState } from 'react';
 import { useGetWorldsPartyIdPlaces } from '#api/party-zone';
 import { WORLD_ID } from '../lib/world';
 
-const STAND_IN = `data:image/svg+xml,${encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#d7dfeb"/><circle cx="16" cy="12.5" r="6" fill="#a3b1c6"/><path d="M4 32c1-9 6-12 12-12s11 3 12 12z" fill="#a3b1c6"/></svg>',
-)}`;
-
 const STALE_MS = 5 * 60_000;
 
-export function usePortrait(who: string | null | undefined): string {
-    const [src, setSrc] = useState(STAND_IN);
+export function usePortrait(
+    who: string | null | undefined,
+): string | undefined {
+    const [src, setSrc] = useState<string>();
     const { data: appearance, isPending } = useGetWorldsPartyIdPlaces(
         WORLD_ID,
         {
@@ -39,10 +42,22 @@ export function usePortrait(who: string | null | undefined): string {
     return src;
 }
 
-interface Props extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> {
+type FramedProps = Omit<UserPictureProps, 'src' | 'size'> & {
     who: string | null | undefined;
-}
+    size: UserPictureSize;
+};
 
-export default function Portrait({ who, alt = '', ...img }: Props) {
-    return <img alt={alt} {...img} src={usePortrait(who)} />;
+type BareProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
+    who: string | null | undefined;
+    size?: undefined;
+};
+
+export default function Portrait(props: FramedProps | BareProps) {
+    const src = usePortrait(props.who);
+    if (props.size !== undefined) {
+        const { who: _who, ...picture } = props;
+        return <UserPicture {...picture} src={src} />;
+    }
+    const { who: _who, alt = '', ...img } = props;
+    return <img alt={alt} {...img} src={src} />;
 }

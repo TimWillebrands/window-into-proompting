@@ -23,6 +23,11 @@ import type { Gathering } from '../api/model/gathering';
 import type { LifeSummary } from '../api/model/lifeSummary';
 import type { PlacesSnapshot } from '../api/model/placesSnapshot';
 import type { WorldActivity } from '../api/model/worldActivity';
+import {
+    conversationName,
+    conversationTitle,
+    isGroup,
+} from '../apps/messenger/conversations';
 import { usePlayerIdle } from '../apps/places/use-player-idle';
 import { ROOT_PARTY_ID } from './chat-api';
 import {
@@ -203,24 +208,56 @@ export function notifyOnRefusal(error: unknown) {
         });
 }
 
-export function useOpenDirectChat() {
+export type ConversationHint = {
+    name: string;
+    group?: boolean;
+    spectate?: boolean;
+};
+
+export function useOpenConversation() {
     const { openWindow } = useDesktopContext();
-    return (chatGroupId: string, withName: string) =>
+    const queryClient = useQueryClient();
+    const playerId = usePlayerId();
+    return (chatGroupId: string, hint: ConversationHint) => {
+        const known = playerId
+            ? queryClient
+                  .getQueryData<{ data: DirectChatSummary[] }>(
+                      getGetWorldsPartyIdMessengerQueryKey(WORLD_ID, {
+                          personaId: playerId,
+                      }),
+                  )
+                  ?.data.find((c) => c.chatGroupId === chatGroupId)
+            : undefined;
+        const group = known ? isGroup(known) : !!hint.group;
+        const title = known
+            ? conversationTitle(known, playerId)
+            : group
+              ? `Conversation with ${hint.name}`
+              : `${hint.name} — Conversation`;
         openWindow('messenger-chat', {
             instanceId: `dm-${chatGroupId}`,
-            title: `${withName} — Conversation`,
-            props: { chatGroupId, withName },
+            title,
+            icon: group ? 'chat-rooms' : 'chat',
+            props: {
+                chatGroupId,
+                withName: known ? conversationName(known, playerId) : hint.name,
+                ...(hint.spectate ? { spectate: true } : {}),
+            },
         });
+    };
 }
 
 export function useOpenNotification() {
     const { openWindow } = useDesktopContext();
-    const openDirectChat = useOpenDirectChat();
+    const openConversation = useOpenConversation();
     const markRead = useMarkNotificationsRead(WORLD_ID);
     return (n: PlayerNotification) => {
         void markRead({ ids: [n.id] });
         if (n.app === 'messenger' && n.targetId)
-            openDirectChat(n.targetId, n.fromName ?? 'Contact');
+            openConversation(n.targetId, {
+                name: n.fromName ?? 'Contact',
+                group: n.kind === 'group',
+            });
         else if (n.app === 'board')
             openWindow('board', {
                 props: n.targetId ? { threadId: n.targetId } : undefined,
@@ -295,6 +332,10 @@ export function WorldRealtimeBridge() {
         queryClient.invalidateQueries({ queryKey: notificationsKey(WORLD_ID) });
 
     useWorldEvents((envelope) => {
+        if (envelope.type === 'party.conversation') {
+            invalidatePrefix(worldPrefix('/messenger'));
+            return;
+        }
         if (envelope.type === 'party.message.created') {
             const data = envelope.data as {
                 chatGroupId?: string;
@@ -326,10 +367,13 @@ export function WorldRealtimeBridge() {
                     queryKey: getGetWorldsPartyIdLivesQueryKey(WORLD_ID),
                 });
                 const a = payload as WorldActivity;
-                if (a.app === 'messenger' && a.action === 'dm') {
+                if (a.app === 'messenger')
                     invalidatePrefix(worldPrefix('/messenger'));
-                }
-                if (playerId && a.withPersonaId === playerId)
+                if (
+                    playerId &&
+                    (a.withPersonaId === playerId ||
+                        a.among?.includes(playerId))
+                )
                     void refreshNotifications();
                 break;
             }

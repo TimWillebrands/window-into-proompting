@@ -1,7 +1,9 @@
+import type { IconName } from '@partytown/ui';
 import type { Body } from '../../api/model/body';
 import type { FurniView } from '../../api/model/furniView';
 import type { GrowthRow } from '../../api/model/growthRow';
 import type { Place } from '../../api/model/place';
+import { AVATAR_COLOURS } from './iso/appearance';
 
 export const toMs = (v: number | string | null | undefined) =>
     v == null ? 0 : Number(v);
@@ -103,31 +105,20 @@ export const navigatorPlaces = (places: Place[], viewerId: string | null) => {
     return places.filter((p) => !p.vacated).sort((a, b) => rank(a) - rank(b));
 };
 
-const AVATAR_COLOURS = [
-    '#e57373',
-    '#64b5f6',
-    '#81c784',
-    '#ffb74d',
-    '#ba68c8',
-    '#4db6ac',
-    '#f06292',
-    '#a1887f',
-];
-
 export function avatarColour(id: string | undefined): string {
     let h = 0;
     for (const c of id ?? '') h = (h * 31 + c.charCodeAt(0)) | 0;
     return AVATAR_COLOURS[Math.abs(h) % AVATAR_COLOURS.length];
 }
 
-export const postureIcon = (b: Body) =>
+export const postureIcon = (b: Body): IconName =>
     b.destPlaceId
-        ? '🚶'
+        ? 'walk'
         : b.asleep
-          ? '💤'
+          ? 'sleep'
           : b.posture === 'Sitting'
-            ? '🪑'
-            : '🧍';
+            ? 'chair'
+            : 'standing';
 
 const DECOR: Record<string, string> = {
     poster: '📜',
@@ -206,35 +197,35 @@ export const scribble = (text: string | null | undefined) =>
         )
         .join(' ');
 
-export function placeIcon(place: Place, viewerId: string | null): string {
+export function placeIcon(place: Place, viewerId: string | null): IconName {
     if (place.kind === 'home')
         return livesIn(place, viewerId)
-            ? '🏠'
+            ? 'home'
             : mayEnter(place, viewerId)
-              ? '🏡'
-              : '🔒';
-    const scene: Record<string, string> = {
-        cafe: '☕',
-        lobby: '🛎️',
-        centre: '🌳',
+              ? 'house'
+              : 'locked';
+    const scene: Record<string, IconName> = {
+        cafe: 'coffee',
+        lobby: 'reception',
+        centre: 'tree',
     };
-    if (workplaceDoor(place) && !mayEnter(place, viewerId)) return '🔒';
+    if (workplaceDoor(place) && !mayEnter(place, viewerId)) return 'locked';
     if (place.scene && scene[place.scene]) return scene[place.scene];
     const name = (place.name ?? '').toLowerCase();
-    const cues: [RegExp, string][] = [
-        [/record|vinyl|music/, '💿'],
-        [/bar|pub|club|lounge/, '🍸'],
-        [/shop|store|market|boutique/, '🛍️'],
-        [/park|garden|square|beach/, '🌳'],
-        [/library|book/, '📚'],
-        [/gym|pool|sport/, '🏊'],
-        [/arcade|game/, '🕹️'],
-        [/restaurant|diner|kitchen|bakery/, '🍽️'],
-        [/roof|terrace/, '🌆'],
+    const cues: [RegExp, IconName][] = [
+        [/record|vinyl|music/, 'disc'],
+        [/bar|pub|club|lounge/, 'cocktail'],
+        [/shop|store|market|boutique/, 'shopping'],
+        [/park|garden|square|beach/, 'tree'],
+        [/library|book/, 'books'],
+        [/gym|pool|sport/, 'swim'],
+        [/arcade|game/, 'joystick'],
+        [/restaurant|diner|kitchen|bakery/, 'dining'],
+        [/roof|terrace/, 'skyline'],
     ];
     return (
         cues.find(([re]) => re.test(name))?.[1] ??
-        (place.customScene ? '✨' : '🏢')
+        (place.customScene ? 'sparkle' : 'office')
     );
 }
 

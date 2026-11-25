@@ -1,3 +1,4 @@
+import { Icon, Window } from '@partytown/ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import ProviderCard from './ProviderCard';
@@ -13,16 +14,16 @@ const meta = {
     },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 640,
-                    padding: 16,
-                    background:
-                        'linear-gradient(135deg, #5C87C2 0%, #4A73B0 100%)',
-                }}
+            <Window
+                title="Control Panel"
+                icon={<Icon name="control-panel" />}
+                className="w-[640px]"
+                bodyClassName="overflow-auto"
             >
-                <Story />
-            </div>
+                <div className="p-3">
+                    <Story />
+                </div>
+            </Window>
         ),
     ],
 } satisfies Meta<typeof ProviderCard>;

@@ -1,0 +1,67 @@
+@layer ui {
+    .ui-page-header {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: var(--ui-space-5);
+        min-width: 0;
+        padding: var(--ui-space-4) var(--ui-space-5);
+        border-block-end: 2px solid var(--ui-control-hot);
+        background: linear-gradient(
+            90deg,
+            var(--ui-chrome-deep) 0%,
+            var(--ui-chrome) 60%,
+            var(--ui-chrome-sheen) 100%
+        );
+        color: var(--ui-text-on-chrome);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-page-header-icon {
+        display: inline-flex;
+        flex: none;
+    }
+
+    .ui-page-header-text {
+        display: grid;
+        flex: 1;
+        gap: var(--ui-space-1);
+        min-width: 0;
+    }
+
+    .ui-page-header-title {
+        margin: 0;
+        overflow: hidden;
+        font-family: var(--ui-font-title);
+        font-size: var(--ui-text-title);
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-shadow: var(--ui-chrome-text-shadow);
+    }
+
+    .ui-page-header-description {
+        margin: 0;
+        overflow: hidden;
+        color: color-mix(in oklab, var(--ui-text-on-chrome) 88%, transparent);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ui-page-header-aside {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: var(--ui-space-3);
+        min-width: 0;
+        font-weight: 700;
+    }
+
+    @container ui-window-layout (width < 520px) {
+        .ui-page-header-description {
+            display: none;
+        }
+    }
+}

@@ -1,0 +1,67 @@
+@layer ui {
+    .ui-statusbar {
+        display: flex;
+        align-items: stretch;
+        gap: var(--ui-space-1);
+        min-height: 22px;
+        padding: var(--ui-space-1) var(--ui-space-1) var(--ui-space-1)
+            var(--ui-space-1);
+        border-block-start: 1px solid var(--ui-face-edge);
+        background: var(--ui-face);
+        box-shadow: inset 0 1px 0 var(--ui-face-lite);
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-statusbar-field {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-2);
+        min-width: 0;
+        padding: 0 var(--ui-space-3);
+        border: 1px solid transparent;
+        border-color: color-mix(
+                in oklab,
+                var(--ui-face-edge) 80%,
+                var(--ui-face)
+            )
+            var(--ui-face-lite) var(--ui-face-lite)
+            color-mix(in oklab, var(--ui-face-edge) 80%, var(--ui-face));
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .ui-statusbar-field[data-grow] {
+        flex: 1;
+    }
+
+    .ui-statusbar-icon {
+        display: inline-flex;
+        flex: none;
+    }
+
+    .ui-statusbar-grip {
+        flex: none;
+        align-self: flex-end;
+        width: 12px;
+        height: 12px;
+        margin-inline-start: auto;
+        background:
+            radial-gradient(
+                circle at 1px 1px,
+                var(--ui-face-lite) 1px,
+                transparent 1.5px
+            )
+            1px 1px / 4px 4px,
+            radial-gradient(
+                circle at 1px 1px,
+                var(--ui-face-edge) 1px,
+                transparent 1.5px
+            )
+            0 0 / 4px 4px;
+        clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    }
+}

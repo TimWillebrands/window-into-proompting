@@ -1,0 +1,106 @@
+{
+    "frontend/src/components/desktop/notifications/NotificationBanners.stories.tsx": {
+        "layout-soup": {
+            "xp-taskbar fixed right-0 bottom-0 left-0 flex h-[30px] items-stretch": 1
+        }
+    },
+    "frontend/src/components/desktop/notifications/NotificationTrayButton.tsx": {
+        "raw-colour": {
+            "#fff": 1
+        }
+    },
+    "frontend/src/lib/theme-store.ts": {
+        "dark-variant": {
+            "classList.add('dark')": 1,
+            "classList.remove('dark')": 1
+        }
+    },
+    "frontend/src/styles.css": {
+        "dark-variant": {
+            ".dark": 10
+        },
+        "font-literal": {
+            "font: bold 9px / 12px Tahoma, sans-serif": 1
+        },
+        "motion-literal": {
+            "120ms": 2,
+            "160ms": 1,
+            "200ms": 3,
+            "240ms": 3,
+            "300ms": 1,
+            "cubic-bezier(0.2, 0.8, 0.2, 1)": 1,
+            "ease": 4
+        },
+        "raw-colour": {
+            "#000": 5,
+            "#003c74": 1,
+            "#003dd7": 2,
+            "#0050ee": 1,
+            "#0053ee": 1,
+            "#005bff": 1,
+            "#0066ff": 2,
+            "#0831d9": 2,
+            "#0997ff": 1,
+            "#0b45c2": 1,
+            "#0f1013": 1,
+            "#0f1089": 1,
+            "#141519": 1,
+            "#202228": 1,
+            "#215dc6": 1,
+            "#24262c": 1,
+            "#2a2c33": 1,
+            "#2a74f0": 1,
+            "#2b2d34": 3,
+            "#33353c": 1,
+            "#33363f": 1,
+            "#34373f": 2,
+            "#3b3e47": 1,
+            "#428eff": 1,
+            "#4a4e5a": 4,
+            "#6375d6": 1,
+            "#6b6f7a": 1,
+            "#6f6f6f": 1,
+            "#7ba2e7": 1,
+            "#7fa1ee": 1,
+            "#9cc8ff": 1,
+            "#9fc0ff": 1,
+            "#a13322": 2,
+            "#a3a8b4": 1,
+            "#a5b9e6": 1,
+            "#b6c6ee": 2,
+            "#c6d3f7": 1,
+            "#c8432b": 1,
+            "#cfe0ff": 1,
+            "#d24f3a": 1,
+            "#d4513a": 1,
+            "#d6d0c5": 1,
+            "#d6dff7": 1,
+            "#d75d44": 1,
+            "#dbe4f9": 1,
+            "#dde7fc": 1,
+            "#e2735b": 1,
+            "#e3e2db": 1,
+            "#e5e4de": 1,
+            "#e6edfc": 1,
+            "#e9a28c": 1,
+            "#ecebe6": 1,
+            "#ececec": 1,
+            "#f08272": 1,
+            "#f2b7a4": 1,
+            "#f2f1ec": 1,
+            "#f3f7ff": 1,
+            "#f8b33a": 1,
+            "#fbd38a": 2,
+            "#ffecbe": 1,
+            "#fff": 16,
+            "rgba(0, 0, 0, 0.2)": 1,
+            "rgba(0, 0, 0, 0.3)": 1,
+            "rgba(0, 0, 0, 0.35)": 3,
+            "rgba(0, 0, 0, 0.45)": 2,
+            "rgba(11, 69, 194, 0.35)": 1,
+            "rgba(255, 255, 255, 0.2)": 1,
+            "rgba(255, 255, 255, 0.4)": 1,
+            "rgba(255, 255, 255, 0.85)": 2
+        }
+    }
+}

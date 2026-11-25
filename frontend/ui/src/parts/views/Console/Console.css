@@ -1,0 +1,41 @@
+@layer ui {
+    .ui-console {
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+        padding: var(--ui-space-3) var(--ui-space-4);
+        border: 1px solid var(--ui-field-edge);
+        background: var(--ui-field);
+        color: var(--ui-text);
+        font-family: var(--ui-font-mono);
+        font-size: var(--ui-text-reading);
+        line-height: var(--ui-leading-reading);
+    }
+
+    .ui-console-line {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .ui-console-prompt,
+    .ui-console-line[data-tone="muted"] {
+        color: var(--ui-text-muted);
+    }
+
+    .ui-console-line[data-tone="neutral"] {
+        color: var(--ui-link);
+    }
+
+    .ui-console-line[data-tone="go"] {
+        color: oklch(from var(--ui-tone-go) calc(l + 0.3) c h);
+    }
+
+    .ui-console-line[data-tone="caution"] {
+        color: var(--ui-tone-caution);
+    }
+
+    .ui-console-line[data-tone="danger"] {
+        color: oklch(from var(--ui-tone-danger) calc(l + 0.18) c h);
+    }
+}

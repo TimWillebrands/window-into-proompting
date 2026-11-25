@@ -5,10 +5,12 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using PartyTown.Grains;
 using PartyTown.Model;
 using PartyTown.Services.Auth;
+using PartyTown.Services.Render;
 using PartyTown.World;
 using PartyTown.World.Economy;
 using PartyTown.World.Places;
@@ -16,7 +18,7 @@ using PartyTown.World.Places;
 namespace PartyTown.Mcp;
 
 [McpServerToolType]
-public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, PlayerAuto? auto = null)
+public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<McpOptions> mcp, PlayerAuto? auto = null, PlaceRenderer? renderer = null)
 {
     private Guid World { get; set; }
     private const string Whom = "Participant id; only admins may name someone else. Default: your own Player.";
@@ -54,14 +56,14 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
             .ToList();
     });
 
-    [McpServerTool(Name = "get_place", ReadOnly = true), Description("A Place by id: spots, things (with ids and tiles for arranging), colours and the tile map.")]
+    [McpServerTool(Name = "get_place", ReadOnly = true), Description("A Place by id: spots, things (with ids and tiles for arranging), colours, the tile map and a plan of what stands where (props lettered, spots numbered): keep things off taken tiles.")]
     public Task<PlaceView> GetPlaceAsync([Description("Place id from list_places.")] Guid placeId) => Guard(async () =>
     {
         var snapshot = await Places.GetSnapshotAsync();
         return PlaceView.Of(snapshot.Places.FirstOrDefault(p => p.Id == placeId) ?? throw new McpException("No such Place."), snapshot);
     });
 
-    [McpServerTool(Name = "get_home", ReadOnly = true), Description("Their Home: name, spots, things (with ids and tiles for arranging), colours and the tile map.")]
+    [McpServerTool(Name = "get_home", ReadOnly = true), Description("Their Home: name, spots, things (with ids and tiles for arranging), colours, the tile map and a plan of what stands where (props lettered, spots numbered): keep things off taken tiles.")]
     public Task<PlaceView> GetHomeAsync(ClaimsPrincipal user, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
     {
         var who = await ReadAsync(user, participantId);
@@ -169,6 +171,48 @@ public sealed class PlayerTools(IGrainFactory grains, Actors actors, IOptions<Mc
             ? "Nothing to do here yet: place something marked ★ or give a prop a \"do\" and \"gives\"."
             : $"To do here:\n- {string.Join("\n- ", draft.Features.Select(f => $"{f.Do} ({f.Name}, {f.SpotId}){(f.Leaves ? ", stays for the next visitor" : string.Empty)}: {f.Gives}"))}");
         return Task.FromResult(sb.Append(check.Preview).ToString());
+    });
+
+    [McpServerTool(Name = "see_place", ReadOnly = true), Description("A picture of a Place as people see it (their Home by default), or of a design before it's applied: pass design as for check_place. Use it to check that things stand where they should, face the right way and look the part.")]
+    public Task<IEnumerable<ContentBlock>> SeePlaceAsync(
+        ClaimsPrincipal user,
+        [Description("Place id from list_places. Default: their Home.")] Guid? placeId = null,
+        [Description("A design JSON to see before applying it, as for check_place; it's drawn in place of the Place's own.")] JsonElement? design = null,
+        [Description("Outdoors, for a design: no walls, open sky.")] bool outdoor = false,
+        [Description("Hour of the day for the light, 0-23. Default: now.")] int? hour = null,
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        if (renderer is not { Available: true }) throw new McpException("Pictures aren't set up on this server.");
+        var snapshot = await Places.GetSnapshotAsync();
+        var place = placeId is { } id
+            ? snapshot.Places.FirstOrDefault(p => p.Id == id) ?? throw new McpException("No such Place.")
+            : snapshot.Places.HomeOf(await ReadAsync(user, participantId)) ?? throw new McpException("They have no Home yet.");
+        string? draftKey = null;
+        var said = $"{place.Name}, as it stands.";
+        if (design is { ValueKind: JsonValueKind.Object } d)
+        {
+            var check = PlaceDesign.Inspect(JsonNode.Parse(d.GetRawText()) as JsonObject, outdoor, place.Kind == PlaceKinds.Home ? PlaceDesign.MissingHomeSpots : null);
+            if (check.Draft is not { } draft) throw new McpException(Wrong(check));
+            var preview = JsonSerializer.Deserialize<Place>(JsonSerializer.Serialize(place))!;
+            preview.Scene = "custom";
+            preview.CustomScene = draft.Scene;
+            preview.Spots = draft.Spots;
+            preview.WallColour = null;
+            preview.FloorColour = null;
+            if (draft.Doc["description"]?.ToString() is { Length: > 0 } about) preview.Description = WorldStream.Clip(about, 200);
+            draftKey = renderer.StashDraft(preview);
+            said = $"{place.Name} with the design, not applied. Things placed by hand go back to the scene when it is.";
+        }
+
+        try
+        {
+            var png = await renderer.RenderAsync(World, place.Id, draftKey, hour);
+            return (IEnumerable<ContentBlock>)new ContentBlock[] { new TextContentBlock { Text = said }, ImageContentBlock.FromBytes(png, "image/png") };
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException)
+        {
+            throw new McpException($"Couldn't draw it: {ex.Message}");
+        }
     });
 
     [McpServerTool(Name = "do_thing"), Description("Do what a thing where they are offers (thing ids and what they offer from get_place). Gives back what they came away with; for things that keep what's left, text is their own words to leave.")]
@@ -336,7 +380,7 @@ public sealed record HomeThing(string Id, string Kind, string Name, string SpotI
 
 public sealed record PlaceRow(Guid Id, string Name, string Kind, string? Purpose, List<string> People);
 
-public sealed record PlaceView(Guid Id, string Name, string Kind, string Description, string? Purpose, List<string> LivingHere, List<string> Staff, List<Spot> Spots, List<HomeThing> Things, string? WallColour, string? FloorColour, List<string> Map)
+public sealed record PlaceView(Guid Id, string Name, string Kind, string Description, string? Purpose, List<string> LivingHere, List<string> Staff, List<Spot> Spots, List<HomeThing> Things, string? WallColour, string? FloorColour, List<string> Map, string? Plan)
 {
     public static PlaceView Of(Place home, PlacesSnapshot snapshot) => new(
         home.Id, home.Name, home.Kind, home.Description, home.Purpose,
@@ -347,5 +391,6 @@ public sealed record PlaceView(Guid Id, string Name, string Kind, string Descrip
             f.Gives is not null ? f.UseLabel : null,
             f.Leaves && f.Takes.Count > 0 ? f.Takes.TakeLast(4).Select(t => $"{t.ByName}: {t.Text}").ToList() : null)).ToList(),
         home.WallColour, home.FloorColour,
-        PlaceDesign.MapRows(home.CustomScene));
+        PlaceDesign.MapRows(home.CustomScene),
+        PlaceDesign.Plan(home.CustomScene, home.Spots));
 }

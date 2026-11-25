@@ -1,0 +1,29 @@
+@layer ui {
+    .ui-tooltip {
+        --ui-float-y: -4px;
+        position: fixed;
+        z-index: 2147483100;
+        box-sizing: border-box;
+        max-width: min(320px, calc(100vw - 8px));
+        padding: var(--ui-space-3) var(--ui-space-5);
+        border: 1px solid var(--ui-glass-edge);
+        border-radius: var(--ui-radius-float);
+        background: var(--ui-glass-tint-regular);
+        backdrop-filter: var(--ui-glass-blur-regular);
+        -webkit-backdrop-filter: var(--ui-glass-blur-regular);
+        box-shadow: var(--ui-glass-rim), var(--ui-glass-shadow);
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+        pointer-events: none;
+    }
+
+    .ui-tooltip[data-placement="above"] {
+        --ui-float-y: 4px;
+    }
+
+    .ui-tooltip[data-placed] {
+        animation: ui-chrome-float-in var(--ui-dur-quick) var(--ui-ease-out);
+    }
+}

@@ -1,0 +1,151 @@
+@layer properties, theme, base, components, ui, utilities;
+@layer ui.tokens, ui.base;
+
+@font-face {
+    font-family: "Partytown Tahoma";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../fonts/wine-tahoma/partytown-tahoma-regular.woff2")
+        format("woff2");
+}
+
+@font-face {
+    font-family: "Partytown Tahoma";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("../fonts/wine-tahoma/partytown-tahoma-bold.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Partytown Fira Sans";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../fonts/fira-sans/fira-sans-latin-ext-400.woff2") format("woff2");
+    unicode-range:
+        U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+        U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: "Partytown Fira Sans";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../fonts/fira-sans/fira-sans-latin-400.woff2") format("woff2");
+    unicode-range:
+        U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+        U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Partytown Fira Sans";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("../fonts/fira-sans/fira-sans-latin-ext-700.woff2") format("woff2");
+    unicode-range:
+        U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+        U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: "Partytown Fira Sans";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("../fonts/fira-sans/fira-sans-latin-700.woff2") format("woff2");
+    unicode-range:
+        U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+        U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Partytown Libre Franklin";
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url("../fonts/libre-franklin/libre-franklin-latin-ext-500.woff2")
+        format("woff2");
+    unicode-range:
+        U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+        U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: "Partytown Libre Franklin";
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url("../fonts/libre-franklin/libre-franklin-latin-500.woff2")
+        format("woff2");
+    unicode-range:
+        U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+        U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Partytown Emoji";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("../fonts/twemoji/twemoji-mozilla.woff2") format("woff2");
+    unicode-range:
+        U+200D, U+20E3, U+FE0F, U+203C, U+2049, U+2139, U+2194-2199,
+        U+21A9-21AA, U+231A-231B, U+2328, U+23CF, U+23E9-23F3, U+23F8-23FA,
+        U+24C2, U+25AA-25AB, U+25B6, U+25C0, U+25FB-25FE, U+2600-27BF,
+        U+2934-2935, U+2B05-2B07, U+2B1B-2B1C, U+2B50, U+2B55, U+3030, U+303D,
+        U+3297, U+3299, U+1F000-1FAFF, U+E0020-E007F;
+}
+
+@layer ui.base {
+    :root {
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        color: var(--ui-text);
+    }
+
+    :where([class^="ui-"], [class*=" ui-"]) {
+        color-scheme: var(--ui-color-scheme);
+    }
+
+    :where([class^="ui-"], [class*=" ui-"]):focus-visible {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: 2px;
+    }
+
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+        animation-duration: var(--ui-dur-move);
+        animation-timing-function: var(--ui-ease-out);
+    }
+
+    /* biome-ignore lint/correctness/noUnknownTypeSelector: root is the view-transition group name */
+    ::view-transition-old(root) {
+        display: none;
+    }
+
+    /* biome-ignore lint/correctness/noUnknownTypeSelector: root is the view-transition group name */
+    ::view-transition-new(root) {
+        animation: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        ::view-transition-group(*) {
+            animation-name: none;
+        }
+    }
+
+    [data-ui-reduce-motion]::view-transition-group(*) {
+        animation-name: none;
+    }
+}

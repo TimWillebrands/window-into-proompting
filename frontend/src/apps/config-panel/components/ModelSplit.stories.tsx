@@ -1,3 +1,4 @@
+import { Icon, Window } from '@partytown/ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fireEvent, fn, userEvent, within } from 'storybook/test';
 import ModelSplit from './ModelSplit';
@@ -10,16 +11,16 @@ const meta = {
     args: { providers, assignments: assignmentsFor(), onSaved: fn() },
     decorators: [
         (Story) => (
-            <div
-                style={{
-                    width: 660,
-                    padding: 20,
-                    background:
-                        'linear-gradient(135deg, #5C87C2 0%, #4A73B0 100%)',
-                }}
+            <Window
+                title="Control Panel"
+                icon={<Icon name="control-panel" />}
+                className="w-[660px]"
+                bodyClassName="overflow-auto"
             >
-                <Story />
-            </div>
+                <div className="p-3">
+                    <Story />
+                </div>
+            </Window>
         ),
     ],
 } satisfies Meta<typeof ModelSplit>;

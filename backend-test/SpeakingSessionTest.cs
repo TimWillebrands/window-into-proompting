@@ -185,27 +185,7 @@ public class SpeakingSessionTest
     }
 
     [Fact]
-    public async Task GenerateResponseOnlyAsync_WithScenario_RendersScenarioSectionInSystemPrompt()
-    {
-        var (endpoint, getJob) = CapturingEndpoint();
-        var persona = MakeParticipant("Vlad");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
-
-        await session.GenerateResponseOnlyAsync(
-            persona, [],
-            (_, _, _) => Task.CompletedTask,
-            CancellationToken.None,
-            turnInstruction: null,
-            scenario: "Office of a stealth horticulture startup.");
-
-        var systemMessage = getJob()!.Messages[0];
-        Assert.Equal("system", systemMessage.Role);
-        Assert.Contains("# Scenario", systemMessage.Content);
-        Assert.Contains("Office of a stealth horticulture startup.", systemMessage.Content);
-    }
-
-    [Fact]
-    public async Task GenerateResponseOnlyAsync_NullScenario_OmitsScenarioSection()
+    public async Task GenerateResponseOnlyAsync_HasNoScenarioSection()
     {
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
@@ -215,24 +195,6 @@ public class SpeakingSessionTest
             persona, [],
             (_, _, _) => Task.CompletedTask,
             CancellationToken.None);
-
-        var systemMessage = getJob()!.Messages[0];
-        Assert.DoesNotContain("# Scenario", systemMessage.Content);
-    }
-
-    [Fact]
-    public async Task GenerateResponseOnlyAsync_WhitespaceScenario_OmitsScenarioSection()
-    {
-        var (endpoint, getJob) = CapturingEndpoint();
-        var persona = MakeParticipant("Vlad");
-        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
-
-        await session.GenerateResponseOnlyAsync(
-            persona, [],
-            (_, _, _) => Task.CompletedTask,
-            CancellationToken.None,
-            turnInstruction: null,
-            scenario: "   \n  ");
 
         var systemMessage = getJob()!.Messages[0];
         Assert.DoesNotContain("# Scenario", systemMessage.Content);
@@ -250,7 +212,6 @@ public class SpeakingSessionTest
             (_, _, _) => Task.CompletedTask,
             CancellationToken.None,
             turnInstruction: null,
-            scenario: null,
             memoryToReference: "you watched Denise pivot toward CTO ambition");
 
         var systemContent = getJob()!.Messages[0].Content;
@@ -276,7 +237,6 @@ public class SpeakingSessionTest
             (_, _, _) => Task.CompletedTask,
             CancellationToken.None,
             turnInstruction: null,
-            scenario: null,
             memoryToReference: null);
 
         var systemContent = getJob()!.Messages[0].Content;
@@ -295,7 +255,6 @@ public class SpeakingSessionTest
             (_, _, _) => Task.CompletedTask,
             CancellationToken.None,
             turnInstruction: null,
-            scenario: null,
             memoryToReference: "  \n  ");
 
         var systemContent = getJob()!.Messages[0].Content;

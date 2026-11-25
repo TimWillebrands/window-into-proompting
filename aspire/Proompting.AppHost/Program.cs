@@ -110,6 +110,15 @@ if (builder.Configuration["POSTHOG_PROJECT_TOKEN"] is { Length: > 0 } posthogTok
     frontend.WithEnvironment("VITE_POSTHOG_PROJECT_TOKEN", posthogToken).WithEnvironment("POSTHOG_HOST", posthogHost);
 }
 
+builder.AddExecutable("render-page", "pnpm", "../../frontend", "render:dev")
+    .WithEnvironment("VITE_API_URL", backend.GetEndpoint("http"))
+    .WithEnvironment("RENDER_SHOT_PORT", "8091")
+    .WithHttpEndpoint(port: 8090, targetPort: 8090, isProxied: false)
+    .WaitFor(backend);
+backend
+    .WithEnvironment("Render__BaseUrl", "http://[::1]:8090")
+    .WithEnvironment("Render__ScreenshotUrl", "http://127.0.0.1:8091/screenshot");
+
 frontend.OnResourceReady((resource, evt, ct) =>
 {
     var url = frontend.GetEndpoint("http").Url;

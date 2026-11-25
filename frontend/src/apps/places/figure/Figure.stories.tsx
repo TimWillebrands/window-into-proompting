@@ -4,10 +4,9 @@ import { useEffect, useMemo } from 'react';
 import type { Appearance } from '../../../api/model/appearance';
 import type { Body } from '../../../api/model/body';
 import type { Place } from '../../../api/model/place';
+import DressingRoom from '../scene/DressingRoom';
 import { canvasRenderer } from '../scene/gpu';
-import '../places.css';
-import '../../wardrobe/wardrobe.css';
-import DressingRoom from '../../wardrobe/DressingRoom';
+import './bench.css';
 import { type Look, lookOf as paletteLook } from '../iso/appearance';
 import Avatar, { type AvatarState } from '../scene/Avatar';
 import PlaceScene from '../scene/PlaceScene';
@@ -135,10 +134,10 @@ function Sheet({
     const rows = Math.ceil(docs.length / columns);
     return (
         <div
+            className="fig-bench"
             style={{
                 width: 1400,
                 height: 340 * rows + 40,
-                background: '#39304a',
             }}
         >
             <Canvas
@@ -195,7 +194,7 @@ function Designed({
         [answers],
     );
     return (
-        <div style={{ width: 1400, height: 640, background: '#39304a' }}>
+        <div className="fig-bench" style={{ width: 1400, height: 640 }}>
             <Canvas
                 flat
                 gl={STORY_GL}
@@ -368,7 +367,7 @@ function Lineup({
     seat,
 }: LineupProps) {
     return (
-        <div style={{ width: 1200, height: 640, background: '#39304a' }}>
+        <div className="fig-bench" style={{ width: 1200, height: 640 }}>
             <Canvas
                 flat
                 gl={STORY_GL}
@@ -533,7 +532,7 @@ function Room({ hour = 13 }: { hour?: number }) {
 function Turnaround({ look }: { look: Partial<Look> }) {
     const doc = useMemo(() => figureDoc({ ...LOOK, ...look }), [look]);
     return (
-        <div style={{ width: 1200, height: 640, background: '#39304a' }}>
+        <div className="fig-bench" style={{ width: 1200, height: 640 }}>
             <Canvas
                 flat
                 gl={STORY_GL}

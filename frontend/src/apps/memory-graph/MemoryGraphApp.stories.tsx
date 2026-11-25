@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { fn } from 'storybook/test';
-import WindowFrame from '../../components/desktop/WindowFrame';
+import { getGetWorldsPartyIdBoardQueryKey } from '#api/party-zone';
+import { seeded } from '../../components/chat/story-seed';
+import StoryWindow from '../../components/desktop/StoryWindow';
+import { WORLD_ID } from '../../lib/world';
 import MemoryGraphApp from './MemoryGraphApp';
 
 const meta = {
@@ -8,31 +10,25 @@ const meta = {
     component: MemoryGraphApp,
     parameters: { layout: 'fullscreen' },
     decorators: [
-        (Story) => (
+        (Story, { parameters }) => (
             <div
-                style={{
-                    width: 1040,
-                    height: 720,
-                    padding: 24,
-                    background: '#5C87C2',
-                }}
+                className={
+                    parameters.narrow
+                        ? 'h-[720px] w-[480px] p-6'
+                        : 'h-[720px] w-[1040px] p-6'
+                }
             >
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
-                <WindowFrame
+                <StoryWindow
                     id="memory-graph"
                     title="Memory Graph"
-                    icon="🧠"
-                    width={960}
-                    height={640}
-                    zIndex={1}
-                    onMinimize={fn()}
-                    onMaximize={fn()}
-                    onClose={fn()}
+                    icon="memory-graph"
                 >
                     <Story />
-                </WindowFrame>
+                </StoryWindow>
             </div>
         ),
+        seeded([[getGetWorldsPartyIdBoardQueryKey(WORLD_ID), []]]),
     ],
 } satisfies Meta<typeof MemoryGraphApp>;
 
@@ -40,3 +36,5 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const Narrow: Story = { parameters: { narrow: true } };

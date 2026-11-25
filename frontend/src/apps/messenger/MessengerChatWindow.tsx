@@ -1,19 +1,61 @@
+import {
+    ChatLog,
+    ChatMessage,
+    CommandButton,
+    ContextMenu,
+    Icon,
+    Pane,
+    Stack,
+    StatusBar,
+    StatusBarField,
+    StatusText,
+    Text,
+    TextArea,
+    Toolbar,
+    ToolbarButton,
+    useContextMenu,
+    useWindowMinimised,
+    WindowLayout,
+} from '@partytown/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+    getGetWorldsPartyIdMessengerQueryKey,
     useGetWorldsPartyIdLivesSuspense,
     useGetWorldsPartyIdMessenger,
     useGetWorldsPartyIdSelves,
     usePostPartyIdPrompt,
+    usePostWorldsPartyIdMessengerChatGroupIdLeave,
 } from '#api/party-zone';
+import { useDesktopContext } from '#lib/desktop-context';
 import type { RealtimeChatMessage } from '#lib/realtime-store';
+import type { ChatGroupInfo } from '../../api/model/chatGroupInfo';
+import type { LifeSummary } from '../../api/model/lifeSummary';
+import { useWindowId } from '../../components/desktop/window-instance-context';
 import { NARRATOR_PERSONA_ID } from '../../lib/driver';
 import {
     heldBy,
     isShownInMessenger,
     typingState,
+    typists,
 } from '../../lib/room-conversation';
 import { useRoomConversation } from '../../lib/use-room-conversation';
-import { usePlayerId, usePlayerOnAuto, WORLD_ID } from '../../lib/world';
+import {
+    notifyOnRefusal,
+    useOpenConversation,
+    usePlayerId,
+    usePlayerOnAuto,
+    WORLD_ID,
+} from '../../lib/world';
+import {
+    conversationName,
+    conversationTitle,
+    isGroup,
+    names,
+    othersIn,
+    refusal,
+} from './conversations';
+import InviteDialog from './InviteDialog';
 import {
     BuddyIcon,
     type BuddyStatus,
@@ -30,23 +72,23 @@ interface MessengerChatWindowProps {
     spectate?: boolean;
 }
 
-const EMOJI = [
-    '🙂',
-    '😄',
-    '😉',
-    '😛',
-    '😮',
-    '😢',
-    '😠',
-    '😎',
-    '🤔',
-    '😳',
-    '❤️',
-    '💔',
-    '👍',
-    '🌹',
-    '☕',
-    '🎉',
+const EMOTICONS: Array<[string, string]> = [
+    ['🙂', 'Smile'],
+    ['😄', 'Open-mouthed'],
+    ['😉', 'Wink'],
+    ['😛', 'Tongue out'],
+    ['😮', 'Surprised'],
+    ['😢', 'Crying'],
+    ['😠', 'Angry'],
+    ['😎', 'Hot'],
+    ['🤔', 'Thinking'],
+    ['😳', 'Embarrassed'],
+    ['❤️', 'Red heart'],
+    ['💔', 'Broken heart'],
+    ['👍', 'Thumbs up'],
+    ['🌹', 'Red rose'],
+    ['☕', 'Coffee cup'],
+    ['🎉', 'Party'],
 ];
 
 export default function MessengerChatWindow({
@@ -56,9 +98,11 @@ export default function MessengerChatWindow({
 }: MessengerChatWindowProps) {
     if (!chatGroupId) {
         return (
-            <div className="app-surface flex h-full items-center justify-center p-4 text-center text-[#6d7b91]">
-                Open a conversation from the Messenger buddy list.
-            </div>
+            <Stack align="center" justify="center" pad="xl" className="h-full">
+                <Text tone="muted">
+                    Open a conversation from the Messenger buddy list.
+                </Text>
+            </Stack>
         );
     }
     return (
@@ -79,6 +123,7 @@ function Conversation({
     withName: string;
     spectate: boolean;
 }) {
+    const queryClient = useQueryClient();
     const playerId = usePlayerId();
     const livesQuery = useGetWorldsPartyIdLivesSuspense(WORLD_ID);
     const chatsQuery = useGetWorldsPartyIdMessenger(
@@ -87,20 +132,39 @@ function Conversation({
         { query: { enabled: !!playerId } },
     );
     const lives = livesQuery.data.data ?? [];
-    const withId = chatsQuery.data?.data.find(
+    const summary = chatsQuery.data?.data.find(
         (c) => c.chatGroupId === chatGroupId,
-    )?.withId;
+    );
+    const group = !!summary && isGroup(summary);
+    const others = summary && group ? othersIn(summary, playerId) : [];
+    const shownName = summary ? conversationName(summary, playerId) : withName;
+    const withId = group ? undefined : summary?.withId;
     const them = lives.find((l) => l.personaId === withId);
     const selvesQuery = useGetWorldsPartyIdSelves(WORLD_ID, {
         query: { refetchInterval: 60_000 },
     });
-    const theirSelf = selvesQuery.data?.data.find(
-        (s) => s.personaId === withId,
-    );
+    const selfOf = (id: string | undefined) =>
+        selvesQuery.data?.data.find((s) => s.personaId === id);
+    const lifeOf = (id: string | undefined) =>
+        lives.find((l) => l.personaId === id);
+    const theirSelf = selfOf(withId);
     const theirNote = theirSelf?.doing ?? them?.lastActivity?.summary;
     const me = lives.find((l) => l.isPlayer || l.personaId === playerId);
     const myName = me?.name ?? 'You';
     const theirStatus: BuddyStatus = statusOf(them, theirSelf);
+
+    const windowId = useWindowId();
+    const { setWindowTitle, closeWindow } = useDesktopContext();
+    const windowTitle =
+        summary && !spectate ? conversationTitle(summary, playerId) : null;
+    useEffect(() => {
+        if (windowId && windowTitle)
+            setWindowTitle(
+                windowId,
+                windowTitle,
+                group ? 'chat-rooms' : 'chat',
+            );
+    }, [windowId, windowTitle, group, setWindowTitle]);
 
     const {
         messages: allMessages,
@@ -121,27 +185,39 @@ function Conversation({
     const isTyping = otherSide === 'typing';
     const isReading = otherSide === 'reading';
 
+    const memberName = (id: string) =>
+        summary?.members.find((m) => m.id === id)?.name ?? lifeOf(id)?.name;
     const isMine = (m: RealtimeChatMessage) =>
         !spectate &&
         ((!!playerId && m.senderId === playerId) ||
-            (m.senderType === 'user' && m.senderId !== withId));
+            (!group && m.senderType === 'user' && m.senderId !== withId));
     const nameOf = (m: RealtimeChatMessage) => {
         if (isMine(m)) return myName;
-        if (m.senderId === withId) return withName;
+        if (!group && m.senderId === withId) return withName;
         if (m.senderId === NARRATOR_PERSONA_ID) return 'Narrator';
-        return lives.find((l) => l.personaId === m.senderId)?.name ?? withName;
+        return memberName(m.senderId) ?? (group ? 'Someone' : withName);
     };
+    const typing = typists(phases).map((id) => memberName(id) ?? id);
 
     const lastReceived = [...messages]
         .reverse()
         .find((m) => !isMine(m) && m.sendAt)?.sendAt;
 
     const markSeen = useMessengerSeen((s) => s.markSeen);
+    const minimised = useWindowMinimised();
     const lastSendAt = messages[messages.length - 1]?.sendAt ?? 0;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: re-mark when a message lands or a stream ends
+    // biome-ignore lint/correctness/useExhaustiveDependencies: re-mark when a message lands, a stream ends or the window comes back
     useEffect(() => {
+        if (minimised) return;
         markSeen(chatGroupId, Math.max(Date.now(), lastSendAt));
-    }, [chatGroupId, markSeen, lastSendAt, messages.length, activeIds.length]);
+    }, [
+        chatGroupId,
+        markSeen,
+        lastSendAt,
+        messages.length,
+        activeIds.length,
+        minimised,
+    ]);
 
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const nearBottom = useRef(true);
@@ -153,7 +229,13 @@ function Conversation({
     }, [messages.length, lastContent, isTyping]);
 
     const [draft, setDraft] = useState('');
-    const [emojiOpen, setEmojiOpen] = useState(false);
+    const [inviting, setInviting] = useState(false);
+    const [problem, setProblem] = useState<string | null>(null);
+    const emoticonMenu = useContextMenu();
+    const emojiOpen = emoticonMenu.menuProps.open;
+    const setEmojiOpen = (open: boolean) => {
+        if (!open) emoticonMenu.menuProps.onClose();
+    };
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
     useEffect(() => inputRef.current?.focus(), []);
 
@@ -161,6 +243,38 @@ function Conversation({
     const onAuto = usePlayerOnAuto();
     const canSend =
         !!playerId && !onAuto && !!draft.trim() && !prompt.isPending;
+
+    const openConversation = useOpenConversation();
+    const leave = usePostWorldsPartyIdMessengerChatGroupIdLeave({
+        mutation: {
+            onSuccess: () =>
+                queryClient.invalidateQueries({
+                    queryKey: getGetWorldsPartyIdMessengerQueryKey(WORLD_ID),
+                }),
+        },
+    });
+    const leaveConversation = async () => {
+        setProblem(null);
+        try {
+            await leave.mutateAsync({
+                partyId: WORLD_ID,
+                chatGroupId,
+                data: { fromPersonaId: playerId },
+            });
+            if (windowId) closeWindow(windowId);
+        } catch (e) {
+            notifyOnRefusal(e);
+            setProblem(refusal(e, "Couldn't leave the conversation."));
+        }
+    };
+    const invited = (info: ChatGroupInfo, invitee: LifeSummary) => {
+        setInviting(false);
+        if (!info.id || info.id === chatGroupId) return;
+        openConversation(info.id, {
+            name: [shownName, invitee.name].join(', '),
+            group: true,
+        });
+    };
 
     const send = async () => {
         const text = draft.trim();
@@ -181,15 +295,18 @@ function Conversation({
     const insertEmoji = (e: string) => {
         setDraft((d) => `${d}${d && !d.endsWith(' ') ? ' ' : ''}${e} `);
         setEmojiOpen(false);
-        inputRef.current?.focus();
+        requestAnimationFrame(() => inputRef.current?.focus());
     };
 
     const statusLine = (() => {
         if (connection !== 'connected') return 'Connecting to the server…';
+        if (problem) return problem;
         if (onAuto) return 'Your character is on auto and answers for you.';
-        if (isTyping) return `${withName} is typing a message.`;
-        if (isReading) return `${withName} is reading your message…`;
-        if (theirStatus === 'afk')
+        if (group && typing.length > 0)
+            return `${names(typing)} ${typing.length === 1 ? 'is' : 'are'} typing a message.`;
+        if (!group && isTyping) return `${withName} is typing a message.`;
+        if (!group && isReading) return `${withName} is reading your message…`;
+        if (!group && theirStatus === 'afk')
             return `${withName} is away from the keyboard and may not see this for a while.`;
         if (withId && heldBy(withId, messages, declined))
             return `${withName} saw this and will get back to you.`;
@@ -199,224 +316,265 @@ function Conversation({
         return 'Never give out your password or credit card number in an instant message conversation.';
     })();
 
-    return (
-        <div
-            className="app-surface flex h-full flex-col"
-            style={{
-                background:
-                    'linear-gradient(180deg, #dbe7fb 0%, #eaf1fc 60px, #f3f7fd 100%)',
-            }}
+    const composer = spectate ? (
+        <StatusText
+            variant="bar"
+            icon={<Icon name="watching" />}
+            className="justify-center text-center"
         >
-            <div
-                className="flex items-center gap-1 px-2 py-[5px]"
-                style={{
-                    borderBottom: '1px solid #b9cdea',
-                    background:
-                        'linear-gradient(180deg, #f5f9ff 0%, #dbe7fb 100%)',
-                }}
-            >
-                <span style={{ color: '#4a6ea9' }}>To:</span>
-                <BuddyIcon status={theirStatus} size={14} />
-                <span className="truncate" style={{ fontWeight: 700 }}>
-                    {withName}
-                </span>
-                <span style={{ color: '#7c7c7c' }}>
-                    ({STATUS_LABEL[theirStatus]})
-                </span>
-                {theirNote && (
-                    <span
-                        className="min-w-0 flex-1 truncate"
-                        style={{ color: '#7c8aa3', fontStyle: 'italic' }}
-                        title={theirNote}
-                    >
-                        - {theirNote}
-                    </span>
-                )}
-            </div>
+            You're reading a private conversation. They can't see you.
+        </StatusText>
+    ) : (
+        <Stack gap="xs">
+            <Toolbar variant="bare" labels="none" aria-label="Formatting">
+                <ToolbarButton
+                    icon={<Icon name="emoticon" />}
+                    hasMenu
+                    title="Select an emoticon"
+                    aria-label="Select an emoticon"
+                    aria-expanded={emojiOpen}
+                    onClick={(e) => {
+                        if (emojiOpen) {
+                            setEmojiOpen(false);
+                            return;
+                        }
+                        const r = e.currentTarget.getBoundingClientRect();
+                        emoticonMenu.openAt(
+                            { x: r.left, y: r.bottom },
+                            e.currentTarget,
+                        );
+                    }}
+                />
+            </Toolbar>
+            <ContextMenu
+                {...emoticonMenu.menuProps}
+                label="Emoticons"
+                items={EMOTICONS.map(([e, name]) => ({
+                    id: name,
+                    label: `${e}  ${name}`,
+                    onSelect: () => insertEmoji(e),
+                }))}
+            />
+            <Stack direction="row" gap="sm">
+                <Stack.Item as="div" grow>
+                    <TextArea
+                        ref={inputRef}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                void send();
+                            } else if (e.key === 'Escape') {
+                                setEmojiOpen(false);
+                            }
+                        }}
+                        rows={3}
+                        maxLength={4000}
+                        aria-label={
+                            group
+                                ? `Message to ${shownName}`
+                                : `Message to ${withName}`
+                        }
+                        className="w-full resize-none"
+                    />
+                </Stack.Item>
+                <CommandButton
+                    onClick={() => void send()}
+                    disabled={!canSend}
+                    isDefault
+                    size="large"
+                    type="button"
+                >
+                    Send
+                </CommandButton>
+            </Stack>
+        </Stack>
+    );
 
-            <div className="flex min-h-0 flex-1 gap-2 p-2">
-                <div className="flex min-w-0 flex-1 flex-col gap-[6px]">
-                    <div
-                        ref={scrollRef}
-                        onScroll={(e) => {
-                            const el = e.currentTarget;
-                            nearBottom.current =
-                                el.scrollHeight -
-                                    el.scrollTop -
-                                    el.clientHeight <
-                                40;
-                        }}
-                        className="min-h-0 flex-1 overflow-y-auto px-2 py-[6px]"
-                        style={{
-                            background: '#fff',
-                            border: '1px solid #9db6dc',
-                            borderRadius: 4,
-                            fontSize: 12,
-                            fontFamily: 'Tahoma, Verdana, sans-serif',
-                        }}
+    const actions = spectate ? null : (
+        <Toolbar key="actions" labels="below" aria-label="Conversation">
+            <ToolbarButton
+                icon={<Icon name="users" size={32} />}
+                title="Invite someone to this conversation"
+                disabled={!summary}
+                onClick={() => setInviting(true)}
+            >
+                Invite
+            </ToolbarButton>
+            {group && (
+                <ToolbarButton
+                    icon={<Icon name="door" size={32} />}
+                    title="Leave this conversation"
+                    disabled={leave.isPending}
+                    onClick={() => void leaveConversation()}
+                >
+                    Leave
+                </ToolbarButton>
+            )}
+        </Toolbar>
+    );
+
+    const toLine = group ? (
+        <Stack
+            key="to"
+            direction="row"
+            wrap
+            gap="sm"
+            rowGap="xxs"
+            pad="sm"
+            align="center"
+        >
+            <Text tone="muted">To:</Text>
+            {others.map((m) => {
+                const status = statusOf(lifeOf(m.id), selfOf(m.id));
+                return (
+                    <Stack
+                        key={m.id}
+                        as="span"
+                        direction="row"
+                        gap="xs"
+                        align="center"
+                        title={`${m.name} (${STATUS_LABEL[status]})`}
                     >
-                        {messages.length === 0 && !isTyping && (
-                            <div
-                                style={{ color: '#9aa6b8', fontSize: 11 }}
-                                className="py-1"
-                            >
-                                Say hi to {withName}!
-                            </div>
+                        <BuddyIcon status={status} size="small" />
+                        <Text strong>{m.name}</Text>
+                        {status !== 'online' && (
+                            <Text tone="muted">({STATUS_LABEL[status]})</Text>
                         )}
-                        {messages.map((m, i) => {
-                            const prev = messages[i - 1];
-                            const showName =
-                                !prev ||
-                                prev.senderId !== m.senderId ||
-                                prev.kind === 'emote' ||
-                                m.kind === 'emote';
-                            return (
-                                <MessageLine
-                                    key={m.messageId}
-                                    message={m}
-                                    name={nameOf(m)}
-                                    mine={isMine(m)}
-                                    showName={showName}
-                                    streaming={activeIds.includes(m.messageId)}
-                                />
-                            );
-                        })}
-                    </div>
+                    </Stack>
+                );
+            })}
+        </Stack>
+    ) : (
+        <Stack key="to" direction="row" gap="xs" pad="sm" align="center">
+            <Text tone="muted">To:</Text>
+            <BuddyIcon status={theirStatus} />
+            <Stack.Item truncate>
+                <Text strong>{withName}</Text>
+            </Stack.Item>
+            <Text tone="muted">({STATUS_LABEL[theirStatus]})</Text>
+            {theirNote && (
+                <Stack.Item grow truncate title={theirNote}>
+                    <Text tone="muted" italic>
+                        - {theirNote}
+                    </Text>
+                </Stack.Item>
+            )}
+        </Stack>
+    );
 
-                    {spectate ? (
-                        <div
-                            className="px-2 py-2 text-center"
-                            style={{
-                                border: '1px dashed #9db6dc',
-                                borderRadius: 4,
-                                background: '#fff',
-                                color: '#4a6ea9',
-                            }}
+    const pictures = group ? (
+        <Stack gap="sm" className="w-[84px] @max-sm:hidden">
+            <Pane aria-label="People in this conversation" tabIndex={0}>
+                <Stack gap="sm" align="center">
+                    {others.map((m) => (
+                        <Stack key={m.id} gap="xxs" align="center">
+                            <DisplayPicture who={m.id} size={64} />
+                            <Stack.Item truncate className="max-w-full">
+                                <Text tone="muted">{m.name}</Text>
+                            </Stack.Item>
+                        </Stack>
+                    ))}
+                </Stack>
+            </Pane>
+            <Stack align="center">
+                <DisplayPicture who={myName} size={64} />
+            </Stack>
+        </Stack>
+    ) : (
+        <Stack justify="between" className="@max-sm:hidden">
+            <DisplayPicture
+                who={withId ?? spectators[0] ?? withName}
+                size={96}
+            />
+            <DisplayPicture
+                who={spectate && spectators[1] ? spectators[1] : myName}
+                size={96}
+            />
+        </Stack>
+    );
+
+    const label = group
+        ? `Conversation with ${names(others.map((m) => m.name))}`
+        : `Conversation with ${withName}`;
+
+    return (
+        <>
+            <WindowLayout
+                scroll="none"
+                contentLabel={label}
+                toolbar={actions ? [actions, toLine] : toLine}
+                statusBar={
+                    <StatusBar>
+                        <StatusBarField
+                            grow
+                            icon={isTyping ? <Icon name="edit" /> : undefined}
                         >
-                            👀 You're reading a private conversation. They can't
-                            see you.
-                        </div>
-                    ) : (
-                        <div
-                            className="relative flex flex-col"
-                            style={{
-                                border: '1px solid #9db6dc',
-                                borderRadius: 4,
-                                background: '#fff',
-                            }}
-                        >
-                            <div
-                                className="flex items-center gap-1 px-1 py-[2px]"
-                                style={{
-                                    borderBottom: '1px solid #dbe5f3',
-                                    background:
-                                        'linear-gradient(180deg, #ffffff 0%, #eef3fb 100%)',
-                                    borderRadius: '4px 4px 0 0',
-                                }}
-                            >
-                                <button
-                                    type="button"
-                                    className="xp-bare rounded-[3px] border border-transparent px-1 hover:border-[#a9c4ea] hover:bg-[#e6effc]"
-                                    style={{ fontSize: 13, lineHeight: '16px' }}
-                                    title="Select an emoticon"
-                                    aria-expanded={emojiOpen}
-                                    onClick={() => setEmojiOpen((o) => !o)}
-                                >
-                                    🙂 <span style={{ fontSize: 8 }}>▼</span>
-                                </button>
-                            </div>
-                            {emojiOpen && (
-                                <div
-                                    className="absolute bottom-full left-0 z-10 mb-1 grid grid-cols-8 gap-[2px] p-1"
-                                    style={{
-                                        background: '#fff',
-                                        border: '1px solid #7f9db9',
-                                        boxShadow:
-                                            '2px 2px 4px rgba(0,0,0,0.25)',
-                                    }}
-                                >
-                                    {EMOJI.map((e) => (
-                                        <button
-                                            key={e}
-                                            type="button"
-                                            className="xp-bare h-[22px] w-[22px] rounded-[2px] border border-transparent hover:border-[#316ac5] hover:bg-[#c1d2ee]"
-                                            style={{ fontSize: 14 }}
-                                            onClick={() => insertEmoji(e)}
-                                        >
-                                            {e}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                            <div className="flex items-stretch gap-[6px] p-1">
-                                <textarea
-                                    ref={inputRef}
-                                    value={draft}
-                                    onChange={(e) => setDraft(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            void send();
-                                        } else if (e.key === 'Escape') {
-                                            setEmojiOpen(false);
-                                        }
-                                    }}
-                                    rows={3}
-                                    maxLength={4000}
-                                    aria-label={`Message to ${withName}`}
-                                    className="min-w-0 flex-1 resize-none"
-                                    style={{
-                                        border: 'none',
-                                        outline: 'none',
-                                        padding: '2px 3px',
-                                        fontSize: 12,
-                                        fontFamily:
-                                            'Tahoma, Verdana, sans-serif',
-                                    }}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => void send()}
-                                    disabled={!canSend}
-                                    style={{
-                                        width: 64,
-                                        fontWeight: 700,
-                                        padding: '0 6px',
-                                    }}
-                                >
-                                    Send
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex flex-col justify-between">
-                    <DisplayPicture
-                        who={withId ?? spectators[0] ?? withName}
-                        size={72}
-                    />
-                    <DisplayPicture
-                        who={spectate && spectators[1] ? spectators[1] : myName}
-                        size={72}
-                    />
-                </div>
-            </div>
-
-            <div
-                className="flex items-center gap-1 truncate px-2 py-[3px]"
-                style={{
-                    borderTop: '1px solid #b9cdea',
-                    background:
-                        'linear-gradient(180deg, #f4f8fe 0%, #dbe7fa 100%)',
-                    color: isTyping ? '#1d3f73' : '#6d7b91',
-                    minHeight: 20,
-                }}
+                            {statusLine}
+                        </StatusBarField>
+                    </StatusBar>
+                }
             >
-                {isTyping && <span aria-hidden="true">✏️</span>}
-                <span className="truncate">{statusLine}</span>
-            </div>
-        </div>
+                <Stack direction="row" gap="md" pad="md">
+                    <Stack gap="sm" grow>
+                        <ChatLog
+                            ref={scrollRef}
+                            aria-label={label}
+                            onScroll={(e) => {
+                                const el = e.currentTarget;
+                                nearBottom.current =
+                                    el.scrollHeight -
+                                        el.scrollTop -
+                                        el.clientHeight <
+                                    40;
+                            }}
+                            className="flex-1 px-2 py-1.5"
+                        >
+                            {messages.length === 0 && !isTyping && (
+                                <Text tone="muted" className="py-1">
+                                    {group
+                                        ? `Say hi to ${names(others.map((m) => m.name))}!`
+                                        : `Say hi to ${withName}!`}
+                                </Text>
+                            )}
+                            {messages.map((m, i) => {
+                                const prev = messages[i - 1];
+                                const showName =
+                                    !prev ||
+                                    prev.senderId !== m.senderId ||
+                                    prev.kind === 'emote' ||
+                                    m.kind === 'emote';
+                                return (
+                                    <MessageLine
+                                        key={m.messageId}
+                                        message={m}
+                                        name={nameOf(m)}
+                                        mine={isMine(m)}
+                                        showName={showName}
+                                        streaming={activeIds.includes(
+                                            m.messageId,
+                                        )}
+                                    />
+                                );
+                            })}
+                        </ChatLog>
+                        {composer}
+                    </Stack>
+                    {pictures}
+                </Stack>
+            </WindowLayout>
+            {inviting && summary && (
+                <InviteDialog
+                    chatGroupId={chatGroupId}
+                    group={group}
+                    memberIds={summary.members.map((m) => m.id)}
+                    withName={shownName}
+                    onClose={() => setInviting(false)}
+                    onInvited={invited}
+                />
+            )}
+        </>
     );
 }
 
@@ -435,45 +593,23 @@ function MessageLine({
 }) {
     if (message.kind === 'emote') {
         return (
-            <div
-                className="my-[3px]"
-                style={{ color: '#7c7c7c', fontStyle: 'italic' }}
-            >
-                * {name} <MsnText text={message.content ?? ''} />
-            </div>
+            <ChatMessage layout="transcript" kind="emote" sender={`* ${name}`}>
+                <MsnText text={message.content ?? ''} />
+            </ChatMessage>
         );
     }
 
     const failed = !message.content?.trim() && message.error;
     return (
-        <div className={showName ? 'mt-[6px]' : ''}>
-            {showName && (
-                <div style={{ color: '#6d6d6d', fontSize: 11 }}>
-                    {name} says:
-                </div>
-            )}
-            <div
-                className="pl-3 whitespace-pre-wrap break-words"
-                style={{
-                    color: failed ? '#b8241a' : mine ? '#1d3f73' : '#000',
-                    fontStyle: failed ? 'italic' : 'normal',
-                }}
-            >
-                {failed ? (
-                    `${name} couldn't reply right now.`
-                ) : (
-                    <MsnText text={message.content ?? ''} />
-                )}
-                {streaming && !failed && (
-                    <span
-                        className="animate-pulse"
-                        style={{ color: '#9aa6b8' }}
-                    >
-                        {' '}
-                        ▍
-                    </span>
-                )}
-            </div>
-        </div>
+        <ChatMessage
+            layout="transcript"
+            sender={`${name} says:`}
+            own={mine}
+            continued={!showName}
+            live={streaming && !failed}
+            error={failed ? `${name} couldn't reply right now.` : undefined}
+        >
+            {failed ? null : <MsnText text={message.content ?? ''} />}
+        </ChatMessage>
     );
 }

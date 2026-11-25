@@ -1,0 +1,139 @@
+@layer ui {
+    .ui-balloon {
+        --ui-radius-here: var(--ui-radius-float);
+        --ui-inset: var(--ui-space-4);
+        --ui-float-y: 8px;
+        --ui-balloon-tail-w: 18px;
+        --ui-balloon-tail-h: 12px;
+        position: relative;
+        z-index: 2147482000;
+        box-sizing: border-box;
+        width: max-content;
+        max-width: min(340px, calc(100vw - 16px));
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-balloon[data-placed] {
+        animation: ui-chrome-float-in var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-balloon[data-placement="below"] {
+        --ui-float-y: -8px;
+    }
+
+    .ui-balloon-body {
+        display: grid;
+        gap: var(--ui-space-3);
+        padding: var(--ui-space-4) var(--ui-space-4) var(--ui-space-5)
+            var(--ui-space-5);
+        border: 1px solid var(--ui-glass-edge);
+        border-radius: var(--ui-radius-float);
+        background: var(--ui-glass-tint-regular);
+        backdrop-filter: var(--ui-glass-blur-regular);
+        -webkit-backdrop-filter: var(--ui-glass-blur-regular);
+        box-shadow: var(--ui-glass-rim), var(--ui-shadow-float);
+    }
+
+    .ui-balloon-head {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-3);
+        min-height: 20px;
+    }
+
+    .ui-balloon-icon {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+    }
+
+    .ui-balloon-icon > :is(img, svg) {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+    }
+
+    .ui-balloon-title {
+        flex: 1;
+        min-width: 0;
+        font-weight: 700;
+    }
+
+    .ui-balloon-close {
+        display: grid;
+        flex: none;
+        place-items: center;
+        box-sizing: border-box;
+        width: 20px;
+        height: 20px;
+        margin: 0;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: var(--ui-radius-inner);
+        background: transparent;
+        color: var(--ui-text-muted);
+        cursor: default;
+        scale: 0.9;
+    }
+
+    .ui-balloon-close:is(:hover, [data-ui-preview~="hover"]) {
+        border-color: var(--ui-tone-danger-text);
+        background: var(--ui-close);
+        color: var(--ui-tone-danger-text);
+    }
+
+    .ui-balloon-close:active {
+        filter: brightness(0.85);
+    }
+
+    .ui-balloon-text {
+        padding-inline-end: var(--ui-space-2);
+    }
+
+    .ui-balloon-text a {
+        color: var(--ui-link);
+    }
+
+    .ui-balloon-tail {
+        position: absolute;
+        width: var(--ui-balloon-tail-w);
+        height: var(--ui-balloon-tail-h);
+        background: var(--ui-glass-tint-regular);
+        backdrop-filter: var(--ui-glass-blur-regular);
+        -webkit-backdrop-filter: var(--ui-glass-blur-regular);
+        pointer-events: none;
+    }
+
+    .ui-balloon[data-placement="above"] .ui-balloon-tail {
+        top: calc(100% - 1px);
+        clip-path: polygon(0 0, 100% 0, 30% 100%);
+    }
+
+    .ui-balloon[data-placement="below"] .ui-balloon-tail {
+        bottom: calc(100% - 1px);
+        clip-path: polygon(0 100%, 100% 100%, 30% 0);
+    }
+
+    .ui-balloon[data-tail-align="start"] .ui-balloon-tail {
+        left: var(--ui-space-6);
+    }
+
+    .ui-balloon[data-tail-align="center"] .ui-balloon-tail {
+        left: calc(50% - var(--ui-balloon-tail-w) * 0.3);
+    }
+
+    .ui-balloon[data-tail-align="end"] .ui-balloon-tail {
+        right: var(--ui-space-6);
+        scale: -1 1;
+    }
+
+    .ui-balloon[data-tail-align="anchor"] .ui-balloon-tail {
+        left: calc(var(--ui-balloon-tip) - var(--ui-balloon-tail-w) * 0.3);
+    }
+}

@@ -38,6 +38,9 @@ export function meshNow(url: string): CatalogueMesh | undefined {
     return typeof m === 'string' ? undefined : m;
 }
 
+export const meshesPending = () =>
+    [...meshes.values()].some((m) => m === 'loading');
+
 export const useMeshVersion = () =>
     useSyncExternalStore(
         (l) => {

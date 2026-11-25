@@ -1,0 +1,39 @@
+@layer ui {
+    .ui-swatch {
+        --ui-swatch-size: 10px;
+        display: inline-block;
+        flex: none;
+        box-sizing: border-box;
+        inline-size: var(--ui-swatch-size);
+        block-size: var(--ui-swatch-size);
+        border: 1px solid
+            color-mix(in oklab, var(--ui-swatch) 65%, var(--ui-text));
+        border-radius: calc(var(--ui-radius-control) * 0.5);
+        background: var(--ui-swatch);
+        vertical-align: middle;
+    }
+
+    .ui-swatch[data-size="small"] {
+        --ui-swatch-size: 8px;
+    }
+
+    .ui-swatch[data-size="large"] {
+        --ui-swatch-size: 12px;
+    }
+
+    .ui-swatch[data-shape="dot"] {
+        border-radius: 50%;
+    }
+
+    .ui-swatch[data-empty] {
+        border-style: dashed;
+        border-color: var(--ui-text-muted);
+        background: transparent;
+    }
+
+    .ui-swatch[data-ring] {
+        box-shadow:
+            0 0 0 1px var(--ui-content),
+            0 0 0 3px var(--ui-swatch-ring);
+    }
+}

@@ -1,0 +1,294 @@
+@layer ui {
+    .ui-window-layout {
+        container: ui-window-layout / inline-size;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-window-layout-menubar,
+    .ui-window-layout-band,
+    .ui-window-layout-footer,
+    .ui-window-layout-statusbar {
+        flex: none;
+        min-width: 0;
+    }
+
+    .ui-window-layout-menubar {
+        border-block-end: 1px solid var(--ui-face-edge);
+        background: var(--ui-face);
+    }
+
+    .ui-window-layout-band {
+        border-block-start: 1px solid var(--ui-face-lite);
+        border-block-end: 1px solid var(--ui-face-edge);
+        background: var(--ui-face);
+    }
+
+    .ui-window-layout-band[data-band="address"] {
+        padding: var(--ui-space-1) var(--ui-space-3);
+    }
+
+    .ui-window-layout-panes {
+        display: flex;
+        flex: 1 1 0%;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .ui-window-layout-main {
+        display: flex;
+        flex: 1 1 0%;
+        min-width: 0;
+        min-height: 0;
+    }
+
+    .ui-window-layout-taskpane {
+        display: flex;
+        flex-direction: column;
+        flex: none;
+        width: var(--ui-taskpane-width);
+        min-height: 0;
+    }
+
+    .ui-window-layout-taskpane[data-width="wide"] {
+        width: var(--ui-taskpane-width-wide);
+    }
+
+    .ui-window-layout-taskpane[data-width="custom"] {
+        width: var(--ui-window-layout-pane-width);
+    }
+
+    .ui-window-layout-taskpane > * {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .ui-window-layout-content {
+        position: relative;
+        flex: 1 1 0%;
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .ui-window-layout-content[data-scroll="both"] {
+        overflow: auto;
+    }
+
+    .ui-window-layout-content:not([data-scroll="none"]) > :only-child {
+        box-sizing: border-box;
+        min-height: 100%;
+    }
+
+    .ui-window-layout-content[data-scroll="none"] {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .ui-window-layout-content[data-scroll="none"] > :only-child {
+        flex: 1 1 0%;
+        min-height: 0;
+    }
+
+    .ui-window-layout-content:focus-visible,
+    .ui-window-layout-details:focus-visible {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: -2px;
+    }
+
+    .ui-window-layout-details {
+        display: flex;
+        flex-direction: column;
+        flex: none;
+        box-sizing: border-box;
+        width: var(--ui-details-width);
+        min-height: 0;
+        overflow: auto;
+        border-inline-start: 1px solid var(--ui-face-edge);
+        background: var(--ui-face);
+    }
+
+    .ui-window-layout-details[data-width="wide"] {
+        width: var(--ui-taskpane-width-wide);
+    }
+
+    .ui-window-layout-details[data-width="custom"] {
+        width: var(--ui-window-layout-pane-width);
+    }
+
+    .ui-window-layout-details > * {
+        flex: 1 0 auto;
+    }
+
+    .ui-window-layout-main[data-details="bottom"] {
+        flex-direction: column;
+    }
+
+    .ui-window-layout-main[data-details="bottom"] > .ui-window-layout-details {
+        width: auto;
+        max-height: 40%;
+        border-inline-start: 0;
+        border-block-start: 1px solid var(--ui-face-edge);
+    }
+
+    .ui-window-layout-footer {
+        padding: var(--ui-space-4);
+        border-block-start: 1px solid var(--ui-face-edge);
+        background: var(--ui-face);
+    }
+
+    @container ui-window-layout (width < 520px) {
+        .ui-window-layout-panes[data-narrow-below="520"] {
+            flex-direction: column;
+        }
+
+        .ui-window-layout-panes[data-narrow-below="520"]
+            > .ui-window-layout-taskpane {
+            width: auto;
+            max-height: 40%;
+            flex: 0 1 auto;
+        }
+
+        .ui-window-layout-panes[data-narrow-below="520"]
+            > .ui-window-layout-taskpane[data-narrow="hide"] {
+            display: none;
+        }
+
+        .ui-window-layout-main[data-narrow-below="520"] {
+            flex-direction: column;
+        }
+
+        .ui-window-layout-main[data-narrow-below="520"]
+            > .ui-window-layout-details {
+            width: auto;
+            max-height: 40%;
+            border-inline-start: 0;
+            border-block-start: 1px solid var(--ui-face-edge);
+        }
+
+        .ui-window-layout-main[data-narrow-below="520"]
+            > .ui-window-layout-details[data-narrow="hide"] {
+            display: none;
+        }
+    }
+
+    @container ui-window-layout (width < 640px) {
+        .ui-window-layout-panes[data-narrow-below="640"] {
+            flex-direction: column;
+        }
+
+        .ui-window-layout-panes[data-narrow-below="640"]
+            > .ui-window-layout-taskpane {
+            width: auto;
+            max-height: 40%;
+            flex: 0 1 auto;
+        }
+
+        .ui-window-layout-panes[data-narrow-below="640"]
+            > .ui-window-layout-taskpane[data-narrow="hide"] {
+            display: none;
+        }
+
+        .ui-window-layout-main[data-narrow-below="640"] {
+            flex-direction: column;
+        }
+
+        .ui-window-layout-main[data-narrow-below="640"]
+            > .ui-window-layout-details {
+            width: auto;
+            max-height: 40%;
+            border-inline-start: 0;
+            border-block-start: 1px solid var(--ui-face-edge);
+        }
+
+        .ui-window-layout-main[data-narrow-below="640"]
+            > .ui-window-layout-details[data-narrow="hide"] {
+            display: none;
+        }
+    }
+
+    @container ui-window-layout (width < 820px) {
+        .ui-window-layout-panes[data-narrow-below="820"] {
+            flex-direction: column;
+        }
+
+        .ui-window-layout-panes[data-narrow-below="820"]
+            > .ui-window-layout-taskpane {
+            width: auto;
+            max-height: 40%;
+            flex: 0 1 auto;
+        }
+
+        .ui-window-layout-panes[data-narrow-below="820"]
+            > .ui-window-layout-taskpane[data-narrow="hide"] {
+            display: none;
+        }
+
+        .ui-window-layout-main[data-narrow-below="820"] {
+            flex-direction: column;
+        }
+
+        .ui-window-layout-main[data-narrow-below="820"]
+            > .ui-window-layout-details {
+            width: auto;
+            max-height: 40%;
+            border-inline-start: 0;
+            border-block-start: 1px solid var(--ui-face-edge);
+        }
+
+        .ui-window-layout-main[data-narrow-below="820"]
+            > .ui-window-layout-details[data-narrow="hide"] {
+            display: none;
+        }
+    }
+
+    @container ui-window-layout (width < 1000px) {
+        .ui-window-layout-panes[data-narrow-below="1000"] {
+            flex-direction: column;
+        }
+
+        .ui-window-layout-panes[data-narrow-below="1000"]
+            > .ui-window-layout-taskpane {
+            width: auto;
+            max-height: 40%;
+            flex: 0 1 auto;
+        }
+
+        .ui-window-layout-panes[data-narrow-below="1000"]
+            > .ui-window-layout-taskpane[data-narrow="hide"] {
+            display: none;
+        }
+
+        .ui-window-layout-main[data-narrow-below="1000"] {
+            flex-direction: column;
+        }
+
+        .ui-window-layout-main[data-narrow-below="1000"]
+            > .ui-window-layout-details {
+            width: auto;
+            max-height: 40%;
+            border-inline-start: 0;
+            border-block-start: 1px solid var(--ui-face-edge);
+        }
+
+        .ui-window-layout-main[data-narrow-below="1000"]
+            > .ui-window-layout-details[data-narrow="hide"] {
+            display: none;
+        }
+    }
+}

@@ -1,0 +1,45 @@
+@layer ui {
+    .ui-start-button {
+        position: relative;
+        flex: none;
+        box-sizing: border-box;
+        width: 99px;
+        height: 30px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background-color: transparent;
+        background-image: url("../../../../assets/start-button.png");
+        background-repeat: no-repeat;
+        background-size: 99px 90px;
+        background-position: 0 0;
+        cursor: default;
+    }
+
+    .ui-start-button-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .ui-start-button:is(:hover, [data-ui-preview~="hover"]) {
+        background-position: 0 -30px;
+    }
+
+    .ui-start-button:is(:active, [data-open], [data-ui-preview~="active"]) {
+        background-position: 0 -60px;
+    }
+
+    .ui-start-button:disabled {
+        filter: grayscale(0.6);
+    }
+
+    .ui-start-button:focus-visible,
+    .ui-start-button[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus-on-chrome);
+        outline-offset: -4px;
+    }
+}

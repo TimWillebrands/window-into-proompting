@@ -47,6 +47,19 @@ export const EYES: Record<string, string> = {
     grey: '#6b7280',
 };
 
+export const SWATCH_FALLBACK = '#e8dff5';
+
+export const AVATAR_COLOURS = [
+    '#e57373',
+    '#64b5f6',
+    '#81c784',
+    '#ffb74d',
+    '#ba68c8',
+    '#4db6ac',
+    '#f06292',
+    '#a1887f',
+];
+
 export interface Look {
     skin: string;
     hair: string;

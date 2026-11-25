@@ -1,6 +1,17 @@
+import {
+    CommandButton,
+    Icon,
+    Meter,
+    Stack,
+    Swatch,
+    TaskPane,
+    TaskPaneLink,
+    TaskPaneSection,
+    Text,
+} from '@partytown/ui';
 import { type ReactNode, useMemo, useState } from 'react';
 import { endpointId, type GraphIndex } from './graphView';
-import { KIND_COLOUR, STANCE_COLOUR } from './palette';
+import { KIND_COLOUR } from './palette';
 import type { EnrichedMemoryLink, EnrichedMemoryNode } from './types';
 
 interface MemoryGraphSidePanelProps {
@@ -10,6 +21,7 @@ interface MemoryGraphSidePanelProps {
     onBack?: () => void;
     lens: string | null;
     onLens: (participantId: string | null) => void;
+    children?: ReactNode;
 }
 
 const MEMORY_PAGE = 40;
@@ -21,52 +33,58 @@ export default function MemoryGraphSidePanel({
     onBack,
     lens,
     onLens,
+    children,
 }: MemoryGraphSidePanelProps) {
-    if (!node) {
-        return (
-            <div className="xp-glass-panel" style={panelStyle}>
-                <div style={{ padding: '14px 12px', fontSize: 11 }}>
-                    <p style={{ fontWeight: 700, margin: '0 0 4px' }}>
-                        Inspector
-                    </p>
-                    <p style={{ color: '#555', margin: '0 0 8px' }}>
+    const ctx: PanelCtx | null = node ? { node, index, onSelectNode } : null;
+    return (
+        <TaskPane>
+            {!ctx ? (
+                <TaskPaneSection title="Inspector" special collapsible={false}>
+                    <Text as="p" tone="muted">
                         Click a person to read what they remember and how they
                         feel about others. Click a memory or topic to see who
                         shares it.
-                    </p>
-                    <p style={{ color: '#777', margin: 0 }}>
+                    </Text>
+                    <Text as="p" tone="muted">
                         People sit on the outer ring; memories shared by several
                         people drift to the middle.
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    const ctx: PanelCtx = { node, index, onSelectNode };
-    return (
-        <div className="xp-glass-panel" style={panelStyle}>
-            <SectionHeader>
-                {onBack ? (
-                    <button
-                        type="button"
-                        onClick={onBack}
-                        title="Back"
-                        style={backButtonStyle}
-                    >
-                        ◀
-                    </button>
-                ) : null}
-                {node.kind === 'Participant' ? 'Person' : node.kind}
-            </SectionHeader>
-            {node.kind === 'Participant' ? (
-                <PersonPanel {...ctx} lens={lens} onLens={onLens} />
-            ) : node.kind === 'Event' ? (
-                <EventPanel {...ctx} />
+                    </Text>
+                </TaskPaneSection>
+            ) : ctx.node.kind === 'Participant' ? (
+                <PersonPanel
+                    {...ctx}
+                    onBack={onBack}
+                    lens={lens}
+                    onLens={onLens}
+                />
+            ) : ctx.node.kind === 'Event' ? (
+                <EventPanel {...ctx} onBack={onBack} />
             ) : (
-                <ConceptPanel {...ctx} />
+                <ConceptPanel {...ctx} onBack={onBack} />
             )}
-        </div>
+            {children}
+        </TaskPane>
+    );
+}
+
+function Lead({
+    title,
+    onBack,
+    children,
+}: {
+    title: string;
+    onBack?: () => void;
+    children: ReactNode;
+}) {
+    return (
+        <TaskPaneSection title={title} special collapsible={false}>
+            {onBack ? (
+                <TaskPaneLink icon={<Icon name="back" />} onClick={onBack}>
+                    Back
+                </TaskPaneLink>
+            ) : null}
+            {children}
+        </TaskPaneSection>
     );
 }
 
@@ -74,12 +92,14 @@ interface PanelCtx {
     node: EnrichedMemoryNode;
     index: GraphIndex;
     onSelectNode: (id: string) => void;
+    onBack?: () => void;
 }
 
 function PersonPanel({
     node,
     index,
     onSelectNode,
+    onBack,
     lens,
     onLens,
 }: PanelCtx & {
@@ -120,44 +140,47 @@ function PersonPanel({
 
     return (
         <>
-            <div style={{ padding: 8, fontSize: 11 }}>
-                <div style={titleStyle}>
-                    <Swatch colour={node.colour} size={12} /> {node.label}
-                </div>
-                <div style={{ color: '#555', margin: '2px 0 6px' }}>
+            <Lead title="Person" onBack={onBack}>
+                <Stack as="strong" direction="row" align="center" gap="sm">
+                    <Swatch colour={node.colour} shape="dot" size="large" />
+                    {node.label}
+                </Stack>
+                <Text as="p" tone="muted">
                     {memories.length} memories · {stances.length} stances
-                </div>
-                <button
-                    type="button"
+                </Text>
+                <CommandButton
+                    size="small"
                     onClick={() => onLens(isLens ? null : node.id)}
                 >
                     {isLens ? 'Show everyone' : 'Only their memories'}
-                </button>
-            </div>
+                </CommandButton>
+            </Lead>
 
-            <SubHeader>Where they stand ({stances.length})</SubHeader>
-            <StanceList
-                links={stances}
-                endpoint="target"
-                index={index}
-                onSelectNode={onSelectNode}
-            />
+            <TaskPaneSection title="Where they stand" aside={stances.length}>
+                <StanceList
+                    links={stances}
+                    endpoint="target"
+                    index={index}
+                    onSelectNode={onSelectNode}
+                />
+            </TaskPaneSection>
 
             {heldBy.length > 0 ? (
-                <>
-                    <SubHeader>How others see them ({heldBy.length})</SubHeader>
+                <TaskPaneSection
+                    title="How others see them"
+                    aside={heldBy.length}
+                >
                     <StanceList
                         links={heldBy}
                         endpoint="source"
                         index={index}
                         onSelectNode={onSelectNode}
                     />
-                </>
+                </TaskPaneSection>
             ) : null}
 
             {themes.length > 0 ? (
-                <>
-                    <SubHeader>Recurring themes</SubHeader>
+                <TaskPaneSection title="Recurring themes">
                     <ChipRow>
                         {themes.map(([id, n]) => (
                             <NodeChip
@@ -168,11 +191,10 @@ function PersonPanel({
                             />
                         ))}
                     </ChipRow>
-                </>
+                </TaskPaneSection>
             ) : null}
 
-            <SubHeader>Memories, strongest first</SubHeader>
-            <ul style={listStyle}>
+            <TaskPaneSection title="Memories, strongest first">
                 {(showAll ? memories : memories.slice(0, MEMORY_PAGE)).map(
                     (m) => {
                         const event = index.byId.get(m.target);
@@ -181,9 +203,11 @@ function PersonPanel({
                                 key={`${m.target}-${m.ts}`}
                                 onClick={() => onSelectNode(m.target)}
                             >
-                                <div>“{m.snippet}”</div>
+                                <Text as="span" size="reading">
+                                    “{m.snippet}”
+                                </Text>
                                 <Meta>
-                                    <WeightDots weight={m.weight} />
+                                    <Salience weight={m.weight} />
                                     {event?.where} · {formatWhen(m.ts)}
                                     {m.recallCount
                                         ? ` · recalled ×${m.recallCount}`
@@ -193,19 +217,20 @@ function PersonPanel({
                         );
                     },
                 )}
-            </ul>
-            {!showAll && memories.length > MEMORY_PAGE ? (
-                <div style={{ padding: 8 }}>
-                    <button type="button" onClick={() => setShowAll(true)}>
+                {!showAll && memories.length > MEMORY_PAGE ? (
+                    <CommandButton
+                        size="small"
+                        onClick={() => setShowAll(true)}
+                    >
                         Show all {memories.length}
-                    </button>
-                </div>
-            ) : null}
+                    </CommandButton>
+                ) : null}
+            </TaskPaneSection>
         </>
     );
 }
 
-function EventPanel({ node, index, onSelectNode }: PanelCtx) {
+function EventPanel({ node, index, onSelectNode, onBack }: PanelCtx) {
     const recollections = (index.incoming.get(node.id) ?? [])
         .filter((l) => l.kind === 'RECOLLECTS')
         .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
@@ -217,34 +242,39 @@ function EventPanel({ node, index, onSelectNode }: PanelCtx) {
 
     return (
         <>
-            <div style={{ padding: 8, fontSize: 11 }}>
-                <div style={{ fontSize: 12, lineHeight: 1.4 }}>
+            <Lead title="Event" onBack={onBack}>
+                <Text as="p" size="reading">
                     {node.description}
-                </div>
+                </Text>
                 <Meta>
                     {node.where} · {formatWhen(node.createdAt)}
                     {node.anchorMessageId != null
                         ? ` · message #${node.anchorMessageId}`
                         : ''}
                 </Meta>
-            </div>
+            </Lead>
 
-            <SubHeader>Remembered by ({recollections.length})</SubHeader>
-            <ul style={listStyle}>
+            <TaskPaneSection title="Remembered by" aside={recollections.length}>
                 {recollections.map((r) => {
                     const person = index.byId.get(r.source);
                     return (
                         <Row
                             key={r.source}
+                            icon={
+                                <Swatch
+                                    colour={person?.colour}
+                                    shape="dot"
+                                    size="small"
+                                />
+                            }
                             onClick={() => onSelectNode(r.source)}
                         >
-                            <div style={{ fontWeight: 700 }}>
-                                <Swatch colour={person?.colour} />{' '}
-                                {person?.label ?? r.source}
-                            </div>
-                            <div>“{r.snippet}”</div>
+                            <strong>{person?.label ?? r.source}</strong>
+                            <Text as="span" size="reading">
+                                “{r.snippet}”
+                            </Text>
                             <Meta>
-                                <WeightDots weight={r.weight} />
+                                <Salience weight={r.weight} />
                                 {r.recallCount
                                     ? `recalled ×${r.recallCount}`
                                     : 'never recalled'}
@@ -252,19 +282,24 @@ function EventPanel({ node, index, onSelectNode }: PanelCtx) {
                         </Row>
                     );
                 })}
-            </ul>
+            </TaskPaneSection>
 
-            <SubHeader>About</SubHeader>
-            <ChipRow>
-                {about.map((n) => (
-                    <NodeChip key={n.id} node={n} onSelectNode={onSelectNode} />
-                ))}
-            </ChipRow>
+            <TaskPaneSection title="About">
+                <ChipRow>
+                    {about.map((n) => (
+                        <NodeChip
+                            key={n.id}
+                            node={n}
+                            onSelectNode={onSelectNode}
+                        />
+                    ))}
+                </ChipRow>
+            </TaskPaneSection>
         </>
     );
 }
 
-function ConceptPanel({ node, index, onSelectNode }: PanelCtx) {
+function ConceptPanel({ node, index, onSelectNode, onBack }: PanelCtx) {
     const incoming = index.incoming.get(node.id) ?? [];
     const events = incoming
         .filter((l) => l.kind === 'ABOUT')
@@ -282,15 +317,14 @@ function ConceptPanel({ node, index, onSelectNode }: PanelCtx) {
 
     return (
         <>
-            <div style={{ padding: 8, fontSize: 11 }}>
-                <div style={titleStyle}>{node.label}</div>
-                <div style={{ color: '#555', marginTop: 2 }}>
+            <Lead title="Concept" onBack={onBack}>
+                <strong>{node.label}</strong>
+                <Text as="p" tone="muted">
                     {events.length} event{events.length === 1 ? '' : 's'}
-                </div>
-            </div>
+                </Text>
+            </Lead>
             {rememberers.size > 0 ? (
-                <>
-                    <SubHeader>On whose mind</SubHeader>
+                <TaskPaneSection title="On whose mind">
                     <ChipRow>
                         {[...rememberers]
                             .sort((a, b) => b[1] - a[1])
@@ -303,30 +337,30 @@ function ConceptPanel({ node, index, onSelectNode }: PanelCtx) {
                                 />
                             ))}
                     </ChipRow>
-                </>
+                </TaskPaneSection>
             ) : null}
             {stances.length > 0 ? (
-                <>
-                    <SubHeader>Stances on it</SubHeader>
+                <TaskPaneSection title="Stances on it">
                     <StanceList
                         links={stances}
                         endpoint="source"
                         index={index}
                         onSelectNode={onSelectNode}
                     />
-                </>
+                </TaskPaneSection>
             ) : null}
-            <SubHeader>Events</SubHeader>
-            <ul style={listStyle}>
+            <TaskPaneSection title="Events">
                 {events.map((e) => (
                     <Row key={e.id} onClick={() => onSelectNode(e.id)}>
-                        <div>{e.description}</div>
+                        <Text as="span" size="reading">
+                            {e.description}
+                        </Text>
                         <Meta>
                             {e.where} · {formatWhen(e.createdAt)}
                         </Meta>
                     </Row>
                 ))}
-            </ul>
+            </TaskPaneSection>
         </>
     );
 }
@@ -344,95 +378,67 @@ function StanceList({
 }) {
     if (links.length === 0) {
         return (
-            <p style={{ color: '#808080', padding: '4px 8px', fontSize: 11 }}>
+            <Text as="p" tone="muted">
                 (none yet)
-            </p>
+            </Text>
         );
     }
     return (
-        <ul style={listStyle}>
+        <>
             {links.map((s) => {
                 const otherId = endpointId(s[endpoint]);
                 const other = index.byId.get(otherId);
                 return (
                     <Row
                         key={`${s.source}-${s.target}`}
+                        icon={
+                            other?.colour ? (
+                                <Swatch
+                                    colour={other.colour}
+                                    shape="dot"
+                                    size="small"
+                                />
+                            ) : undefined
+                        }
                         onClick={() => onSelectNode(otherId)}
                     >
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                            }}
+                        <Stack
+                            as="span"
+                            direction="row"
+                            align="center"
+                            gap="sm"
                         >
-                            <span style={{ fontWeight: 700, flex: 1 }}>
-                                {other?.colour ? (
-                                    <Swatch colour={other.colour} />
-                                ) : null}{' '}
+                            <Stack.Item as="strong" grow>
                                 {other?.label ?? otherId}
                                 {s.source === s.target ? ' (self)' : ''}
-                            </span>
-                            <ValenceBar valence={s.valence ?? 0} />
-                        </div>
-                        <div style={{ color: '#444' }}>{s.reasoning}</div>
+                            </Stack.Item>
+                            <Meter
+                                diverging
+                                value={s.valence ?? 0}
+                                label={`valence ${(s.valence ?? 0).toFixed(2)}`}
+                                title={`valence ${(s.valence ?? 0).toFixed(2)}`}
+                            />
+                        </Stack>
+                        <Text as="span" size="reading">
+                            {s.reasoning}
+                        </Text>
                     </Row>
                 );
             })}
-        </ul>
+        </>
     );
 }
 
-function ValenceBar({ valence }: { valence: number }) {
-    const pct = Math.round(Math.abs(valence) * 50);
-    const warm = valence >= 0;
+function Salience({ weight }: { weight: number | null | undefined }) {
+    const value = weight ?? 0;
     return (
-        <span
-            title={`valence ${valence.toFixed(2)}`}
-            style={{
-                position: 'relative',
-                width: 60,
-                height: 6,
-                background: '#e4e4e4',
-                borderRadius: 3,
-                flexShrink: 0,
-            }}
-        >
-            <span
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    bottom: 0,
-                    left: warm ? '50%' : `${50 - pct}%`,
-                    width: `${pct}%`,
-                    background: warm ? STANCE_COLOUR.warm : STANCE_COLOUR.cold,
-                    borderRadius: 3,
-                }}
-            />
-            <span
-                style={{
-                    position: 'absolute',
-                    left: '50%',
-                    top: -1,
-                    bottom: -1,
-                    width: 1,
-                    background: '#999',
-                }}
-            />
-        </span>
-    );
-}
-
-function WeightDots({ weight }: { weight: number | null | undefined }) {
-    const filled = Math.round((weight ?? 0) * 5);
-    return (
-        <span
-            title={`salience ${(weight ?? 0).toFixed(1)}`}
-            style={{ marginRight: 4, letterSpacing: -1, color: '#C98A2E' }}
-        >
-            {'●'.repeat(filled)}
-            <span style={{ color: '#ccc' }}>{'●'.repeat(5 - filled)}</span>
-        </span>
+        <Meter
+            value={value}
+            tone="caution"
+            label={`salience ${value.toFixed(1)}`}
+            title={`salience ${value.toFixed(1)}`}
+            className="w-10"
+        />
     );
 }
 
@@ -447,117 +453,62 @@ function NodeChip({
 }) {
     if (!node) return null;
     return (
-        <button
-            type="button"
-            className="xp-glass-chip"
-            onClick={() => onSelectNode(node.id)}
-            style={{
-                cursor: 'pointer',
-                border: 'none',
-                minWidth: 0,
-                minHeight: 0,
-            }}
-        >
-            <span
-                className="dot"
-                style={{
-                    background:
+        <TaskPaneLink
+            icon={
+                <Swatch
+                    shape="dot"
+                    colour={
                         node.colour ??
-                        KIND_COLOUR[node.kind as keyof typeof KIND_COLOUR],
-                }}
-            />
+                        KIND_COLOUR[node.kind as keyof typeof KIND_COLOUR]
+                    }
+                />
+            }
+            onClick={() => onSelectNode(node.id)}
+        >
             {node.label}
-            {count ? <span style={{ color: '#777' }}> ×{count}</span> : null}
-        </button>
+            {count ? (
+                <Text as="span" tone="muted">
+                    {' '}
+                    ×{count}
+                </Text>
+            ) : null}
+        </TaskPaneLink>
     );
 }
 
 function Row({
+    icon,
     children,
     onClick,
 }: {
+    icon?: ReactNode;
     children: ReactNode;
     onClick: () => void;
 }) {
     return (
-        <li>
-            <button type="button" onClick={onClick} style={rowStyle}>
+        <TaskPaneLink icon={icon} onClick={onClick}>
+            <Stack as="span" gap="xxs">
                 {children}
-            </button>
-        </li>
+            </Stack>
+        </TaskPaneLink>
     );
 }
 
 function Meta({ children }: { children: ReactNode }) {
     return (
-        <div style={{ color: '#777', marginTop: 2, fontSize: 10 }}>
-            {children}
-        </div>
+        <Text as="span" tone="muted">
+            <Stack as="span" direction="row" wrap align="center" gap="xs">
+                {children}
+            </Stack>
+        </Text>
     );
 }
 
 function ChipRow({ children }: { children: ReactNode }) {
     return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: 8 }}>
+        <Stack direction="row" wrap gap="lg" rowGap="none">
             {children}
-        </div>
-    );
-}
-
-function Swatch({ colour, size = 8 }: { colour?: string; size?: number }) {
-    return (
-        <span
-            style={{
-                display: 'inline-block',
-                width: size,
-                height: size,
-                borderRadius: '50%',
-                background: colour ?? '#888',
-                verticalAlign: 'middle',
-            }}
-        />
-    );
-}
-
-function SectionHeader({ children }: { children: ReactNode }) {
-    return (
-        <div
-            style={{
-                background:
-                    'linear-gradient(to bottom, #0058E1 0%, #002C77 100%)',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.35)',
-                color: 'white',
-                fontSize: 11,
-                fontWeight: 600,
-                padding: '3px 6px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                position: 'sticky',
-                top: 0,
-                zIndex: 1,
-            }}
-        >
-            {children}
-        </div>
-    );
-}
-
-function SubHeader({ children }: { children: ReactNode }) {
-    return (
-        <div
-            style={{
-                background: 'rgba(255,255,255,0.65)',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)',
-                borderTop: '1px solid rgba(0,0,0,0.08)',
-                padding: '3px 8px',
-                fontSize: 11,
-                fontWeight: 700,
-                color: '#1F3F7A',
-            }}
-        >
-            {children}
-        </div>
+        </Stack>
     );
 }
 
@@ -582,44 +533,3 @@ export function formatWhen(iso: string | null | undefined): string {
         minute: '2-digit',
     });
 }
-
-const panelStyle: React.CSSProperties = {
-    width: 300,
-    borderLeft: '1px solid rgba(255,255,255,0.7)',
-    overflowY: 'auto',
-    height: '100%',
-    flexShrink: 0,
-};
-
-const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 700 };
-
-const listStyle: React.CSSProperties = {
-    listStyle: 'none',
-    margin: 0,
-    padding: 0,
-    fontSize: 11,
-};
-
-const rowStyle: React.CSSProperties = {
-    background: 'none',
-    border: 'none',
-    borderBottom: '1px solid rgba(0,0,0,0.06)',
-    padding: '5px 8px',
-    width: '100%',
-    textAlign: 'left',
-    cursor: 'pointer',
-    fontSize: 11,
-    lineHeight: 1.35,
-    minWidth: 0,
-    minHeight: 0,
-    boxShadow: 'none',
-    borderRadius: 0,
-};
-
-const backButtonStyle: React.CSSProperties = {
-    minWidth: 0,
-    minHeight: 0,
-    padding: '0 5px',
-    fontSize: 9,
-    lineHeight: '14px',
-};

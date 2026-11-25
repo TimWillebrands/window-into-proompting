@@ -1,0 +1,845 @@
+@layer properties, theme, base, components, ui, utilities;
+@layer ui.tokens, ui.base;
+
+@layer ui.tokens {
+    :root {
+        --ui-font-ui:
+            Tahoma, "Partytown Tahoma", Verdana, "Partytown Emoji", system-ui,
+            sans-serif;
+        --ui-font-title:
+            "Trebuchet MS", "Partytown Fira Sans", Tahoma, "Partytown Tahoma",
+            Verdana, "Partytown Emoji", system-ui, sans-serif;
+        --ui-font-mono:
+            "Lucida Console", "Courier New", "Partytown Emoji", monospace;
+        --ui-font-display:
+            "Franklin Gothic Medium", "Franklin Gothic", "ITC Franklin Gothic",
+            "Partytown Libre Franklin", "Trebuchet MS", "Partytown Fira Sans",
+            Tahoma, "Partytown Tahoma", "Partytown Emoji", system-ui, sans-serif;
+        --ui-font-emoji:
+            "Partytown Emoji", "Apple Color Emoji", "Segoe UI Emoji",
+            "Noto Color Emoji", emoji;
+
+        --ui-text-chrome: 11px;
+        --ui-text-reading: 13px;
+        --ui-text-caption: 13px;
+        --ui-text-title: 15px;
+        --ui-text-display: 18px;
+        --ui-text-logon: 48px;
+        --ui-leading-chrome: 1.25;
+        --ui-leading-reading: 1.5;
+
+        --ui-space-1: 2px;
+        --ui-space-2: 4px;
+        --ui-space-3: 6px;
+        --ui-space-4: 8px;
+        --ui-space-5: 12px;
+        --ui-space-6: 16px;
+
+        --ui-radius-control: 3px;
+        --ui-radius-control-max: 5px;
+        --ui-radius-pane: 8px;
+        --ui-radius-float: 10px;
+        --ui-radius-window: 14px;
+        --ui-radius-pill: 999px;
+        --ui-frame-width: 3px;
+        --ui-taskpane-width: 200px;
+        --ui-taskpane-width-wide: 280px;
+        --ui-details-width: 240px;
+        --ui-tile-width: 160px;
+        --ui-radius-here: 0px;
+        --ui-inset: 0px;
+
+        --ui-dur-instant: 80ms;
+        --ui-dur-quick: 160ms;
+        --ui-dur-move: 320ms;
+        --ui-dur-loop: 2560ms;
+        --ui-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --ui-ease-step: steps(1, jump-end);
+        --ui-ease-spring: linear(
+            0,
+            0.098 4%,
+            0.306 8%,
+            0.531 13%,
+            0.726 17%,
+            0.871 21%,
+            0.965 25%,
+            1.018 29%,
+            1.042 33%,
+            1.046 38%,
+            1.04 42%,
+            1.03 46%,
+            1.02 50%,
+            1.011 54%,
+            1.005 58%,
+            1.001 63%,
+            0.999 67%,
+            0.998 75%,
+            0.999 83%,
+            1 92%,
+            1
+        );
+        --ui-motion-travel: 1;
+    }
+
+    *,
+    ::before,
+    ::after {
+        --ui-radius-inner: max(
+            var(--ui-radius-control),
+            var(--ui-radius-here) -
+            var(--ui-inset)
+        );
+        --ui-radius-control-inner: min(
+            var(--ui-radius-inner),
+            var(--ui-radius-control-max)
+        );
+    }
+
+    :root,
+    [data-ui-scheme="luna-blue"] {
+        --ui-p-color-scheme: light;
+        --ui-p-chrome-1: oklch(0.9042 0.0343 269.31);
+        --ui-p-chrome-2: oklch(0.6657 0.1643 259.19);
+        --ui-p-chrome-3: oklch(0.521 0.2021 262.97);
+        --ui-p-chrome-4: oklch(0.4757 0.2255 263.06);
+        --ui-p-chrome-5: oklch(0.3154 0.183 264);
+        --ui-p-chrome-ink: oklch(1 0 0);
+        --ui-p-desktop: oklch(0.4283 0.1378 254.33);
+        --ui-p-face: oklch(0.9318 0.0228 98.65);
+        --ui-p-face-lite: oklch(0.968 0.0106 106.6);
+        --ui-p-face-edge: oklch(0.7307 0.0216 94.61);
+        --ui-p-content: oklch(1 0 0);
+        --ui-p-ink: oklch(0 0 0);
+        --ui-p-ink-l: 0.5;
+        --ui-p-select: oklch(0.5354 0.1543 259.46);
+        --ui-p-hot: oklch(0.8086 0.1525 78.72);
+        --ui-p-neutral: oklch(0.5354 0.1543 259.46);
+        --ui-p-go: oklch(0.5204 0.1484 142.01);
+        --ui-p-caution: oklch(0.7677 0.1513 69.88);
+        --ui-p-danger: oklch(0.5577 0.1721 32);
+        --ui-p-glass-alpha: 0.8;
+        --ui-p-gloss: 1;
+        --ui-p-shadow: 1;
+        --ui-p-lift: 0;
+    }
+
+    [data-ui-scheme="olive-green"] {
+        --ui-p-color-scheme: light;
+        --ui-p-chrome-1: oklch(0.9241 0.0391 118.2);
+        --ui-p-chrome-2: oklch(0.6995 0.0946 119.58);
+        --ui-p-chrome-3: oklch(0.5004 0.0857 122.12);
+        --ui-p-chrome-4: oklch(0.4703 0.08 122.36);
+        --ui-p-chrome-5: oklch(0.3614 0.0603 125.26);
+        --ui-p-chrome-ink: oklch(1 0 0);
+        --ui-p-desktop: oklch(0.4283 0.1378 254.33);
+        --ui-p-face: oklch(0.9251 0.0292 106.96);
+        --ui-p-face-lite: oklch(0.9639 0.0158 106.69);
+        --ui-p-face-edge: oklch(0.7207 0.0351 109.12);
+        --ui-p-content: oklch(1 0 0);
+        --ui-p-ink: oklch(0 0 0);
+        --ui-p-ink-l: 0.48;
+        --ui-p-select: oklch(0.521 0.0856 125.86);
+        --ui-p-hot: oklch(0.8086 0.1525 78.72);
+        --ui-p-neutral: oklch(0.5354 0.1543 259.46);
+        --ui-p-go: oklch(0.5204 0.1484 142.01);
+        --ui-p-caution: oklch(0.7677 0.1513 69.88);
+        --ui-p-danger: oklch(0.5577 0.1721 32);
+        --ui-p-glass-alpha: 0.8;
+        --ui-p-gloss: 1;
+        --ui-p-shadow: 1;
+        --ui-p-lift: 0;
+    }
+
+    [data-ui-scheme="silver"] {
+        --ui-p-color-scheme: light;
+        --ui-p-chrome-1: oklch(0.9538 0.008 286.25);
+        --ui-p-chrome-2: oklch(0.9889 0.004 286.33);
+        --ui-p-chrome-3: oklch(0.8606 0.0137 286.11);
+        --ui-p-chrome-4: oklch(0.7989 0.0168 286.01);
+        --ui-p-chrome-5: oklch(0.5611 0.0245 285.58);
+        --ui-p-chrome-ink: oklch(0 0 0);
+        --ui-p-desktop: oklch(0.4283 0.1378 254.33);
+        --ui-p-face: oklch(0.9056 0.0055 297.72);
+        --ui-p-face-lite: oklch(0.9707 0.0027 286.35);
+        --ui-p-face-edge: oklch(0.7202 0.0072 286.22);
+        --ui-p-content: oklch(1 0 0);
+        --ui-p-ink: oklch(0 0 0);
+        --ui-p-ink-l: 0.48;
+        --ui-p-select: oklch(0.4997 0.1 262.06);
+        --ui-p-hot: oklch(0.8086 0.1525 78.72);
+        --ui-p-neutral: oklch(0.5354 0.1543 259.46);
+        --ui-p-go: oklch(0.5204 0.1484 142.01);
+        --ui-p-caution: oklch(0.7677 0.1513 69.88);
+        --ui-p-danger: oklch(0.5577 0.1721 32);
+        --ui-p-glass-alpha: 0.8;
+        --ui-p-gloss: 1;
+        --ui-p-shadow: 1;
+        --ui-p-lift: 0;
+    }
+
+    [data-ui-scheme="noir"] {
+        --ui-p-color-scheme: dark;
+        --ui-p-chrome-1: oklch(0.3109 0.0378 267.38);
+        --ui-p-chrome-2: oklch(0.4511 0.0466 267.32);
+        --ui-p-chrome-3: oklch(0.2525 0.024 267.07);
+        --ui-p-chrome-4: oklch(0.2196 0.0309 267.14);
+        --ui-p-chrome-5: oklch(0.1165 0.0142 272.6);
+        --ui-p-chrome-ink: oklch(1 0 0);
+        --ui-p-desktop: oklch(0.1599 0.0348 260.04);
+        --ui-p-face: oklch(0.298 0.013 272.94);
+        --ui-p-face-lite: oklch(0.3336 0.0164 270.89);
+        --ui-p-face-edge: oklch(0.4248 0.0205 270.9);
+        --ui-p-content: oklch(0.252 0.0099 268.29);
+        --ui-p-ink: oklch(0.9431 0 0);
+        --ui-p-ink-l: 0.78;
+        --ui-p-select: oklch(0.515 0.142 263);
+        --ui-p-hot: oklch(0.7647 0.1415 73.47);
+        --ui-p-neutral: oklch(0.515 0.142 263);
+        --ui-p-go: oklch(0.5204 0.1484 142.01);
+        --ui-p-caution: oklch(0.7494 0.1419 76.49);
+        --ui-p-danger: oklch(0.5577 0.1721 32);
+        --ui-p-glass-alpha: 0.82;
+        --ui-p-gloss: 0.6;
+        --ui-p-shadow: 1.35;
+        --ui-p-lift: 0.08;
+    }
+
+    :root,
+    [data-ui-scheme],
+    [data-ui-skin] {
+        --ui-color-scheme: var(--ui-p-color-scheme);
+
+        --ui-face: var(--ui-p-face);
+        --ui-face-lite: var(--ui-p-face-lite);
+        --ui-face-edge: var(--ui-p-face-edge);
+        --ui-field: oklch(
+            from var(--ui-p-content) calc(l - var(--ui-p-lift) * 0.3) c h
+        );
+        --ui-field-edge: oklch(
+            from color-mix(in oklab, var(--ui-p-face-edge), var(--ui-p-select))
+                calc(l + 0.05) calc(c * 0.794) calc(h - 9.9)
+        );
+        --ui-content: var(--ui-p-content);
+
+        --ui-text: var(--ui-p-ink);
+        --ui-text-muted: oklch(
+            from var(--ui-p-face) calc(var(--ui-p-ink-l) - 0.023) calc(c * 0.6)
+                h
+        );
+        --ui-text-disabled: oklch(
+            from var(--ui-p-face) calc(l * 0.475 + var(--ui-p-ink-l) * 0.525)
+                calc(c * 0.9) calc(h + 8)
+        );
+        --ui-text-on-chrome: var(--ui-p-chrome-ink);
+        --ui-text-error: var(--ui-tone-danger-ink);
+        --ui-link: oklch(
+            from var(--ui-p-select) calc(var(--ui-p-ink-l) + 0.003)
+                calc(c * 1.137) calc(h + 1.3)
+        );
+        --ui-link-hover: color-mix(
+            in oklab,
+            var(--ui-link),
+            var(--ui-p-ink) 12%
+        );
+        --ui-desktop: var(--ui-p-desktop);
+        --ui-desktop-text: #ffffff;
+        --ui-glint: #ffffff;
+
+        --ui-select: var(--ui-p-select);
+        --ui-select-text: #ffffff;
+        --ui-select-inactive: oklch(
+            from var(--ui-p-face) calc(l + var(--ui-p-lift)) c h
+        );
+        --ui-select-inactive-text: var(--ui-p-ink);
+        --ui-focus: oklch(
+            from var(--ui-p-select) max(l, var(--ui-p-ink-l)) c h
+        );
+        --ui-focus-on-chrome: var(--ui-p-chrome-ink);
+
+        --ui-chrome-tint: var(--ui-p-chrome-1);
+        --ui-chrome-sheen: var(--ui-p-chrome-2);
+        --ui-chrome: var(--ui-p-chrome-3);
+        --ui-chrome-deep: var(--ui-p-chrome-4);
+        --ui-chrome-shade: var(--ui-p-chrome-5);
+
+        --ui-titlebar: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.018) calc(c * 1.023)
+                        calc(h + 1.3)
+                )
+                0%,
+            var(--ui-p-chrome-2) 6%,
+            oklch(from var(--ui-p-chrome-3) l calc(c * 1.054) calc(h + 1)) 25%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.052) calc(c * 1.077)
+                        calc(h + 0.5)
+                )
+                80%,
+            oklch(
+                    from var(--ui-p-chrome-5) calc(l + 0.066) calc(c * 0.981)
+                        calc(h + 0.9)
+                )
+                100%
+        );
+        --ui-titlebar-inactive: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.158) calc(c * 0.542)
+                        calc(h + 5.1)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-2) calc(l + 0.112) calc(c * 0.443)
+                        calc(h + 7.1)
+                )
+                6%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.159) calc(c * 0.515)
+                        calc(h + 6.8)
+                )
+                25%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.206) calc(c * 0.47)
+                        calc(h + 1.6)
+                )
+                80%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.153) calc(c * 0.533)
+                        calc(h + 8.9)
+                )
+                100%
+        );
+        --ui-titlebar-text: var(--ui-p-chrome-ink);
+        --ui-frame: linear-gradient(
+            180deg,
+            oklch(from var(--ui-p-chrome-4) calc(l + 0.011) c calc(h - 0.2)) 0%,
+            var(--ui-p-chrome-4) 70%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l - 0.041) calc(c * 0.968)
+                        calc(h + 0.5)
+                )
+                100%
+        );
+        --ui-frame-inactive: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l + 0.246) calc(c * 0.433)
+                        calc(h + 5.1)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l + 0.216) calc(c * 0.462)
+                        calc(h + 5.7)
+                )
+                70%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l + 0.168) calc(c * 0.5)
+                        calc(h + 7.2)
+                )
+                100%
+        );
+        --ui-frame-edge: var(--ui-p-chrome-5);
+        --ui-frame-edge-inactive: oklch(
+            from var(--ui-p-chrome-4) calc(l + 0.134) calc(c * 0.479)
+                calc(h + 7.1)
+        );
+        --ui-chrome-gloss:
+            inset 0 1px 0 rgb(255 255 255 / calc(0.42 * var(--ui-p-gloss))),
+            inset 1px 0 0 rgb(255 255 255 / calc(0.2 * var(--ui-p-gloss)));
+        --ui-chrome-press: inset 1px 1px 2px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.103) calc(c * 0.551)
+                    calc(h - 1.7) /
+                calc(0.65 * var(--ui-p-shadow))
+            );
+        --ui-chrome-glow: 0 0 6px
+            rgb(255 255 255 / calc(0.45 * var(--ui-p-gloss)));
+        --ui-chrome-edge: oklch(
+            from var(--ui-p-chrome-5) calc(l - 0.008) calc(c * 0.803)
+                calc(h + 1.1) /
+            0.7
+        );
+        --ui-chrome-text-shadow: 1px 1px 1px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.039) calc(c * 0.685)
+                    calc(h - 2.3) /
+                0.75
+            );
+        --ui-taskbar: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.022) calc(c * 0.881)
+                        calc(h - 0.8) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                0 1px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.105) calc(c * 0.819)
+                        calc(h - 7.7) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                1px 2px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.133) calc(c * 0.716)
+                        calc(h - 9.8) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                2px 3px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.073) calc(c * 0.876)
+                        calc(h - 5.1) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                3px 4px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.028) calc(c * 0.944)
+                        calc(h - 1.9) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                4px 5px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.009) c calc(h + 0.3) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                5px 6px,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.017) c calc(h + 0.5) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                8px,
+            oklch(
+                    from var(--ui-p-chrome-3) l c h /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                45%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.013) calc(c * 0.988)
+                        calc(h - 0.6) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                calc(100% - 3px),
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.009) c calc(h + 0.3) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                calc(100% - 3px) calc(100% - 2px),
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.047) calc(c * 0.936)
+                        calc(h + 0.4) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                calc(100% - 2px) calc(100% - 1px),
+            oklch(
+                    from var(--ui-p-chrome-5) calc(l + 0.1) calc(c * 0.916)
+                        calc(h - 0.1) /
+                    calc(var(--ui-glass-alpha-regular) * 1.15)
+                )
+                calc(100% - 1px)
+        );
+        --ui-taskbar-button: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-chrome-2) calc(l + 0.026) calc(c * 0.919)
+                        calc(h - 1.3)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.088) calc(c * 0.894)
+                        calc(h - 2.8)
+                )
+                10%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.046) calc(c * 0.933)
+                        calc(h - 1.8)
+                )
+                22%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.031) calc(c * 0.934)
+                        calc(h - 1.5)
+                )
+                60%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.018) calc(c * 0.927)
+                        calc(h - 1.2)
+                )
+                88%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l - 0.025) calc(c * 0.888)
+                        calc(h - 0.6)
+                )
+                100%
+        );
+        --ui-taskbar-button-hover: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-chrome-2) calc(l + 0.093) calc(c * 0.763)
+                        calc(h - 3.2)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-2) calc(l - 0.009) calc(c * 1.036)
+                        calc(h - 0.7)
+                )
+                14%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.088) calc(c * 0.902)
+                        calc(h - 2.9)
+                )
+                55%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.072) calc(c * 0.914)
+                        calc(h - 2.1)
+                )
+                88%,
+            oklch(
+                    from var(--ui-p-chrome-3) calc(l + 0.022) calc(c * 0.906)
+                        calc(h - 1.3)
+                )
+                100%
+        );
+        --ui-taskbar-button-active: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l - 0.073) calc(c * 0.685)
+                        calc(h - 0.3)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l - 0.03) calc(c * 0.728)
+                        calc(h - 1)
+                )
+                12%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l - 0.008) calc(c * 0.752)
+                        calc(h - 1.2)
+                )
+                60%,
+            oklch(
+                    from var(--ui-p-chrome-4) calc(l + 0.012) calc(c * 0.769)
+                        calc(h - 1.5)
+                )
+                100%
+        );
+        --ui-close: radial-gradient(
+            circle at 85% 85%,
+            oklch(
+                    from var(--ui-p-danger) calc(l + 0.036) calc(c * 0.96)
+                        calc(h + 4.3)
+                )
+                50%,
+            oklch(
+                    from var(--ui-p-danger) calc(l + 0.061) calc(c * 0.942)
+                        calc(h + 6)
+                )
+                70%,
+            oklch(
+                    from var(--ui-p-danger) calc(l + 0.217) calc(c * 0.471)
+                        calc(h + 5.2)
+                )
+                100%
+        );
+        --ui-control: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l + 0.032 + var(--ui-p-lift)) 0 h
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.029 + var(--ui-p-lift)) calc(c * 0.64)
+                        calc(h - 9.2)
+                )
+                86%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.109 + var(--ui-p-lift)) calc(c * 1.551)
+                        calc(h - 23.8)
+                )
+                100%
+        );
+        --ui-control-hover: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l + 0.032 + var(--ui-p-lift) * 1.3) 0 h
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.004 + var(--ui-p-lift) * 1.3) calc(c * 0.636)
+                        calc(h - 9.2)
+                )
+                86%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.069 + var(--ui-p-lift) * 1.3) calc(c * 1.376)
+                        calc(h - 22)
+                )
+                100%
+        );
+        --ui-control-active: linear-gradient(
+            180deg,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.129 + var(--ui-p-lift) * 0.4) calc(c * 0.962)
+                        calc(h - 19.1)
+                )
+                0%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.054 + var(--ui-p-lift) * 0.4) calc(c * 1.014)
+                        h
+                )
+                8%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.048 + var(--ui-p-lift) * 0.4) calc(c * 0.886)
+                        h
+                )
+                94%,
+            oklch(
+                    from var(--ui-p-face-lite)
+                        calc(l - 0.007 + var(--ui-p-lift) * 0.4) calc(c * 0.126)
+                        h
+                )
+                100%
+        );
+        --ui-control-edge: oklch(
+            from var(--ui-p-chrome-5) calc(l + 0.042) calc(c * 0.606)
+                calc(h - 10.8)
+        );
+        --ui-control-hot: var(--ui-p-hot);
+        --ui-group-title: oklch(
+            from var(--ui-p-select) calc(var(--ui-p-ink-l) - 0.034)
+                calc(c * 1.466) calc(h + 3.1)
+        );
+        --ui-check-mark: oklch(
+            from var(--ui-p-go) calc(l + 0.099) calc(c * 1.309) calc(h + 0.8)
+        );
+
+        --ui-series-1: #2f6fd6;
+        --ui-series-2: #e8742a;
+        --ui-series-3: #12a08c;
+        --ui-series-4: #c99400;
+        --ui-series-5: #e374a8;
+        --ui-series-6: #3a9a2e;
+        --ui-series-7: #6a54c8;
+        --ui-series-8: #d8453a;
+        --ui-series-other: #8c897d;
+
+        --ui-tone-neutral: var(--ui-p-neutral);
+        --ui-tone-neutral-text: #ffffff;
+        --ui-tone-go: var(--ui-p-go);
+        --ui-tone-go-text: #ffffff;
+        --ui-tone-caution: var(--ui-p-caution);
+        --ui-tone-caution-text: #000000;
+        --ui-tone-danger: var(--ui-p-danger);
+        --ui-tone-danger-text: #ffffff;
+        --ui-tone-neutral-ink: oklch(
+            from var(--ui-p-neutral) calc(var(--ui-p-ink-l) + 0.003)
+                calc(c * 1.137) calc(h + 1.3)
+        );
+        --ui-tone-go-ink: oklch(
+            from var(--ui-p-go) calc(var(--ui-p-ink-l) - 0.036) calc(c * 0.917)
+                calc(h + 0.2)
+        );
+        --ui-tone-caution-ink: oklch(
+            from var(--ui-p-caution) calc(var(--ui-p-ink-l) + 0.008)
+                calc(c * 0.714) calc(h + 3.4)
+        );
+        --ui-tone-danger-ink: oklch(
+            from var(--ui-p-danger) calc(var(--ui-p-ink-l) - 0.003)
+                calc(c * 1.014) calc(h - 1.8)
+        );
+        --ui-tone-gloss: linear-gradient(
+            180deg,
+            rgb(255 255 255 / calc(0.4 * var(--ui-p-gloss))) 0%,
+            rgb(255 255 255 / calc(0.12 * var(--ui-p-gloss))) 30%,
+            rgb(255 255 255 / 0) 50%,
+            rgb(0 0 0 / calc(0.08 * var(--ui-p-shadow))) 100%
+        );
+        --ui-tone-gloss-hover: linear-gradient(
+            180deg,
+            rgb(255 255 255 / calc(0.5 * var(--ui-p-gloss))) 0%,
+            rgb(255 255 255 / calc(0.2 * var(--ui-p-gloss))) 35%,
+            rgb(255 255 255 / calc(0.06 * var(--ui-p-gloss))) 100%
+        );
+        --ui-tone-gloss-active: linear-gradient(
+            180deg,
+            rgb(0 0 0 / calc(0.22 * var(--ui-p-shadow))) 0%,
+            rgb(0 0 0 / calc(0.08 * var(--ui-p-shadow))) 100%
+        );
+
+        --ui-glass-alpha-regular: var(--ui-p-glass-alpha);
+        --ui-glass-alpha-clear: 0.55;
+        --ui-glass-tint-regular: color-mix(
+            in oklab,
+            color-mix(in oklab, var(--ui-p-chrome-1) 38%, var(--ui-p-content))
+                calc(var(--ui-glass-alpha-regular) * 100%),
+            transparent
+        );
+        --ui-glass-tint-clear: oklch(
+            from var(--ui-p-chrome-4) calc(l - 0.074) calc(c * 0.995)
+                calc(h + 3.6) /
+            var(--ui-glass-alpha-clear)
+        );
+        --ui-glass-blur-regular: blur(20px) saturate(1.4);
+        --ui-glass-blur-clear: blur(14px) saturate(1.2);
+        --ui-glass-blur-canvas: blur(6px) saturate(1.1);
+        --ui-glass-rim: inset 1px 1px 0
+            rgb(255 255 255 / calc(0.6 * var(--ui-p-gloss) * var(--ui-p-gloss)));
+        --ui-glass-edge: oklch(
+            from var(--ui-p-chrome-5) calc(l + 0.03) c calc(h + 2.4) /
+            calc(0.45 * var(--ui-p-shadow))
+        );
+        --ui-glass-shadow: 0 10px 28px -8px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.056) calc(c * 0.698)
+                    calc(h + 2.3) /
+                calc(0.45 * var(--ui-p-shadow))
+            );
+
+        --ui-shadow-control: 0 1px 1px
+            rgb(0 0 0 / calc(0.12 * var(--ui-p-shadow) * var(--ui-p-shadow)));
+        --ui-shadow-window:
+            0 2px 6px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.114) calc(c * 0.517)
+                    calc(h - 1.8) /
+                calc(0.25 * var(--ui-p-shadow))
+            ), 0 14px 36px -10px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.114) calc(c * 0.517)
+                    calc(h - 1.8) /
+                calc(0.5 * var(--ui-p-shadow))
+            );
+        --ui-shadow-window-inactive:
+            0 1px 3px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.114) calc(c * 0.517)
+                    calc(h - 1.8) /
+                calc(0.2 * var(--ui-p-shadow))
+            ), 0 8px 20px -10px
+            oklch(
+                from var(--ui-p-chrome-5) calc(l - 0.114) calc(c * 0.517)
+                    calc(h - 1.8) /
+                calc(0.3 * var(--ui-p-shadow))
+            );
+        --ui-shadow-float: 0 18px 48px -12px
+            rgb(0 0 0 / calc(0.55 * var(--ui-p-shadow)));
+    }
+
+    [data-ui-scheme="silver"],
+    [data-ui-scheme="silver"] [data-ui-skin] {
+        --ui-chrome-text-shadow: 1px 1px 0 rgb(255 255 255 / 0.55);
+    }
+
+    [data-ui-scheme="noir"],
+    [data-ui-scheme="noir"] [data-ui-skin] {
+        --ui-series-1: #4a82e8;
+        --ui-series-2: #d96a24;
+        --ui-series-3: #14a08a;
+        --ui-series-4: #b8861c;
+        --ui-series-5: #d66a9e;
+        --ui-series-6: #40a034;
+        --ui-series-7: #8a78e6;
+        --ui-series-8: #e05a4e;
+        --ui-series-other: #7d818c;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        :root {
+            --ui-dur-instant: 60ms;
+            --ui-dur-quick: 70ms;
+            --ui-dur-move: 80ms;
+            --ui-ease-spring: var(--ui-ease-out);
+            --ui-motion-travel: 0;
+        }
+    }
+
+    [data-ui-reduce-motion] {
+        --ui-dur-instant: 60ms;
+        --ui-dur-quick: 70ms;
+        --ui-dur-move: 80ms;
+        --ui-ease-spring: var(--ui-ease-out);
+        --ui-motion-travel: 0;
+    }
+
+    /* biome-ignore lint/correctness/noUnknownMediaFeatureName: prefers-reduced-transparency is Media Queries 5 */
+    @media (prefers-reduced-transparency: reduce) {
+        :root,
+        [data-ui-scheme],
+        [data-ui-skin] {
+            --ui-glass-alpha-regular: 1;
+            --ui-glass-alpha-clear: 1;
+            --ui-glass-blur-regular: none;
+            --ui-glass-blur-clear: none;
+            --ui-glass-blur-canvas: none;
+        }
+    }
+
+    @supports not (
+            (backdrop-filter: blur(1px)) or
+            (-webkit-backdrop-filter: blur(1px))
+        ) {
+        :root,
+        [data-ui-scheme],
+        [data-ui-skin] {
+            --ui-glass-alpha-regular: 1;
+            --ui-glass-alpha-clear: 1;
+            --ui-glass-blur-regular: none;
+            --ui-glass-blur-clear: none;
+            --ui-glass-blur-canvas: none;
+        }
+    }
+
+    [data-ui-reduce-transparency],
+    [data-ui-reduce-transparency] [data-ui-scheme],
+    [data-ui-reduce-transparency] [data-ui-skin] {
+        --ui-glass-alpha-regular: 1;
+        --ui-glass-alpha-clear: 1;
+        --ui-glass-blur-regular: none;
+        --ui-glass-blur-clear: none;
+        --ui-glass-blur-canvas: none;
+    }
+
+    @media (prefers-contrast: more) {
+        :root,
+        [data-ui-scheme],
+        [data-ui-skin] {
+            --ui-glass-alpha-regular: 1;
+            --ui-glass-alpha-clear: 1;
+            --ui-glass-blur-regular: none;
+            --ui-glass-blur-clear: none;
+            --ui-glass-blur-canvas: none;
+            --ui-glass-edge: var(--ui-text);
+            --ui-face-edge: var(--ui-text);
+            --ui-field-edge: var(--ui-text);
+            --ui-control-edge: var(--ui-text);
+            --ui-frame-edge: var(--ui-text);
+            --ui-frame-edge-inactive: var(--ui-text);
+            --ui-chrome-edge: var(--ui-text);
+            --ui-text-muted: var(--ui-text);
+        }
+    }
+
+    [data-ui-contrast="more"],
+    [data-ui-contrast="more"] [data-ui-scheme],
+    [data-ui-contrast="more"] [data-ui-skin] {
+        --ui-glass-alpha-regular: 1;
+        --ui-glass-alpha-clear: 1;
+        --ui-glass-blur-regular: none;
+        --ui-glass-blur-clear: none;
+        --ui-glass-blur-canvas: none;
+        --ui-glass-edge: var(--ui-text);
+        --ui-face-edge: var(--ui-text);
+        --ui-field-edge: var(--ui-text);
+        --ui-control-edge: var(--ui-text);
+        --ui-frame-edge: var(--ui-text);
+        --ui-frame-edge-inactive: var(--ui-text);
+        --ui-chrome-edge: var(--ui-text);
+        --ui-text-muted: var(--ui-text);
+    }
+}

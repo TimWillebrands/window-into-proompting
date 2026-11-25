@@ -1,3 +1,4 @@
+import { Icon, Window } from '@partytown/ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 import NewPersonaButton from './NewPersonaButton';
@@ -7,14 +8,21 @@ const meta = {
     component: NewPersonaButton,
     parameters: {
         layout: 'centered',
-        backgrounds: { default: 'window-body' },
     },
+    globals: { backgrounds: { value: 'window-body' } },
     args: { onCreated: fn() },
     decorators: [
         (Story) => (
-            <div style={{ width: 200, padding: 8, background: '#ECE9D8' }}>
-                <Story />
-            </div>
+            <Window
+                title="Persona Manager"
+                icon={<Icon name="personas" />}
+                className="w-[240px]"
+                bodyClassName="overflow-auto"
+            >
+                <div className="p-2">
+                    <Story />
+                </div>
+            </Window>
         ),
     ],
 } satisfies Meta<typeof NewPersonaButton>;

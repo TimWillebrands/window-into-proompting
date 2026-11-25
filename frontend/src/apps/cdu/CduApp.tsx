@@ -1,5 +1,17 @@
+import {
+    Console,
+    ConsoleLine,
+    type ConsoleTone,
+    Hyperlink,
+    Icon,
+    Post,
+    Stack,
+    TaskPane,
+    TaskPaneSection,
+    WindowLayout,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
     getGetWorldsPartyIdCduQueryKey,
     useGetWorldsPartyIdCdu,
@@ -15,12 +27,17 @@ import {
     mergeLines,
     mindLine,
     prLine,
-    resetLine,
-    reviewWord,
     SAID,
     shortSha,
 } from './cdu-lib';
-import './cdu.css';
+
+const TONES: Record<string, ConsoleTone> = {
+    heard: 'neutral',
+    thought: 'muted',
+    tool: 'go',
+    failed: 'danger',
+    status: 'muted',
+};
 
 interface CduFrame {
     lines?: CduLineSummary[];
@@ -54,137 +71,119 @@ function Terminal() {
     }, [count]);
 
     return (
-        <div className="cd-term" role="log" aria-live="polite">
-            <div className="cd-line cd-muted">C:\CDU&gt; listen</div>
+        <Console role="log" aria-live="polite" className="min-h-[120px] flex-1">
+            <ConsoleLine tone="muted">C:\CDU&gt; listen</ConsoleLine>
             {lines.map((l) => (
-                <div key={l.n} className={`cd-line cd-${l.kind}`}>
-                    <span className="cd-prompt">{linePrefix(l.kind)}</span>{' '}
+                <ConsoleLine
+                    key={l.n}
+                    prompt={linePrefix(l.kind)}
+                    tone={TONES[l.kind] ?? 'default'}
+                >
                     {l.text}
-                </div>
+                </ConsoleLine>
             ))}
             <div ref={end} />
-        </div>
+        </Console>
     );
 }
 
 function State({ cdu }: { cdu: CduOverview }) {
     return (
         <>
-            <p className="cd-state">
-                {!cdu.up
-                    ? 'The CDU is dark'
-                    : cdu.awake
-                      ? `Awake, hearing ${cdu.hearing ?? 'someone'}`
-                      : 'Asleep until spoken to'}
-            </p>
-            {cdu.model ? <p className="cd-state">{cdu.model}</p> : null}
-            <p className="cd-state">{allowanceLine(cdu.allowance)}</p>
-            <h3 className="cd-section">Trunk</h3>
-            {cdu.trunk.length === 0 ? (
-                <p className="cd-state">Nothing the world lacks.</p>
-            ) : (
-                <ul className="cd-commits">
-                    {cdu.trunk.map((c) => (
-                        <li key={c.sha}>
-                            <span className="cd-sha">{shortSha(c.sha)}</span>{' '}
-                            {c.subject}{' '}
-                            <span className="cd-sub">for {c.author}</span>
-                        </li>
-                    ))}
-                </ul>
-            )}
-            {cdu.models.length > 0 ? (
-                <>
-                    <h3 className="cd-section">Minds, cheapest first</h3>
-                    <ul className="cd-commits">
-                        {cdu.models.map((m) => (
-                            <li key={m.id}>
-                                {mindLine(m)}
-                                <span className="cd-sub">{m.label}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </>
-            ) : null}
-            <h3 className="cd-section">Agora</h3>
-            {cdu.pr ? (
-                <p className="cd-state">
-                    <a href={cdu.pr.url} target="_blank" rel="noreferrer">
-                        {cdu.pr.title}
-                    </a>
-                    <span className="cd-sub">
-                        {prLine(cdu.pr)}, {reviewWord(cdu.pr.state)}
-                    </span>
+            <TaskPaneSection
+                title="CDU"
+                icon={<Icon name="cdu" size={32} />}
+                special
+            >
+                <p>
+                    {!cdu.up
+                        ? 'The CDU is dark'
+                        : cdu.awake
+                          ? `Awake, hearing ${cdu.hearing ?? 'someone'}`
+                          : 'Asleep until spoken to'}
                 </p>
-            ) : cdu.trunk === null ? (
-                <p className="cd-state">
-                    The trunk's unpushed state could not be read.
-                </p>
-            ) : cdu.trunk.length > 0 ? (
-                <div className="cd-state">
-                    Nothing is out for review; {cdu.trunk.length}{' '}
-                    {cdu.trunk.length === 1 ? 'commit' : 'commits'} on the trunk
-                    not yet pushed, waiting for end of shift:
-                    <ul>
+                {cdu.model ? <p>{cdu.model}</p> : null}
+                <p>{allowanceLine(cdu.allowance)}</p>
+            </TaskPaneSection>
+            <TaskPaneSection title="Trunk">
+                {cdu.trunk.length === 0 ? (
+                    <p>Nothing the world lacks.</p>
+                ) : (
+                    <Stack as="ul" gap="sm">
                         {cdu.trunk.map((c) => (
-                            <li key={c.sha}>
-                                {shortSha(c.sha)} {c.subject} ({c.author})
+                            <li key={c.sha} className="wrap-anywhere">
+                                {shortSha(c.sha)} {c.subject}{' '}
+                                <span className="block">for {c.author}</span>
                             </li>
                         ))}
-                    </ul>
-                </div>
-            ) : (
-                <p className="cd-state">
-                    {cdu.trunkHead
-                        ? `Pushed to ${shortSha(cdu.trunkHead)} on origin/master; nothing new waiting for review.`
-                        : 'Nothing new waiting for review.'}
-                </p>
-            )}
-            {!cdu.pr && (
-                <p className="cd-sub">
-                    Last tide:{' '}
-                    {cdu.trunkHead
-                        ? `${shortSha(cdu.trunkHead)} on origin/master, no push time recorded.`
-                        : 'origin/master hash unavailable, no push time recorded.'}
-                </p>
-            )}
-            {cdu.resets?.length ? (
-                <ul className="cd-resets">
-                    {cdu.resets.map((r) => (
-                        <li key={`${r.pr}-${r.at}`}>
-                            <span className="cd-sub">
-                                reset after #{r.pr} {r.state.toLowerCase()},{' '}
-                                {r.actor ?? 'actor unknown'}, {resetLine(r.at)}
-                            </span>
-                        </li>
-                    ))}
-                </ul>
+                    </Stack>
+                )}
+            </TaskPaneSection>
+            {cdu.models.length > 0 ? (
+                <TaskPaneSection title="Minds, cheapest first">
+                    <Stack as="ul" gap="sm">
+                        {cdu.models.map((m) => (
+                            <li key={m.id} className="wrap-anywhere">
+                                {mindLine(m)}
+                                <span className="block">{m.label}</span>
+                            </li>
+                        ))}
+                    </Stack>
+                </TaskPaneSection>
             ) : null}
+            <TaskPaneSection title="Agora">
+                {cdu.pr ? (
+                    <p>
+                        <Hyperlink
+                            href={cdu.pr.url}
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            {cdu.pr.title}
+                        </Hyperlink>
+                        <span className="block">{prLine(cdu.pr)}</span>
+                    </p>
+                ) : (
+                    <p>No PR open.</p>
+                )}
+            </TaskPaneSection>
         </>
     );
 }
 
 function Said({ cdu }: { cdu: CduOverview }) {
-    if (cdu.exchanges.length === 0)
-        return <p className="cd-state">Nobody has spoken to it yet.</p>;
+    if (cdu.exchanges.length === 0) return <p>Nobody has spoken to it yet.</p>;
     return (
-        <ul className="cd-said">
+        <Stack>
             {cdu.exchanges.map((e) => (
-                <li key={e.turnId}>
-                    <span className="cd-title">
-                        {e.speakerName} {SAID[e.kind] ?? 'said'}
-                    </span>
+                <Post
+                    key={e.turnId}
+                    variant="flat"
+                    size="compact"
+                    title={`${e.speakerName} ${SAID[e.kind] ?? 'said'}`}
+                    meta={`${exchangeWord(e)}${e.model ? ` · woke ${e.model}` : ''}`}
+                    replies={
+                        e.reply ? (
+                            <Post variant="flat" size="compact">
+                                {e.reply}
+                            </Post>
+                        ) : undefined
+                    }
+                >
                     {e.text}
-                    <span className="cd-sub">
-                        {exchangeWord(e)}
-                        {e.model ? ' · woke ' + e.model : ''}
-                    </span>
-                    {e.reply ? (
-                        <span className="cd-reply">{e.reply}</span>
-                    ) : null}
-                </li>
+                </Post>
             ))}
-        </ul>
+        </Stack>
+    );
+}
+
+function Notice({ children }: { children: ReactNode }) {
+    return (
+        <WindowLayout>
+            <Stack align="center" justify="center">
+                {children}
+            </Stack>
+        </WindowLayout>
     );
 }
 
@@ -201,24 +200,27 @@ export default function CduApp() {
     });
 
     const cdu = overview.data?.status === 200 ? overview.data.data : null;
-    if (!cdu) return <div className="cd-app cd-empty">Connecting…</div>;
+    if (!cdu) return <Notice>Connecting…</Notice>;
     if (!cdu.enabled)
-        return (
-            <div className="cd-app cd-empty">
-                No CDU is configured for this World.
-            </div>
-        );
+        return <Notice>No CDU is configured for this World.</Notice>;
 
     return (
-        <div className="cd-app">
-            <aside className="cd-list">
-                <State cdu={cdu} />
-                <h3 className="cd-section">Spoken to it</h3>
-                <Said cdu={cdu} />
-            </aside>
-            <div className="cd-detail">
+        <WindowLayout
+            scroll="none"
+            taskPaneLabel="CDU"
+            taskPaneWidth="wide"
+            taskPane={
+                <TaskPane>
+                    <State cdu={cdu} />
+                    <TaskPaneSection title="Spoken to it">
+                        <Said cdu={cdu} />
+                    </TaskPaneSection>
+                </TaskPane>
+            }
+        >
+            <Stack pad="md">
                 <Terminal />
-            </div>
-        </div>
+            </Stack>
+        </WindowLayout>
     );
 }

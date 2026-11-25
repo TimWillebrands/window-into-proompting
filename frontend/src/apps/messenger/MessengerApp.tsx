@@ -1,3 +1,22 @@
+import {
+    BuddyList,
+    type BuddyListGroup,
+    type BuddyListItem,
+    ContextMenu,
+    Icon,
+    type MenuEntry,
+    Pane,
+    PictureStack,
+    Stack,
+    StatusBar,
+    StatusBarField,
+    Text,
+    TextBox,
+    Toolbar,
+    ToolbarButton,
+    useContextMenu,
+    WindowLayout,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -6,18 +25,32 @@ import {
     useGetWorldsPartyIdMessengerSuspense,
     useGetWorldsPartyIdSelves,
     usePostWorldsPartyIdMessenger,
+    usePostWorldsPartyIdMessengerChatGroupIdLeave,
+    usePostWorldsPartyIdMessengerGroups,
 } from '#api/party-zone';
+import { useDesktopContext } from '#lib/desktop-context';
 import type { DirectChatSummary } from '../../api/model/directChatSummary';
 import type { LifeSummary } from '../../api/model/lifeSummary';
-import type { SelfSummary } from '../../api/model/selfSummary';
 import Portrait from '../../components/Portrait';
-import { useOpenDirectChat, usePlayerId, WORLD_ID } from '../../lib/world';
+import {
+    notifyOnRefusal,
+    useOpenConversation,
+    usePlayerId,
+    WORLD_ID,
+} from '../../lib/world';
+import {
+    conversationName,
+    groupOf,
+    isGroup,
+    MAX_MEMBERS,
+    names,
+    othersIn,
+    refusal,
+} from './conversations';
 import {
     BuddyIcon,
-    type BuddyStatus,
     clip,
     DisplayPicture,
-    GroupHeader,
     MsnText,
     STATUS_LABEL,
     shortTime,
@@ -26,10 +59,13 @@ import {
     useMessengerSeen,
 } from './msn-ui';
 
+const CHAT = 'chat:';
+
 export default function MessengerApp() {
     const queryClient = useQueryClient();
     const playerId = usePlayerId();
-    const openDirectChat = useOpenDirectChat();
+    const openConversation = useOpenConversation();
+    const { closeWindow } = useDesktopContext();
     const seen = useMessengerSeen((s) => s.seen);
 
     const livesQuery = useGetWorldsPartyIdLivesSuspense(WORLD_ID);
@@ -68,35 +104,103 @@ export default function MessengerApp() {
     );
 
     const [filter, setFilter] = useState('');
-    const [openGroups, setOpenGroups] = useState({
-        chats: true,
-        online: true,
-        busy: true,
-        afk: true,
-    });
-    const toggle = (k: keyof typeof openGroups) =>
-        setOpenGroups((g) => ({ ...g, [k]: !g[k] }));
+    const [selected, setSelected] = useState<string[]>([]);
+    const [collapsed, setCollapsed] = useState<string[]>([]);
+    const [problem, setProblem] = useState<string | null>(null);
+    const [menuFor, setMenuFor] = useState<string | null>(null);
+    const menu = useContextMenu();
 
+    const refresh = () =>
+        queryClient.invalidateQueries({
+            queryKey: getGetWorldsPartyIdMessengerQueryKey(WORLD_ID),
+        });
     const openDm = usePostWorldsPartyIdMessenger({
-        mutation: {
-            onSuccess: () =>
-                queryClient.invalidateQueries({
-                    queryKey: getGetWorldsPartyIdMessengerQueryKey(WORLD_ID),
-                }),
-        },
+        mutation: { onSuccess: refresh },
     });
+    const startGroup = usePostWorldsPartyIdMessengerGroups({
+        mutation: { onSuccess: refresh },
+    });
+    const leave = usePostWorldsPartyIdMessengerChatGroupIdLeave({
+        mutation: { onSuccess: refresh },
+    });
+
+    const picked = contacts.filter((c) => selected.includes(c.personaId));
+
+    const openChat = (chat: DirectChatSummary) =>
+        openConversation(chat.chatGroupId, {
+            name: conversationName(chat, playerId),
+            group: isGroup(chat),
+        });
 
     const startChat = async (personaId: string, name: string) => {
-        const existing = chats.find((c) => c.withId === personaId);
+        setProblem(null);
+        const existing = chats.find(
+            (c) => !isGroup(c) && c.withId === personaId,
+        );
         if (existing) {
-            openDirectChat(existing.chatGroupId, name);
+            openChat(existing);
             return;
         }
-        const res = await openDm.mutateAsync({
-            partyId: WORLD_ID,
-            data: { withPersonaId: personaId, fromPersonaId: playerId },
-        });
-        if (res.data.id) openDirectChat(res.data.id, name);
+        try {
+            const res = await openDm.mutateAsync({
+                partyId: WORLD_ID,
+                data: { withPersonaId: personaId, fromPersonaId: playerId },
+            });
+            if (res.data.id) openConversation(res.data.id, { name });
+        } catch (e) {
+            notifyOnRefusal(e);
+            setProblem(refusal(e, "Couldn't start the conversation."));
+        }
+    };
+
+    const startConversation = async (people: LifeSummary[]) => {
+        if (people.length === 0) return;
+        const [first] = people;
+        if (people.length === 1) {
+            await startChat(first.personaId, first.name);
+            return;
+        }
+        if (people.length + 1 > MAX_MEMBERS) {
+            setProblem(
+                `A conversation holds at most ${MAX_MEMBERS} people, you included.`,
+            );
+            return;
+        }
+        setProblem(null);
+        try {
+            const res = await startGroup.mutateAsync({
+                partyId: WORLD_ID,
+                data: {
+                    participantIds: people.map((p) => p.personaId),
+                    fromPersonaId: playerId,
+                },
+            });
+            const started = groupOf(res);
+            if (!started.id) return;
+            setSelected([]);
+            openConversation(started.id, {
+                name: people.map((p) => p.name).join(', '),
+                group: true,
+            });
+        } catch (e) {
+            notifyOnRefusal(e);
+            setProblem(refusal(e, "Couldn't start the conversation."));
+        }
+    };
+
+    const leaveChat = async (chat: DirectChatSummary) => {
+        setProblem(null);
+        try {
+            await leave.mutateAsync({
+                partyId: WORLD_ID,
+                chatGroupId: chat.chatGroupId,
+                data: { fromPersonaId: playerId },
+            });
+            closeWindow(`dm-${chat.chatGroupId}`);
+        } catch (e) {
+            notifyOnRefusal(e);
+            setProblem(refusal(e, "Couldn't leave the conversation."));
+        }
     };
 
     const q = filter.trim().toLowerCase();
@@ -104,336 +208,319 @@ export default function MessengerApp() {
     const online = contacts.filter((c) => !c.afk && !c.busy && match(c.name));
     const busy = contacts.filter((c) => !c.afk && c.busy && match(c.name));
     const afk = contacts.filter((c) => c.afk && match(c.name));
-    const recent = chats.filter((c) => match(c.withName));
+    const recent = chats.filter(
+        (c) =>
+            match(conversationName(c, playerId)) ||
+            (isGroup(c) && othersIn(c, playerId).some((m) => match(m.name))),
+    );
 
     const playerName = player?.name ?? 'You';
+    const busyWith = (id: string) =>
+        (openDm.isPending && openDm.variables?.data.withPersonaId === id) ||
+        (startGroup.isPending &&
+            !!startGroup.variables?.data.participantIds.includes(id));
+
+    const contactItem = (c: LifeSummary): BuddyListItem => {
+        const self = selfById.get(c.personaId);
+        const status = statusOf(c, self);
+        const note = self?.doing ?? c.lastActivity?.summary;
+        const pending = busyWith(c.personaId);
+        return {
+            id: c.personaId,
+            title: `Send an instant message to ${c.name}`,
+            disabled: pending,
+            picture: <BuddyIcon status={status} />,
+            name: (
+                <>
+                    {c.name}
+                    {status !== 'online' && (
+                        <Text tone="muted"> ({STATUS_LABEL[status]})</Text>
+                    )}
+                    {note && (
+                        <Text tone="muted" italic>
+                            {' '}
+                            - {note}
+                        </Text>
+                    )}
+                </>
+            ),
+            meta: pending ? '…' : undefined,
+        };
+    };
+
+    const chatItem = (c: DirectChatSummary): BuddyListItem => {
+        const group = isGroup(c);
+        const name = conversationName(c, playerId);
+        const others = othersIn(c, playerId);
+        const unread =
+            !!c.lastSenderId &&
+            c.lastSenderId !== playerId &&
+            toMillis(c.lastAt) > (seen[c.chatGroupId] ?? 0);
+        const fromMe = !!playerId && c.lastSenderId === playerId;
+        const sender =
+            group && !fromMe && c.lastSenderId
+                ? c.members.find((m) => m.id === c.lastSenderId)?.name
+                : undefined;
+        const everyone = names(others.map((m) => m.name));
+        return {
+            id: `${CHAT}${c.chatGroupId}`,
+            title: group
+                ? `Open the conversation with ${everyone}`
+                : `Open conversation with ${c.withName}`,
+            unread,
+            picture: group ? (
+                <PictureStack
+                    label={everyone}
+                    pictures={others.map((m) => ({
+                        key: m.id,
+                        picture: <Portrait who={m.id} size={24} />,
+                    }))}
+                />
+            ) : (
+                <Portrait who={c.withId} size={32} />
+            ),
+            name: (
+                <Stack as="span" direction="row" gap="xs" align="center">
+                    {!group && (
+                        <BuddyIcon
+                            status={statusOf(
+                                lifeById.get(c.withId),
+                                selfById.get(c.withId),
+                            )}
+                            size="small"
+                        />
+                    )}
+                    <Stack.Item truncate>{name}</Stack.Item>
+                    {unread && (
+                        <Text tone="caution" strong>
+                            new
+                        </Text>
+                    )}
+                </Stack>
+            ),
+            meta: shortTime(toMillis(c.lastAt)),
+            details: (
+                <>
+                    {fromMe && <Text tone="muted">You: </Text>}
+                    {sender && <Text tone="muted">{sender}: </Text>}
+                    {c.lastMessage ? (
+                        <MsnText text={clip(c.lastMessage, 90)} />
+                    ) : (
+                        <Text italic>No messages yet</Text>
+                    )}
+                </>
+            ),
+        };
+    };
+
+    const groups: BuddyListGroup[] = [
+        ...(recent.length > 0
+            ? [
+                  {
+                      id: 'chats',
+                      title: 'Conversations',
+                      items: recent.map(chatItem),
+                  },
+              ]
+            : []),
+        { id: 'online', title: 'Online', items: online.map(contactItem) },
+        { id: 'busy', title: 'Busy', items: busy.map(contactItem) },
+        ...(afk.length > 0
+            ? [{ id: 'afk', title: 'AFK', items: afk.map(contactItem) }]
+            : []),
+    ];
+
+    const chatOf = (id: string) =>
+        id.startsWith(CHAT)
+            ? chats.find((c) => c.chatGroupId === id.slice(CHAT.length))
+            : undefined;
+
+    const activate = (id: string) => {
+        const chat = chatOf(id);
+        if (chat) {
+            openChat(chat);
+            return;
+        }
+        const life = lifeById.get(id);
+        if (life) void startChat(life.personaId, life.name);
+    };
+
+    const menuItems = (): MenuEntry[] => {
+        if (!menuFor) return [];
+        const chat = chatOf(menuFor);
+        if (chat)
+            return [
+                {
+                    id: 'open',
+                    label: 'Open conversation',
+                    icon: <Icon name="chat" />,
+                    onSelect: () => openChat(chat),
+                },
+                ...(isGroup(chat)
+                    ? [
+                          { type: 'separator' as const },
+                          {
+                              id: 'leave',
+                              label: 'Leave conversation',
+                              icon: <Icon name="door" />,
+                              tone: 'caution' as const,
+                              onSelect: () => void leaveChat(chat),
+                          },
+                      ]
+                    : []),
+            ];
+        const life = lifeById.get(menuFor);
+        if (!life) return [];
+        const im = {
+            id: 'im',
+            label:
+                picked.length > 1
+                    ? `Send an instant message to ${life.name}`
+                    : 'Send an instant message',
+            icon: <Icon name="chat" />,
+            onSelect: () => void startChat(life.personaId, life.name),
+        };
+        if (picked.length < 2) return [im];
+        return [
+            {
+                id: 'start',
+                label: `Start a conversation with ${names(picked.map((p) => p.name))}`,
+                icon: <Icon name="chat-rooms" />,
+                onSelect: () => void startConversation(picked),
+            },
+            im,
+        ];
+    };
+
+    const starting = openDm.isPending || startGroup.isPending;
+    const hint =
+        picked.length > 1
+            ? `${picked.length} selected: start a conversation with them`
+            : 'Double-click to chat, Ctrl-click for a group';
 
     return (
-        <div
-            className="app-surface flex h-full flex-col"
-            style={{
-                background:
-                    'linear-gradient(180deg, #d7e5fa 0%, #eef4fd 90px, #ffffff 160px)',
-            }}
-        >
-            <div
-                className="flex items-center gap-2 px-2 pt-2 pb-2"
-                style={{ borderBottom: '1px solid #b9cdea' }}
-            >
-                <DisplayPicture who={playerName} size={40} />
-                <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1">
-                        <BuddyIcon status="online" size={14} />
-                        <span
-                            className="truncate"
-                            style={{
-                                fontWeight: 700,
-                                fontSize: 12,
-                                color: '#000',
-                            }}
-                        >
-                            {playerName}
-                        </span>
-                        <span style={{ color: '#4a6ea9' }}>(Online)</span>
-                    </div>
-                    <div
-                        className="truncate"
-                        style={{
-                            color: '#6d7b91',
-                            fontStyle: 'italic',
-                            marginTop: 2,
-                        }}
+        <>
+            <WindowLayout
+                scroll="none"
+                contentLabel="Contacts"
+                toolbar={[
+                    <Stack
+                        key="me"
+                        direction="row"
+                        gap="md"
+                        pad="md"
+                        align="center"
                     >
-                        {chats.length > 0
-                            ? `${chats.length} conversation${chats.length === 1 ? '' : 's'}`
-                            : '<Type a personal message>'}
-                    </div>
-                </div>
-            </div>
-
-            <div className="px-2 py-[5px]" style={{ background: '#eef4fd' }}>
-                <input
-                    type="search"
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    placeholder="Find a contact..."
-                    className="w-full"
-                    style={{
-                        border: '1px solid #9db6dc',
-                        borderRadius: 2,
-                        padding: '3px 5px',
-                    }}
-                />
-            </div>
-
-            <div
-                className="flex-1 overflow-y-auto pb-2"
-                style={{ background: '#fff' }}
-            >
-                {recent.length > 0 && (
-                    <>
-                        <GroupHeader
-                            label="Conversations"
-                            count={recent.length}
-                            open={openGroups.chats}
-                            onToggle={() => toggle('chats')}
-                        />
-                        {openGroups.chats &&
-                            recent.map((c) => (
-                                <ConversationRow
-                                    key={c.chatGroupId}
-                                    chat={c}
-                                    status={statusOf(
-                                        lifeById.get(c.withId),
-                                        selfById.get(c.withId),
-                                    )}
-                                    unread={
-                                        !!c.lastSenderId &&
-                                        c.lastSenderId !== playerId &&
-                                        toMillis(c.lastAt) >
-                                            (seen[c.chatGroupId] ?? 0)
-                                    }
-                                    fromMe={
-                                        !!playerId &&
-                                        c.lastSenderId === playerId
-                                    }
-                                    onOpen={() =>
-                                        openDirectChat(
-                                            c.chatGroupId,
-                                            c.withName,
-                                        )
+                        <DisplayPicture who={playerName} size={48} />
+                        <Stack.Item grow>
+                            <Stack gap="xxs">
+                                <Stack direction="row" gap="xs" align="center">
+                                    <BuddyIcon status="online" />
+                                    <Stack.Item truncate>
+                                        <Text strong>{playerName}</Text>
+                                    </Stack.Item>
+                                    <Text tone="muted">(Online)</Text>
+                                </Stack>
+                                <Stack.Item truncate>
+                                    <Text tone="muted" italic>
+                                        {chats.length > 0
+                                            ? `${chats.length} conversation${chats.length === 1 ? '' : 's'}`
+                                            : '<Type a personal message>'}
+                                    </Text>
+                                </Stack.Item>
+                            </Stack>
+                        </Stack.Item>
+                    </Stack>,
+                    <Toolbar key="actions" aria-label="Messenger">
+                        <ToolbarButton
+                            icon={
+                                <Icon
+                                    name={
+                                        picked.length > 1
+                                            ? 'chat-rooms'
+                                            : 'chat'
                                     }
                                 />
-                            ))}
-                    </>
-                )}
-
-                <GroupHeader
-                    label="Online"
-                    count={online.length}
-                    open={openGroups.online}
-                    onToggle={() => toggle('online')}
-                />
-                {openGroups.online &&
-                    online.map((c) => (
-                        <ContactRow
-                            key={c.personaId}
-                            life={c}
-                            self={selfById.get(c.personaId)}
-                            pending={
-                                openDm.isPending &&
-                                openDm.variables?.data.withPersonaId ===
-                                    c.personaId
                             }
-                            onOpen={() => startChat(c.personaId, c.name)}
-                        />
-                    ))}
-
-                <GroupHeader
-                    label="Busy"
-                    count={busy.length}
-                    open={openGroups.busy}
-                    onToggle={() => toggle('busy')}
-                />
-                {openGroups.busy &&
-                    busy.map((c) => (
-                        <ContactRow
-                            key={c.personaId}
-                            life={c}
-                            self={selfById.get(c.personaId)}
-                            pending={
-                                openDm.isPending &&
-                                openDm.variables?.data.withPersonaId ===
-                                    c.personaId
+                            title={
+                                picked.length > 0
+                                    ? `Start a conversation with ${names(picked.map((p) => p.name))}`
+                                    : 'Pick one or more contacts first'
                             }
-                            onOpen={() => startChat(c.personaId, c.name)}
+                            disabled={picked.length === 0 || starting}
+                            onClick={() => void startConversation(picked)}
+                        >
+                            Start a conversation
+                        </ToolbarButton>
+                    </Toolbar>,
+                    <Stack key="find" pad="sm">
+                        <TextBox
+                            type="search"
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value)}
+                            placeholder="Find a contact..."
+                            aria-label="Find a contact"
                         />
-                    ))}
-
-                {afk.length > 0 && (
-                    <GroupHeader
-                        label="AFK"
-                        count={afk.length}
-                        open={openGroups.afk}
-                        onToggle={() => toggle('afk')}
-                    />
-                )}
-                {openGroups.afk &&
-                    afk.map((c) => (
-                        <ContactRow
-                            key={c.personaId}
-                            life={c}
-                            self={selfById.get(c.personaId)}
-                            pending={
-                                openDm.isPending &&
-                                openDm.variables?.data.withPersonaId ===
-                                    c.personaId
-                            }
-                            onOpen={() => startChat(c.personaId, c.name)}
-                        />
-                    ))}
-
-                {contacts.length === 0 && (
-                    <p style={{ color: '#6d7b91', padding: '8px 12px' }}>
-                        Nobody lives in this World yet. Add Personas to the
-                        Party and they'll show up here.
-                    </p>
-                )}
-                {openDm.isError && (
-                    <p style={{ color: '#b8241a', padding: '6px 12px' }}>
-                        Couldn't start the conversation. Try again.
-                    </p>
-                )}
-            </div>
-
-            <div
-                className="flex items-center justify-between px-2 py-[3px]"
-                style={{
-                    borderTop: '1px solid #b9cdea',
-                    background:
-                        'linear-gradient(180deg, #f4f8fe 0%, #dbe7fa 100%)',
-                    color: '#4a6ea9',
-                }}
+                    </Stack>,
+                ]}
+                statusBar={
+                    <StatusBar>
+                        <StatusBarField>
+                            {contacts.length} contact
+                            {contacts.length === 1 ? '' : 's'}
+                        </StatusBarField>
+                        <StatusBarField grow>{hint}</StatusBarField>
+                    </StatusBar>
+                }
             >
-                <span>
-                    {contacts.length} contact{contacts.length === 1 ? '' : 's'}
-                </span>
-                <span style={{ color: '#7c8aa3' }}>
-                    Click a contact to chat
-                </span>
-            </div>
-        </div>
-    );
-}
-
-const ROW_CLASS =
-    'xp-bare mx-1 flex w-[calc(100%-8px)] gap-[6px] pr-1 pl-4 rounded-[3px] border border-transparent bg-transparent text-left cursor-pointer hover:border-[#a9c4ea] hover:bg-[#e6effc] disabled:cursor-wait';
-
-function ContactRow({
-    life,
-    self,
-    pending,
-    onOpen,
-}: {
-    life: LifeSummary;
-    self?: SelfSummary;
-    pending: boolean;
-    onOpen: () => void;
-}) {
-    const status = statusOf(life, self);
-    const note = self?.doing ?? life.lastActivity?.summary;
-    return (
-        <button
-            type="button"
-            className={`${ROW_CLASS} items-center py-[2px]`}
-            title={`Send an instant message to ${life.name}`}
-            onClick={onOpen}
-            disabled={pending}
-        >
-            <BuddyIcon status={status} />
-            <span className="min-w-0 flex-1 truncate">
-                <span style={{ color: '#000' }}>{life.name}</span>
-                {status !== 'online' && (
-                    <span style={{ color: '#7c7c7c' }}>
-                        {' '}
-                        ({STATUS_LABEL[status]})
-                    </span>
-                )}
-                {note && (
-                    <span style={{ color: '#7c8aa3', fontStyle: 'italic' }}>
-                        {' '}
-                        - {note}
-                    </span>
-                )}
-            </span>
-            {pending && <span style={{ color: '#7c8aa3' }}>…</span>}
-        </button>
-    );
-}
-
-function ConversationRow({
-    chat,
-    status,
-    unread,
-    fromMe,
-    onOpen,
-}: {
-    chat: DirectChatSummary;
-    status: BuddyStatus;
-    unread: boolean;
-    fromMe: boolean;
-    onOpen: () => void;
-}) {
-    return (
-        <button
-            type="button"
-            className={`${ROW_CLASS} items-start py-[3px]`}
-            title={`Open conversation with ${chat.withName}`}
-            onClick={onOpen}
-        >
-            <Portrait
-                who={chat.withId}
-                alt=""
-                width={28}
-                height={28}
-                style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 3,
-                    border: '1px solid #b5c8e8',
-                    background: '#fff',
-                    flexShrink: 0,
-                }}
-            />
-            <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1">
-                    <BuddyIcon status={status} size={12} />
-                    <span
-                        className="truncate"
-                        style={{
-                            fontWeight: unread ? 700 : 400,
-                            color: '#000',
-                        }}
-                    >
-                        {chat.withName}
-                    </span>
-                    {unread && (
-                        <span
-                            style={{
-                                background: '#f5a623',
-                                color: '#fff',
-                                fontSize: 9,
-                                fontWeight: 700,
-                                borderRadius: 6,
-                                padding: '0 4px',
-                                lineHeight: '12px',
+                <Stack pad="sm">
+                    <Pane surface="sunken" pad="xs">
+                        <BuddyList
+                            aria-label="Contacts"
+                            groups={groups}
+                            selectionMode="multiple"
+                            selected={selected}
+                            onSelectionChange={(next) =>
+                                setSelected(
+                                    next.some((id) => !id.startsWith(CHAT))
+                                        ? next.filter(
+                                              (id) => !id.startsWith(CHAT),
+                                          )
+                                        : next,
+                                )
+                            }
+                            collapsed={collapsed}
+                            onCollapsedChange={setCollapsed}
+                            onActivate={activate}
+                            onItemContextMenu={(id, at, target) => {
+                                setMenuFor(id);
+                                menu.openAt(at, target);
                             }}
                         >
-                            new
-                        </span>
-                    )}
-                    <span
-                        className="ml-auto"
-                        style={{ color: '#9aa6b8', fontSize: 10 }}
-                    >
-                        {shortTime(toMillis(chat.lastAt))}
-                    </span>
-                </span>
-                <span
-                    className="block truncate"
-                    style={{
-                        color: unread ? '#1d3f73' : '#6d7b91',
-                        fontWeight: unread ? 700 : 400,
-                    }}
-                >
-                    {fromMe && <span style={{ color: '#9aa6b8' }}>You: </span>}
-                    {chat.lastMessage ? (
-                        <MsnText text={clip(chat.lastMessage, 90)} />
-                    ) : (
-                        <em>No messages yet</em>
-                    )}
-                </span>
-            </span>
-        </button>
+                            {contacts.length === 0 && (
+                                <Text as="p" tone="muted" className="px-3 py-2">
+                                    Nobody lives in this World yet. Add Personas
+                                    to the Party and they'll show up here.
+                                </Text>
+                            )}
+                            {problem && (
+                                <Text
+                                    as="p"
+                                    tone="danger"
+                                    className="px-3 py-1.5"
+                                >
+                                    {problem}
+                                </Text>
+                            )}
+                        </BuddyList>
+                    </Pane>
+                </Stack>
+            </WindowLayout>
+            <ContextMenu
+                {...menu.menuProps}
+                label="Contact"
+                items={menuItems()}
+            />
+        </>
     );
 }

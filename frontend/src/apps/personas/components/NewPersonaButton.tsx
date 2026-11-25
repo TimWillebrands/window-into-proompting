@@ -1,3 +1,4 @@
+import { CommandButton, Icon } from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetPersonaQueryKey, usePutPersonaId } from '#api/party-zone';
 
@@ -22,9 +23,9 @@ export default function NewPersonaButton({
     });
 
     return (
-        <button
-            type="button"
+        <CommandButton
             className="w-full"
+            icon={<Icon name="new" />}
             title="Start from a blank persona and write everything yourself"
             disabled={upsertMutation.isPending}
             onClick={() => {
@@ -40,6 +41,6 @@ export default function NewPersonaButton({
             }}
         >
             {upsertMutation.isPending ? 'Creating...' : 'New Persona'}
-        </button>
+        </CommandButton>
     );
 }

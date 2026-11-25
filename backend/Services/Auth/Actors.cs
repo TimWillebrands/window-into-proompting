@@ -33,7 +33,16 @@ public sealed class Actors(IGrainFactory grains)
         var owned = who != own && await grains.GetGrain<IWorldClockGrain>(partyId).IsClaimedAsync(who);
         if (!AccessRules.MaySpeakAs(who, own, IsAdmin(user), owned)) throw new ForbiddenActorException("Someone else is that Player.");
         if (who == own) await RefuseOnAutoAsync(partyId, own);
+        await RequireMemberAsync(partyId, chatGroupId, who);
         return who;
+    }
+
+    private async Task RequireMemberAsync(Guid partyId, Guid chatGroupId, Guid who)
+    {
+        var group = (await grains.GetGrain<IPartyGrain>(partyId).GetChatGroups()).FirstOrDefault(g => g.Id == chatGroupId);
+        if (group?.Kind is not (ChatGroupKinds.Direct or ChatGroupKinds.Group)) return;
+        if (!(await grains.GetGrain<IChatGroupGrain>(chatGroupId).GetParticipantIdsAsync()).Contains(who))
+            throw new ForbiddenActorException("They're not in that conversation.");
     }
 
     public async Task<Guid> RequireRoomAsync(ClaimsPrincipal user, Guid chatGroupId)

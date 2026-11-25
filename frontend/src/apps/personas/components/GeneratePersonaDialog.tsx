@@ -1,5 +1,15 @@
+import {
+    CommandButton,
+    Dialog,
+    FieldRow,
+    Icon,
+    Stack,
+    StatusText,
+    TextArea,
+    TextBox,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getGetPersonaQueryKey, usePutPersonaId } from '#api/party-zone';
 import { personaWsStream } from '#lib/persona-ws-stream';
 
@@ -25,7 +35,6 @@ export default function GeneratePersonaDialog({
     const [isStreaming, setIsStreaming] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
-    const inputId = useId();
     const previewRef = useRef<HTMLTextAreaElement>(null);
     const abortRef = useRef<AbortController | null>(null);
     const queryClient = useQueryClient();
@@ -114,92 +123,16 @@ export default function GeneratePersonaDialog({
     const isPending = isStreaming || isSaving;
 
     return (
-        <div
-            style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'rgba(0,0,0,0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 200,
-            }}
-        >
-            <div className="border border-[#9db2c8] bg-xp-face p-4 w-[400px] shadow-[4px_4px_8px_rgba(0,0,0,0.3)] flex flex-col gap-2">
-                <div className="bg-gradient-to-b from-xp-section-from to-xp-section-to text-white text-[11px] font-semibold px-2 py-[3px]">
-                    Generate Persona
-                </div>
-                <div>
-                    <label
-                        htmlFor={inputId}
-                        style={{
-                            display: 'block',
-                            fontWeight: 600,
-                            marginBottom: '4px',
-                        }}
-                    >
-                        Describe your persona
-                    </label>
-                    <input
-                        id={inputId}
-                        type="text"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.currentTarget.value)}
-                        placeholder="e.g. female punk rock engineer with a twist"
-                        className="w-full"
-                        disabled={isPending}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleGenerate();
-                        }}
-                    />
-                </div>
-
-                {(isStreaming || preview) && (
-                    <div>
-                        <div
-                            style={{
-                                fontWeight: 600,
-                                fontSize: '11px',
-                                marginBottom: '3px',
-                                color: isStreaming ? '#316AC5' : '#000',
-                            }}
-                        >
-                            {isStreaming ? 'Generating...' : 'Generated'}
-                        </div>
-                        <textarea
-                            ref={previewRef}
-                            readOnly
-                            value={preview}
-                            rows={10}
-                            className="w-full"
-                            style={{
-                                fontFamily: 'monospace',
-                                fontSize: '10px',
-                                resize: 'none',
-                                background: '#fff',
-                            }}
-                        />
-                    </div>
-                )}
-
-                {isSaving && (
-                    <p style={{ color: '#808080', fontSize: '11px' }}>
-                        Saving persona...
-                    </p>
-                )}
-                {error && (
-                    <p style={{ color: '#c00', fontSize: '11px' }}>{error}</p>
-                )}
-
-                <div className="flex justify-between" style={{ gap: '6px' }}>
-                    <button
-                        type="button"
-                        onClick={handleCancel}
-                        disabled={isSaving}
-                    >
-                        Cancel
-                    </button>
-                    <button
+        <Dialog
+            contained
+            title="Generate Persona"
+            icon={<Icon name="sparkle" />}
+            onClose={handleCancel}
+            className="w-[400px]"
+            buttons={
+                <>
+                    <CommandButton
+                        isDefault
                         type="button"
                         onClick={handleGenerate}
                         disabled={isPending || !prompt.trim()}
@@ -209,9 +142,48 @@ export default function GeneratePersonaDialog({
                             : isSaving
                               ? 'Saving...'
                               : 'Generate'}
-                    </button>
-                </div>
-            </div>
-        </div>
+                    </CommandButton>
+                    <CommandButton onClick={handleCancel} disabled={isSaving}>
+                        Cancel
+                    </CommandButton>
+                </>
+            }
+        >
+            <Stack gap="md">
+                <FieldRow label="Describe your persona" layout="stacked">
+                    <TextBox
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.currentTarget.value)}
+                        placeholder="e.g. female punk rock engineer with a twist"
+                        disabled={isPending}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleGenerate();
+                        }}
+                    />
+                </FieldRow>
+
+                {(isStreaming || preview) && (
+                    <FieldRow
+                        label={isStreaming ? 'Generating...' : 'Generated'}
+                        layout="stacked"
+                    >
+                        <TextArea
+                            ref={previewRef}
+                            mono
+                            readOnly
+                            value={preview}
+                            rows={10}
+                        />
+                    </FieldRow>
+                )}
+
+                {isSaving && (
+                    <StatusText icon={<Icon name="hourglass" />}>
+                        Saving persona...
+                    </StatusText>
+                )}
+                {error && <StatusText tone="danger">{error}</StatusText>}
+            </Stack>
+        </Dialog>
     );
 }

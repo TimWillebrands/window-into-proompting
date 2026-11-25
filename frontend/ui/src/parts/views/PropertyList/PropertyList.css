@@ -1,0 +1,49 @@
+@layer ui {
+    .ui-property-list {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        gap: var(--ui-space-1) var(--ui-space-4);
+        align-items: baseline;
+        min-width: 0;
+        margin: 0;
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-property-list-row {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: subgrid;
+        align-items: baseline;
+    }
+
+    .ui-property-list[data-layout="stacked"] {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--ui-space-3);
+    }
+
+    .ui-property-list[data-layout="stacked"] .ui-property-list-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+    }
+
+    .ui-property-list-label {
+        color: var(--ui-text-muted);
+    }
+
+    .ui-property-list-label::after {
+        content: ":";
+    }
+
+    .ui-property-list-value {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: var(--ui-space-2);
+        min-width: 0;
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
+}

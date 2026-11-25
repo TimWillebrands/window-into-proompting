@@ -31,8 +31,8 @@ public static partial class CduScreen
 
     private static readonly (string App, string Form)[] Forms =
     {
-        ("places", "the Places: walking about, talking face to face"), ("board", "the Board"), ("messenger", "Messenger, the DMs"),
-        ("rooms", "group chats"), ("together", "being close: hugs, holding hands"), ("calendar", "the calendar of gatherings"),
+        ("places", "the Places: walking about, talking face to face"), ("board", "the Board"), ("messenger", "Messenger: DMs and group chats"),
+        ("together", "being close: hugs, holding hands"), ("calendar", "the calendar of gatherings"),
         ("diary", "diaries"), ("wardrobe", "the wardrobe and the shop"), ("work", "shifts"), ("desk", "company desks"),
         ("practice", "practices: doctors, studios"), ("relations", "relations"), ("cdu", "the CDU"),
     };

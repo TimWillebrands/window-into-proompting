@@ -97,12 +97,27 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
         return "Sent.";
     });
 
-    [McpServerTool(Name = "read_dms", ReadOnly = true), Description("Their DM threads, or with withParticipantId the last messages of that one thread.")]
-    public Task<string> ReadDmsAsync(ClaimsPrincipal user, [Description("The other person; default lists threads.")] Guid? withParticipantId = null, [Description("How many lines, up to 40.")] int count = 15, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    [McpServerTool(Name = "read_dms", ReadOnly = true), Description("Their Messenger conversations, DMs and groups (with conversationId for groups); with withParticipantId or conversationId the last messages of that one.")]
+    public Task<string> ReadDmsAsync(
+        ClaimsPrincipal user,
+        [Description("The other person of a DM; default lists conversations.")] Guid? withParticipantId = null,
+        [Description("A group's conversationId, from this list.")] Guid? conversationId = null,
+        [Description("How many lines, up to 40.")] int count = 15,
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
     {
         var who = await actors.ActAsync(user, World, participantId);
         var names = await NamesAsync();
-        var dms = (await Party.GetChatGroups()).Where(g => g.Kind == ChatGroupKinds.Direct && g.MemberIds?.Contains(who) == true).ToList();
+        var chats = await Party.GetChatGroups();
+        var dms = chats.Where(g => g.Kind == ChatGroupKinds.Direct && g.MemberIds?.Contains(who) == true).ToList();
+        var groups = new List<(ChatGroupInfo Group, List<Guid> Members)>();
+        foreach (var g in chats.Where(g => g.Kind == ChatGroupKinds.Group))
+            if (await Conversations.MembersAsync(grains, g) is var members && members.Contains(who)) groups.Add((g, members));
+        if (conversationId is { } id)
+        {
+            var group = groups.FirstOrDefault(g => g.Group.Id == id).Group ?? throw new McpException("They're not in that group.");
+            var lines = await grains.GetGrain<IChatGroupGrain>(group.Id).GetRecentMessagesAsync(Math.Clamp(count, 1, 40));
+            return string.Join("\n", lines.Select(m => Line(m, names)));
+        }
         if (withParticipantId is { } other)
         {
             var dm = dms.FirstOrDefault(d => d.MemberIds!.Contains(other)) ?? throw new McpException("No thread with them yet; send_dm starts one.");
@@ -116,8 +131,71 @@ public sealed class WorldTools(IGrainFactory grains, Actors actors, IOptions<Mcp
             var last = (await grains.GetGrain<IChatGroupGrain>(dm.Id).GetRecentMessagesAsync(1)).LastOrDefault();
             sb.AppendLine($"{names.GetValueOrDefault(with, "?")} ({with}): {(last is null ? "(empty)" : Line(last, names))}");
         }
-        return sb.Length == 0 ? "No DMs yet." : sb.ToString();
+        foreach (var (group, members) in groups)
+        {
+            var last = (await grains.GetGrain<IChatGroupGrain>(group.Id).GetRecentMessagesAsync(1)).LastOrDefault();
+            var with = Conversations.Names(members.Where(m => m != who && m != Narrator.PersonaId).Select(m => names.GetValueOrDefault(m, "?")));
+            sb.AppendLine($"Group \"{group.Name}\" with {with} (conversationId {group.Id}): {(last is null ? "(empty)" : Line(last, names))}");
+        }
+        return sb.Length == 0 ? "No conversations yet." : sb.ToString();
     });
+
+    [McpServerTool(Name = "start_group"), Description("Start a Messenger group conversation with two or more people (ids from list_participants). It starts fresh; say_in_group writes in it.")]
+    public Task<string> StartGroupAsync(
+        ClaimsPrincipal user,
+        [Description("Who to bring in, at least two.")] List<Guid> participantIds,
+        [Description("A name for the group. Default: the members' names.")] string? name = null,
+        [Description("A first message.")] string? text = null,
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        var who = await actors.ActAsync(user, World, participantId);
+        var group = await Refusable(() => Conversations.StartAsync(grains, World, who, participantIds ?? new List<Guid>(), name));
+        if (!string.IsNullOrWhiteSpace(text))
+            await grains.GetGrain<IChatGroupGrain>(group.Id).SendNewMessageAsync(await actors.SpeakAsync(user, group.Id, who), text.Trim());
+        return $"Started \"{group.Name}\" (conversationId {group.Id}).";
+    });
+
+    [McpServerTool(Name = "invite"), Description("Invite someone into a conversation. From a DM it starts a new group with both of you and them, the DM stays private; into a group it adds them and they can read what was said.")]
+    public Task<string> InviteAsync(
+        ClaimsPrincipal user,
+        [Description("Who to invite, from list_participants.")] Guid personaId,
+        [Description("A group's conversationId from read_dms.")] Guid? conversationId = null,
+        [Description("Or the other person of a DM.")] Guid? withParticipantId = null,
+        [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        var who = await actors.ActAsync(user, World, participantId);
+        var target = conversationId
+            ?? (withParticipantId is { } other
+                ? (await Party.GetChatGroups()).FirstOrDefault(g => g.Kind == ChatGroupKinds.Direct && g.MemberIds is { } m && m.Contains(who) && m.Contains(other))?.Id
+                : null)
+            ?? throw new McpException("Give a group's conversationId or the other person of a DM.");
+        var (group, started) = await Refusable(() => Conversations.InviteAsync(grains, World, who, target, personaId));
+        return started ? $"Started a new group \"{group.Name}\" (conversationId {group.Id})." : $"Added them to \"{group.Name}\".";
+    });
+
+    [McpServerTool(Name = "leave_group", Destructive = true), Description("Leave a Messenger group conversation.")]
+    public Task<string> LeaveGroupAsync(ClaimsPrincipal user, [Description("The group's conversationId from read_dms.")] Guid conversationId, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        var who = await actors.ActAsync(user, World, participantId);
+        var group = await Refusable(() => Conversations.LeaveAsync(grains, World, who, conversationId));
+        return $"Left \"{group.Name}\".";
+    });
+
+    [McpServerTool(Name = "say_in_group"), Description("Write in a Messenger group conversation they're in; Personas answer in their own time. read_dms with conversationId shows it.")]
+    public Task<string> SayInGroupAsync(ClaimsPrincipal user, [Description("The group's conversationId from read_dms.")] Guid conversationId, [Description("The message.")] string text, [Description(Whom)] Guid? participantId = null) => Guard(async () =>
+    {
+        if (string.IsNullOrWhiteSpace(text)) throw new McpException("Write something.");
+        var who = await actors.ActAsync(user, World, participantId);
+        if ((await Party.GetChatGroups()).FirstOrDefault(g => g.Id == conversationId) is not { Kind: ChatGroupKinds.Group }) throw new McpException("No such group.");
+        await grains.GetGrain<IChatGroupGrain>(conversationId).SendNewMessageAsync(await actors.SpeakAsync(user, conversationId, who), text.Trim());
+        return "Sent.";
+    });
+
+    private static async Task<T> Refusable<T>(Func<Task<T>> run)
+    {
+        try { return await run(); }
+        catch (ConversationRefused refused) { throw new McpException(refused.Message); }
+    }
 
     [McpServerTool(Name = "get_notifications", ReadOnly = true), Description("What concerns them lately, newest first: DMs waiting, replies and mentions on the Board, Respect!, gatherings starting, presents. New ones since they last read the tray are marked.")]
     public Task<string> GetNotificationsAsync(ClaimsPrincipal user, [Description(Whom)] Guid? participantId = null) => Guard(async () =>

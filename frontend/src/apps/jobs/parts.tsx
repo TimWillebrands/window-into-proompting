@@ -1,6 +1,18 @@
+import {
+    FieldRow,
+    GroupBox,
+    Hyperlink,
+    Icon,
+    type IconName,
+    PageHeader,
+    Pane,
+    Stack,
+    Text,
+    type Tone,
+} from '@partytown/ui';
 import type { ReactNode } from 'react';
 import type { ProblemDetails } from '../../api/model';
-import { refusal, type Tone } from './jobs-lib';
+import { refusal, signedPercent, toneOf } from './jobs-lib';
 
 export function PageHead({
     icon,
@@ -8,22 +20,26 @@ export function PageHead({
     sub,
     chip,
 }: {
-    icon: string;
+    icon: IconName;
     title: string;
     sub?: string;
     chip?: string;
 }) {
     return (
-        <header className="wk-head">
-            <span className="wk-head-icon" aria-hidden>
-                {icon}
-            </span>
-            <div className="wk-head-text">
-                <h2>{title}</h2>
-                {sub ? <p>{sub}</p> : null}
-            </div>
-            {chip ? <span className="wk-chip">{chip}</span> : null}
-        </header>
+        <PageHeader
+            icon={<Icon name={icon} size={32} />}
+            title={title}
+            description={sub || undefined}
+            aside={chip || undefined}
+        />
+    );
+}
+
+export function Page({ children }: { children: ReactNode }) {
+    return (
+        <Pane pad="lg">
+            <Stack gap="lg">{children}</Stack>
+        </Pane>
     );
 }
 
@@ -34,28 +50,58 @@ export function Card({
     title: string;
     children: ReactNode;
 }) {
+    return <GroupBox title={title}>{children}</GroupBox>;
+}
+
+export function Stats({ children }: { children: ReactNode }) {
     return (
-        <section className="wk-card">
-            <h3>{title}</h3>
-            <div className="wk-card-body">{children}</div>
-        </section>
+        <GroupBox title="Summary">
+            <Stack as="dl" direction="row" wrap gap="lg">
+                {children}
+            </Stack>
+        </GroupBox>
     );
 }
 
-export function Stat({
-    label,
-    value,
-    tone,
+export function Stat({ label, value }: { label: string; value: ReactNode }) {
+    return (
+        <Stack gap="xxs" className="min-w-[120px] flex-1">
+            <dt>{label}</dt>
+            <dd>
+                <Text strong>{value}</Text>
+            </dd>
+        </Stack>
+    );
+}
+
+const INK: Record<ReturnType<typeof toneOf>, Tone | undefined> = {
+    up: 'go',
+    down: 'danger',
+    flat: undefined,
+};
+
+export function Signed({ fraction }: { fraction: number }) {
+    return <Text tone={INK[toneOf(fraction)]}>{signedPercent(fraction)}</Text>;
+}
+
+export function Fields({
+    hidden,
+    children,
 }: {
-    label: string;
-    value: string;
-    tone?: Tone;
+    hidden?: boolean;
+    children: ReactNode;
 }) {
     return (
-        <div className="wk-stat">
-            <span>{label}</span>
-            <strong data-tone={tone}>{value}</strong>
-        </div>
+        <Stack
+            direction="row"
+            wrap
+            align="end"
+            gap="md"
+            rowGap="sm"
+            hidden={hidden}
+        >
+            {children}
+        </Stack>
     );
 }
 
@@ -69,11 +115,37 @@ export function Field({
     children: ReactNode;
 }) {
     return (
-        // biome-ignore lint/a11y/noLabelWithoutControl: the control arrives as children
-        <label className="wk-field" data-grow={grow || undefined}>
-            <span>{label}</span>
+        <FieldRow
+            label={label}
+            layout="stacked"
+            className={grow ? 'min-w-0 flex-[1_1_150px]' : 'flex-none'}
+        >
             {children}
-        </label>
+        </FieldRow>
+    );
+}
+
+export function Actions({ children }: { children: ReactNode }) {
+    return (
+        <Stack direction="row" align="center" gap="sm">
+            {children}
+        </Stack>
+    );
+}
+
+export function Rows({ children }: { children: ReactNode }) {
+    return (
+        <Stack as="ul" gap="xs">
+            {children}
+        </Stack>
+    );
+}
+
+export function Row({ children }: { children: ReactNode }) {
+    return (
+        <Stack as="li" direction="row" align="center" gap="md">
+            {children}
+        </Stack>
     );
 }
 
@@ -85,23 +157,26 @@ export function Jump({
     children: ReactNode;
 }) {
     return (
-        <button
-            type="button"
-            className="xp-bare wk-jump"
+        <Hyperlink
             onClick={(e) => {
                 e.stopPropagation();
                 onClick();
             }}
         >
             {children}
-        </button>
+        </Hyperlink>
     );
 }
 
 export function Refusal({ error }: { error: ProblemDetails | null }) {
-    return error ? <p className="wk-refusal">{refusal(error)}</p> : null;
+    return error ? (
+        <Stack as="p" direction="row" align="center" gap="xs">
+            <Icon name="error" />
+            {refusal(error)}
+        </Stack>
+    ) : null;
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-    return <p className="wk-empty">{children}</p>;
+    return <p>{children}</p>;
 }

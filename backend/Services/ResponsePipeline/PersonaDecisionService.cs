@@ -23,7 +23,6 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         int totalAiRoundsInGroup,
         Func<string, string, bool, Task>? onEvent,
         CancellationToken cancellationToken,
-        string? scenario = null,
         RepairHint? repairHint = null,
         IReadOnlyList<string>? recollections = null,
         IReadOnlyList<string>? stances = null,
@@ -55,7 +54,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
 
         var messages = new List<LlmChatMessage>
         {
-            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, scenario, repairHint, recollections, stances, presence, inPerson) },
+            new() { Role = "system", Content = ShouldRespondSystemPrompt(self, participants, repairHint, recollections, stances, presence, inPerson) },
             new() { Role = "user", Content =
                 ShouldRespondUserPrompt(recentMessages, totalAiRoundsInGroup, recentSelfMessageCount, self, urge) }
         };
@@ -156,17 +155,12 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
     private static string ShouldRespondSystemPrompt(
         SelfView self,
         IReadOnlyList<ParticipantView> participants,
-        string? scenario,
         RepairHint? repairHint,
         IReadOnlyList<string>? recollections,
         IReadOnlyList<string>? stances,
         string? presence = null,
         bool inPerson = false)
     {
-        var scenarioBlock = string.IsNullOrWhiteSpace(scenario)
-            ? string.Empty
-            : $"\n# Setting\n{scenario.Trim()}\nThis is where and when you are. React from inside this scene — don't invent a different time, place, or occasion.\n";
-
         var repairBlock = repairHint is null
             ? string.Empty
             : $"\n# Note\nJust before you spoke, {repairHint.Value.MissedSenderName} said: \"{repairHint.Value.MissedContent}\". You weren't aware of this when you wrote your last message. Consider whether to acknowledge.\n";
@@ -180,7 +174,7 @@ public sealed class PersonaDecisionService(ILlmRouterGrain router, ILogger logge
         return $$"""
 # You are: {{self.Name}}
 {{(string.IsNullOrWhiteSpace(self.Bio) ? "(no bio)" : self.Bio)}}
-{{scenarioBlock}}
+
 # Other people in the room
 {{string.Join("\n", participants.Where(p => p.Id != self.Id).Select(p => Roster.Line(p)))}}
 {{stanceBlock}}{{recollectionsBlock}}{{repairBlock}}

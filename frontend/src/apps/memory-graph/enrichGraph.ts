@@ -1,4 +1,4 @@
-import { PERSON_PALETTE } from './palette';
+import { personColour } from './palette';
 import type {
     EnrichedMemoryGraph,
     EnrichedMemoryLink,
@@ -8,7 +8,7 @@ import type {
 } from './types';
 
 const SOURCE_LABEL: Record<string, string> = {
-    rooms: 'Room',
+    rooms: 'Group',
     messenger: 'DM',
     places: 'Place',
     board: 'Board',
@@ -23,7 +23,7 @@ const ROOM_KIND_SOURCE: Record<string, string> = {
 };
 
 export function sourceLabel(source: string | null | undefined): string {
-    return (source && SOURCE_LABEL[source]) ?? 'Room';
+    return (source && SOURCE_LABEL[source]) ?? 'Conversation';
 }
 
 export function enrichGraph(
@@ -41,10 +41,7 @@ export function enrichGraph(
         .map((n) => n.id)
         .sort();
     const colourById = new Map(
-        participantIds.map((id, i) => [
-            id,
-            PERSON_PALETTE[i % PERSON_PALETTE.length],
-        ]),
+        participantIds.map((id, i) => [id, personColour(i)]),
     );
 
     const nodes: EnrichedMemoryNode[] = graph.nodes.map((node) => {

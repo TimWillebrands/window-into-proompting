@@ -5,17 +5,14 @@ import ProviderEditor from './ProviderEditor';
 const meta = {
     title: 'ConfigPanel/ProviderEditor',
     component: ProviderEditor,
-    parameters: { layout: 'centered' },
+    parameters: { layout: 'fullscreen' },
     args: {
         isNew: false,
         onClose: fn(),
     },
     decorators: [
         (Story) => (
-            <div
-                className="app-surface bg-xp-face"
-                style={{ width: 480, padding: 12 }}
-            >
+            <div className="h-[640px] w-[640px]">
                 <Story />
             </div>
         ),

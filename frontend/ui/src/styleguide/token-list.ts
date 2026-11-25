@@ -1,0 +1,232 @@
+export type TokenGroup = { title: string; tokens: string[] };
+
+export const seriesTokens = [
+    '--ui-series-1',
+    '--ui-series-2',
+    '--ui-series-3',
+    '--ui-series-4',
+    '--ui-series-5',
+    '--ui-series-6',
+    '--ui-series-7',
+    '--ui-series-8',
+    '--ui-series-other',
+] as const;
+
+export const primitiveTokens = [
+    '--ui-p-chrome-1',
+    '--ui-p-chrome-2',
+    '--ui-p-chrome-3',
+    '--ui-p-chrome-4',
+    '--ui-p-chrome-5',
+    '--ui-p-chrome-ink',
+    '--ui-p-desktop',
+    '--ui-p-face',
+    '--ui-p-face-lite',
+    '--ui-p-face-edge',
+    '--ui-p-content',
+    '--ui-p-ink',
+    '--ui-p-select',
+    '--ui-p-hot',
+    '--ui-p-neutral',
+    '--ui-p-go',
+    '--ui-p-caution',
+    '--ui-p-danger',
+] as const;
+
+export const primitiveNumbers = [
+    '--ui-p-ink-l',
+    '--ui-p-glass-alpha',
+    '--ui-p-gloss',
+    '--ui-p-shadow',
+    '--ui-p-lift',
+    '--ui-p-color-scheme',
+] as const;
+
+export const colourGroups: TokenGroup[] = [
+    {
+        title: 'Face (content)',
+        tokens: [
+            '--ui-face',
+            '--ui-face-lite',
+            '--ui-face-edge',
+            '--ui-field',
+            '--ui-field-edge',
+            '--ui-content',
+        ],
+    },
+    {
+        title: 'Text',
+        tokens: [
+            '--ui-text',
+            '--ui-text-muted',
+            '--ui-text-disabled',
+            '--ui-text-on-chrome',
+            '--ui-desktop-text',
+            '--ui-text-error',
+            '--ui-link',
+            '--ui-link-hover',
+        ],
+    },
+    {
+        title: 'Selection and focus',
+        tokens: [
+            '--ui-select',
+            '--ui-select-text',
+            '--ui-select-inactive',
+            '--ui-select-inactive-text',
+            '--ui-focus',
+            '--ui-focus-on-chrome',
+        ],
+    },
+    {
+        title: 'Chrome',
+        tokens: [
+            '--ui-chrome-tint',
+            '--ui-chrome-sheen',
+            '--ui-chrome',
+            '--ui-chrome-deep',
+            '--ui-chrome-shade',
+            '--ui-desktop',
+            '--ui-titlebar',
+            '--ui-titlebar-inactive',
+            '--ui-titlebar-text',
+            '--ui-frame',
+            '--ui-frame-inactive',
+            '--ui-frame-edge',
+            '--ui-frame-edge-inactive',
+            '--ui-taskbar',
+            '--ui-taskbar-button',
+            '--ui-taskbar-button-hover',
+            '--ui-taskbar-button-active',
+            '--ui-chrome-edge',
+            '--ui-close',
+            '--ui-control',
+            '--ui-control-hover',
+            '--ui-control-active',
+            '--ui-control-edge',
+            '--ui-control-hot',
+            '--ui-group-title',
+            '--ui-check-mark',
+            '--ui-glint',
+        ],
+    },
+    {
+        title: 'Tones',
+        tokens: [
+            '--ui-tone-neutral',
+            '--ui-tone-neutral-text',
+            '--ui-tone-go',
+            '--ui-tone-go-text',
+            '--ui-tone-caution',
+            '--ui-tone-caution-text',
+            '--ui-tone-danger',
+            '--ui-tone-danger-text',
+            '--ui-tone-neutral-ink',
+            '--ui-tone-go-ink',
+            '--ui-tone-caution-ink',
+            '--ui-tone-danger-ink',
+            '--ui-tone-gloss',
+            '--ui-tone-gloss-hover',
+            '--ui-tone-gloss-active',
+        ],
+    },
+    {
+        title: 'Series (data)',
+        tokens: [...seriesTokens],
+    },
+    {
+        title: 'Glass tints',
+        tokens: [
+            '--ui-glass-tint-regular',
+            '--ui-glass-tint-clear',
+            '--ui-glass-edge',
+        ],
+    },
+];
+
+export type ContrastPair = {
+    text: string;
+    surface: string;
+    surfaceClass?: string;
+    large?: boolean;
+    solid?: boolean;
+    exempt?: string;
+};
+
+export const contrastPairs: ContrastPair[] = [
+    { text: '--ui-text', surface: '--ui-face' },
+    { text: '--ui-text', surface: '--ui-face-lite' },
+    { text: '--ui-text', surface: '--ui-field' },
+    { text: '--ui-text', surface: '--ui-content' },
+    { text: '--ui-text', surface: '--ui-glass-tint-regular', solid: true },
+    { text: '--ui-text', surface: '--ui-chrome-tint' },
+    { text: '--ui-text-muted', surface: '--ui-face' },
+    { text: '--ui-text-muted', surface: '--ui-content' },
+    {
+        text: '--ui-text-disabled',
+        surface: '--ui-face',
+        exempt: 'disabled controls (WCAG 1.4.3)',
+    },
+    { text: '--ui-link', surface: '--ui-face' },
+    { text: '--ui-link', surface: '--ui-content' },
+    { text: '--ui-link', surface: '--ui-chrome-tint' },
+    {
+        text: '--ui-link',
+        surface: 'task pane heading',
+        surfaceClass: 'ui-taskpane-heading',
+    },
+    { text: '--ui-link-hover', surface: '--ui-face' },
+    { text: '--ui-link-hover', surface: '--ui-content' },
+    { text: '--ui-select-text', surface: '--ui-select' },
+    { text: '--ui-select-inactive-text', surface: '--ui-select-inactive' },
+    { text: '--ui-text-error', surface: '--ui-face' },
+    { text: '--ui-text-error', surface: '--ui-field' },
+    { text: '--ui-group-title', surface: '--ui-face' },
+    { text: '--ui-group-title', surface: '--ui-content' },
+    { text: '--ui-desktop-text', surface: '--ui-desktop' },
+    { text: '--ui-titlebar-text', surface: '--ui-titlebar' },
+    {
+        text: '--ui-titlebar-text',
+        surface: '--ui-titlebar-inactive',
+        exempt: 'inactive window, dimmed on purpose',
+    },
+    { text: '--ui-text-on-chrome', surface: '--ui-taskbar', solid: true },
+    {
+        text: '--ui-text-on-chrome',
+        surface: 'tray',
+        surfaceClass: 'ui-tray',
+        solid: true,
+    },
+    { text: '--ui-text-on-chrome', surface: '--ui-taskbar-button' },
+    { text: '--ui-text-on-chrome', surface: '--ui-taskbar-button-active' },
+    {
+        text: '--ui-titlebar-text',
+        surface: 'Start menu header',
+        surfaceClass: 'ui-start-menu-header',
+        solid: true,
+    },
+    {
+        text: '--ui-titlebar-text',
+        surface: 'Start menu footer',
+        surfaceClass: 'ui-start-menu-footer',
+        solid: true,
+    },
+    {
+        text: 'Start menu places',
+        surface: 'Start menu places',
+        surfaceClass: 'ui-start-menu-places',
+        solid: true,
+    },
+    { text: '--ui-tone-neutral-text', surface: '--ui-tone-neutral' },
+    { text: '--ui-tone-go-text', surface: '--ui-tone-go' },
+    { text: '--ui-tone-caution-text', surface: '--ui-tone-caution' },
+    { text: '--ui-tone-danger-text', surface: '--ui-tone-danger' },
+    { text: '--ui-tone-neutral-ink', surface: '--ui-face' },
+    { text: '--ui-tone-go-ink', surface: '--ui-face' },
+    { text: '--ui-tone-caution-ink', surface: '--ui-face' },
+    { text: '--ui-tone-danger-ink', surface: '--ui-face' },
+    { text: '--ui-tone-neutral-ink', surface: '--ui-content' },
+    { text: '--ui-tone-go-ink', surface: '--ui-content' },
+    { text: '--ui-tone-caution-ink', surface: '--ui-content' },
+    { text: '--ui-tone-danger-ink', surface: '--ui-content' },
+];

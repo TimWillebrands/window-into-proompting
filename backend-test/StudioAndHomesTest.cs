@@ -382,7 +382,7 @@ public partial class PlacesTest
     {
         var (partyId, denise, _) = await _fx.CreateWorldAsync();
         var calendar = _fx.GrainFactory.GetGrain<ICalendarGrain>(partyId);
-        var gathering = await calendar.PlanAsync(denise, "Denise", "Drinks", Guid.NewGuid(), "#kitchen", DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds());
+        var gathering = await calendar.PlanAsync(denise, "Denise", "Drinks", Guid.NewGuid(), "the kitchen", DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds());
 
         Assert.True(await calendar.CancelAsync(gathering.Id));
 

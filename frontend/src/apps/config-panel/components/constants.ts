@@ -1,3 +1,4 @@
+import type { IconName, Tone } from '@partytown/ui';
 import type { LlmProviderEntry } from '../../../api/model/llmProviderEntry';
 
 export const GENERAL = 1;
@@ -27,11 +28,11 @@ export const REASONING_EFFORTS = [
     { value: 5, label: 'Max', hint: 'no limit, can take minutes' },
 ] as const;
 
-export const PROVIDER_STATES = [
-    { label: 'Ready', color: '#afa', border: 'rgba(60,180,60,0.5)' },
-    { label: 'Benched', color: '#fd8', border: 'rgba(255,190,60,0.55)' },
-    { label: 'Offline', color: '#faa', border: 'rgba(220,60,60,0.55)' },
-] as const;
+export const PROVIDER_STATES: ReadonlyArray<{ label: string; tone: Tone }> = [
+    { label: 'Ready', tone: 'go' },
+    { label: 'Benched', tone: 'caution' },
+    { label: 'Offline', tone: 'danger' },
+];
 
 export const BENCHED = 1;
 export const OFFLINE = 2;
@@ -41,7 +42,7 @@ export const PROVIDER_TYPES = {
         label: 'Local server',
         option: 'Local server (Ollama, llama.cpp, …)',
         short: 'Local',
-        icon: '🦙',
+        icon: 'local-server',
         baseUrl: 'http://localhost:11434',
         keyHint: null,
         modelHint: 'e.g. llama3.2',
@@ -50,7 +51,7 @@ export const PROVIDER_TYPES = {
         label: 'OpenRouter',
         option: 'OpenRouter',
         short: 'OpenRouter',
-        icon: '🌐',
+        icon: 'internet',
         baseUrl: 'https://openrouter.ai/api/v1',
         keyHint: 'sk-or-...',
         modelHint: 'e.g. nvidia/llama-3.1-nemotron-ultra-253b-v1:free',
@@ -59,12 +60,12 @@ export const PROVIDER_TYPES = {
         label: 'Claude',
         option: 'Claude (Anthropic API)',
         short: 'Claude',
-        icon: '✳️',
+        icon: 'claude',
         baseUrl: 'https://api.anthropic.com',
         keyHint: 'sk-ant-...',
         modelHint: 'e.g. claude-haiku-5-5',
     },
-} as const;
+} as const satisfies Record<string, { icon: IconName; [key: string]: unknown }>;
 
 export type ProviderType = keyof typeof PROVIDER_TYPES;
 
@@ -83,29 +84,17 @@ export const EMPTY_ENTRY: LlmProviderEntry = {
     isEnabled: true,
 };
 
-export const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '6px 8px',
-    fontSize: 12,
-    background: 'rgba(255,255,255,0.9)',
-    border: '1px solid #7F9DB9',
-    color: '#000',
-    boxSizing: 'border-box',
-};
-
-export const selectStyle: React.CSSProperties = inputStyle;
-
 export const SERIES = [
-    '#2a78d6',
-    '#eb6834',
-    '#1baf7a',
-    '#eda100',
-    '#e87ba4',
-    '#008300',
-    '#6250d6',
-    '#e34948',
+    'var(--ui-series-1)',
+    'var(--ui-series-2)',
+    'var(--ui-series-3)',
+    'var(--ui-series-4)',
+    'var(--ui-series-5)',
+    'var(--ui-series-6)',
+    'var(--ui-series-7)',
+    'var(--ui-series-8)',
 ] as const;
-export const SERIES_OTHER = '#8a8a86';
+export const SERIES_OTHER = 'var(--ui-series-other)';
 
 export const seriesColor = (providers: LlmProviderEntry[], id?: string) => {
     const index = providers.findIndex((p) => p.id === id);
@@ -115,25 +104,14 @@ export const seriesColor = (providers: LlmProviderEntry[], id?: string) => {
 export const shortModel = (p?: LlmProviderEntry) =>
     p?.modelName?.split('/').pop() ?? p?.baseUrl ?? 'No model';
 
-export const SHEET: React.CSSProperties = {
-    background: 'rgba(252,252,251,0.96)',
-    border: '1px solid rgba(255,255,255,0.9)',
-    borderRadius: 14,
-    boxShadow: '0 6px 16px -8px rgba(0,0,0,0.45)',
-    padding: '14px 16px',
-    color: '#0b0b0b',
-};
-
-export const INK_MUTED = '#52514e';
-
 export const SECTIONS = [
     {
         id: 'llm-providers',
         label: 'Language Models',
-        icon: '🤖',
+        icon: 'models',
         description: 'Which models there are and who speaks through which',
     },
-] as const;
+] as const satisfies ReadonlyArray<{ icon: IconName; [key: string]: unknown }>;
 
 export const SECTION_NAMES: Record<string, string> = {
     home: 'Control Panel',

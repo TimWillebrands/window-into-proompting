@@ -1,6 +1,32 @@
+import {
+    ChatLog,
+    ChatMessage,
+    CheckBox,
+    Columns,
+    ComboBox,
+    CommandButton,
+    FieldRow,
+    GroupBox,
+    HudPanel,
+    Icon,
+    ListView,
+    Pane,
+    ProgressBar,
+    Stack,
+    TaskPane,
+    TaskPaneSection,
+    Text,
+    TextBox,
+    Tiles,
+    type Tone,
+    Toolbar,
+    ToolbarButton,
+    WindowLayout,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     lazy,
+    type ReactNode,
     Suspense,
     useEffect,
     useLayoutEffect,
@@ -36,9 +62,9 @@ import { useRoomConversation } from '../../lib/use-room-conversation';
 import { usePlayerId, useWorldEvents, WORLD_ID } from '../../lib/world';
 import type { WorldEventData } from '../../lib/world-bus';
 import GrowingPane from './GrowingPane';
-import PlaceCanvas from './iso/PlaceCanvas';
-import './places.css';
 import { lookOf } from './iso/appearance';
+import FaceGlyph from './iso/FaceGlyph';
+import PlaceCanvas from './iso/PlaceCanvas';
 import { ArrangeTools, MakerTools, PoseBar } from './PlaceTools';
 
 const PlaceScene = lazy(() => import('./scene/PlaceScene'));
@@ -75,12 +101,6 @@ import {
     walkingText,
     workplaceDoor,
 } from './places-lib';
-
-const panel = {
-    background: '#fff',
-    border: '1px solid',
-    borderColor: '#7f9db9 #fff #fff #7f9db9',
-} as const;
 
 export default function PlacesApp() {
     const playerId = usePlayerId();
@@ -151,18 +171,25 @@ export default function PlacesApp() {
         places[0];
 
     return (
-        <div className="pl-app">
-            <Navigator
-                places={navigatorPlaces(places, playerId)}
-                away={awayLines(bodies, allPlaces)}
-                bodies={bodies}
-                me={me}
-                playerId={playerId}
-                selectedId={selected?.id}
-                onSelect={setSelectedId}
-                allEars={allEars}
-                onAllEars={setAllEars}
-            />
+        <WindowLayout
+            taskPaneLabel="Places"
+            taskPaneWidth="wide"
+            taskPane={
+                <Navigator
+                    place={selected}
+                    places={navigatorPlaces(places, playerId)}
+                    away={awayLines(bodies, allPlaces)}
+                    bodies={bodies}
+                    me={me}
+                    playerId={playerId}
+                    selectedId={selected?.id}
+                    onSelect={setSelectedId}
+                    allEars={allEars}
+                    onAllEars={setAllEars}
+                />
+            }
+            contentLabel={selected ? placeLabel(selected, playerId) : 'Places'}
+        >
             {selected ? (
                 <PlaceView
                     place={selected}
@@ -177,9 +204,15 @@ export default function PlacesApp() {
                     allEars={allEars}
                 />
             ) : null}
-        </div>
+        </WindowLayout>
     );
 }
+
+const OCCUPANCY_TONE = {
+    calm: 'neutral',
+    busy: 'caution',
+    full: 'danger',
+} as const satisfies Record<'calm' | 'busy' | 'full', Tone | undefined>;
 
 const ALL_EARS_KEY = 'proompting.places.allEars';
 
@@ -233,6 +266,7 @@ function usePatchBody() {
 }
 
 function Navigator({
+    place,
     places,
     away,
     bodies,
@@ -243,6 +277,7 @@ function Navigator({
     allEars,
     onAllEars,
 }: {
+    place: Place | undefined;
     places: Place[];
     away: { participantId: string; text: string }[];
     bodies: Body[];
@@ -271,104 +306,107 @@ function Navigator({
         ['Homes', places.filter((p) => p.kind === 'home' && !p.vacated)],
         ['Quiet lately', places.filter((p) => p.kind !== 'home' && p.dormant)],
     ];
+    const here = place ? bodiesIn(bodies, place.id).length : 0;
+    const fullness = place
+        ? occupancy(place, here)
+        : { share: 0, level: 'calm' as const };
     return (
-        <nav className="pl-nav" aria-label="Places">
-            <div className="pl-nav-brand">🧭 Navigator</div>
+        <TaskPane>
+            {place ? (
+                <TaskPaneSection
+                    special
+                    collapsible={false}
+                    title={placeLabel(place, playerId)}
+                    icon={<Icon name={placeIcon(place, playerId)} size={32} />}
+                >
+                    {place.description ? (
+                        <p title={place.description}>{place.description}</p>
+                    ) : null}
+                    <p>{here === 0 ? 'Nobody here.' : `${here} here.`}</p>
+                    <ProgressBar
+                        value={fullness.share * 100}
+                        tone={OCCUPANCY_TONE[fullness.level]}
+                        label="How full it is"
+                        valueText={fullness.level}
+                    />
+                </TaskPaneSection>
+            ) : null}
             {sections
                 .filter(([, list]) => list.length > 0)
                 .map(([title, list]) => (
-                    <section key={title} className="pl-pane">
-                        <div className="pl-pane-head">
-                            {title}
-                            <small>
-                                {list.reduce(
-                                    (n, p) => n + bodiesIn(bodies, p.id).length,
-                                    0,
-                                )}{' '}
-                                here
-                            </small>
-                        </div>
-                        {list.map((p) => {
-                            const here = bodiesIn(bodies, p.id);
-                            const going =
-                                !!me &&
-                                me.destPlaceId === p.id &&
-                                me.placeId !== p.id;
-                            const mine =
-                                !!me &&
-                                !going &&
-                                (me.destPlaceId ?? me.placeId) === p.id;
-                            const occ = occupancy(p, here.length);
-                            return (
-                                <button
-                                    key={p.id}
-                                    type="button"
-                                    className="pl-room"
-                                    aria-current={p.id === selectedId}
-                                    onClick={() => p.id && onSelect(p.id)}
-                                >
-                                    <span className="pl-room-icon">
-                                        {placeIcon(p, playerId)}
-                                    </span>
-                                    <span className="pl-room-name">
-                                        {placeLabel(p, playerId)}
-                                        {mine ? (
-                                            <span className="pl-you">YOU</span>
-                                        ) : going ? (
-                                            <span
-                                                className="pl-you pl-you--going"
-                                                title="On your way"
-                                            >
-                                                🚶
-                                            </span>
-                                        ) : null}
-                                    </span>
-                                    <span
-                                        className="pl-occ"
-                                        title={`${here.length} here`}
-                                    >
-                                        <span
-                                            className="pl-occ-bar"
-                                            data-level={occ.level}
-                                        >
-                                            <i
-                                                style={{
-                                                    width: `${Math.max(here.length ? 12 : 0, occ.share * 100)}%`,
-                                                }}
+                    <TaskPaneSection
+                        key={title}
+                        title={title}
+                        aside={`${list.reduce(
+                            (n, p) => n + bodiesIn(bodies, p.id).length,
+                            0,
+                        )} here`}
+                    >
+                        <ListView
+                            view="tiles"
+                            tileSize="compact"
+                            label={title}
+                            selected={selectedId ? [selectedId] : []}
+                            onSelectionChange={(ids) =>
+                                ids[0] && onSelect(ids[0])
+                            }
+                            items={list
+                                .filter((p) => !!p.id)
+                                .map((p) => {
+                                    const inside = bodiesIn(bodies, p.id);
+                                    const going =
+                                        !!me &&
+                                        me.destPlaceId === p.id &&
+                                        me.placeId !== p.id;
+                                    const mine =
+                                        !!me &&
+                                        !going &&
+                                        (me.destPlaceId ?? me.placeId) === p.id;
+                                    const occ = occupancy(p, inside.length);
+                                    return {
+                                        id: p.id ?? '',
+                                        label: placeLabel(p, playerId),
+                                        icon: (
+                                            <Icon
+                                                name={placeIcon(p, playerId)}
+                                                size={32}
                                             />
-                                        </span>
-                                        {here.length}
-                                    </span>
-                                    <span className="pl-room-who">
-                                        {here.length === 0
-                                            ? 'nobody around'
-                                            : here
-                                                  .map(
-                                                      (b) =>
-                                                          (b.name ?? '').split(
-                                                              ' ',
-                                                          )[0],
-                                                  )
-                                                  .join(', ')}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </section>
+                                        ),
+                                        details: [
+                                            `${mine ? "You're here · " : going ? 'On your way · ' : ''}${inside.length} here${occ.level === 'calm' ? '' : ` · ${occ.level}`}`,
+                                            inside.length === 0
+                                                ? 'nobody around'
+                                                : inside
+                                                      .map(
+                                                          (b) =>
+                                                              (
+                                                                  b.name ?? ''
+                                                              ).split(' ')[0],
+                                                      )
+                                                      .join(', '),
+                                        ],
+                                    };
+                                })}
+                        />
+                    </TaskPaneSection>
                 ))}
             {away.length > 0 ? (
-                <section className="pl-pane">
-                    <div className="pl-pane-head">
-                        Away
-                        <small>{away.length} offscreen</small>
-                    </div>
+                <TaskPaneSection
+                    title="Away"
+                    aside={`${away.length} offscreen`}
+                >
                     {away.map((line) => (
-                        <div key={line.participantId} className="pl-away">
-                            {line.text}{' '}
+                        <Stack
+                            key={line.participantId}
+                            direction="row"
+                            align="center"
+                            justify="between"
+                            gap="md"
+                        >
+                            <Stack.Item>{line.text}</Stack.Item>
                             {playerId ? (
-                                <button
-                                    type="button"
-                                    className="pl-grow-act"
+                                <CommandButton
+                                    size="small"
                                     disabled={visit.isPending}
                                     onClick={() =>
                                         visit.mutate(
@@ -390,25 +428,23 @@ function Navigator({
                                     }
                                 >
                                     Visit
-                                </button>
+                                </CommandButton>
                             ) : null}
-                        </div>
+                        </Stack>
                     ))}
-                </section>
+                </TaskPaneSection>
             ) : null}
             {allEars ? <GrowingPane /> : null}
-            <label
-                className="pl-nav-foot"
-                title="Author view: hear Place talk beyond your Earshot, and build things"
-            >
-                <input
-                    type="checkbox"
+            <TaskPaneSection title="Author" collapsible={false}>
+                <CheckBox
+                    title="Author view: hear Place talk beyond your Earshot, and build things"
                     checked={allEars}
                     onChange={(e) => onAllEars(e.currentTarget.checked)}
-                />{' '}
-                All ears (author)
-            </label>
-        </nav>
+                >
+                    All ears (author)
+                </CheckBox>
+            </TaskPaneSection>
+        </TaskPane>
     );
 }
 
@@ -529,58 +565,70 @@ function PlaceView({
     const here = bodies.length;
     const pops =
         knockers.length > 0 || profiled ? (
-            <div className="pl-pops">
-                {knockers.map((id) => (
-                    <div
-                        key={id}
-                        className="pl-card pl-card--note flex items-center"
-                        style={{ gap: 6 }}
-                    >
-                        🚪{' '}
-                        <strong>
-                            {allBodies.find((b) => b.participantId === id)
-                                ?.name ?? 'Someone'}
-                        </strong>{' '}
-                        {workplaceDoor(place)
-                            ? 'is at the door.'
-                            : 'is knocking at your door.'}
-                        <button
-                            type="button"
-                            className="pl-btn pl-btn--go pl-btn--small"
-                            style={{ marginLeft: 'auto' }}
-                            disabled={letIn.isPending}
-                            onClick={() =>
-                                letIn.mutate({
-                                    partyId: WORLD_ID,
-                                    data: { visitorId: id, ownerId: playerId },
-                                })
+            <Pane grow={false} className="w-[420px] max-w-full">
+                <Stack gap="sm">
+                    {knockers.map((id) => (
+                        <HudPanel
+                            key={id}
+                            role="status"
+                            icon={<Icon name="door" />}
+                            title={
+                                allBodies.find((b) => b.participantId === id)
+                                    ?.name ?? 'Someone'
                             }
                         >
-                            Let in
-                        </button>
-                    </div>
-                ))}
-                {profiled ? (
-                    <BodyProfile
-                        body={profiled}
-                        canEdit={profiled.participantId === playerId || allEars}
-                        isMe={profiled.participantId === playerId}
-                        onClose={() => setProfileId(null)}
-                    />
-                ) : null}
-            </div>
+                            <Stack direction="row" align="center" gap="md">
+                                <Stack.Item grow>
+                                    {workplaceDoor(place)
+                                        ? 'is at the door.'
+                                        : 'is knocking at your door.'}
+                                </Stack.Item>
+                                <CommandButton
+                                    size="small"
+                                    tone="go"
+                                    disabled={letIn.isPending}
+                                    onClick={() =>
+                                        letIn.mutate({
+                                            partyId: WORLD_ID,
+                                            data: {
+                                                visitorId: id,
+                                                ownerId: playerId,
+                                            },
+                                        })
+                                    }
+                                >
+                                    Let in
+                                </CommandButton>
+                            </Stack>
+                        </HudPanel>
+                    ))}
+                    {profiled ? (
+                        <BodyProfile
+                            body={profiled}
+                            canEdit={
+                                profiled.participantId === playerId || allEars
+                            }
+                            isMe={profiled.participantId === playerId}
+                            onClose={() => setProfileId(null)}
+                        />
+                    ) : null}
+                </Stack>
+            </Pane>
         ) : null;
     const hud = (
         <>
-            <div className="pl-plate">
-                <span className="pl-room-icon">
-                    {placeIcon(place, playerId)}
-                </span>
-                {placeLabel(place, playerId)}
-                <span style={{ fontWeight: 'normal', opacity: 0.8 }}>
-                    · {here === 0 ? 'empty' : `${here} here`}
-                </span>
-            </div>
+            <Stack
+                align="start"
+                gap="md"
+                pad="md"
+                className="pointer-events-none absolute inset-0 pr-14 pb-28"
+            >
+                <HudPanel
+                    icon={<Icon name={placeIcon(place, playerId)} />}
+                    title={`${placeLabel(place, playerId)} · ${here === 0 ? 'empty' : `${here} here`}`}
+                />
+                {pops}
+            </Stack>
             {me && travelling ? (
                 <Travel
                     me={me}
@@ -589,37 +637,42 @@ function PlaceView({
                     onTurnBack={turnBack}
                 />
             ) : null}
-            {pops}
-            {amHere && me && !arranging ? (
-                <PoseBar
-                    place={place}
-                    me={me}
-                    bodies={allBodies}
-                    bottom={situation && !travelling ? 42 : 10}
-                />
-            ) : null}
-            {situation && !travelling ? (
-                <div className="pl-caption" title={situation}>
-                    {situation}
-                </div>
-            ) : null}
+            <Stack
+                align="center"
+                gap="md"
+                pad="md"
+                className="pointer-events-none absolute inset-x-0 bottom-0"
+            >
+                {amHere && me && !arranging ? (
+                    <PoseBar
+                        place={place}
+                        me={me}
+                        bodies={allBodies}
+                        floating
+                    />
+                ) : null}
+                {situation && !travelling ? (
+                    <HudPanel className="self-stretch">
+                        <Stack.Item
+                            truncate
+                            className="hover:whitespace-normal"
+                            title={situation}
+                        >
+                            {situation}
+                        </Stack.Item>
+                    </HudPanel>
+                ) : null}
+            </Stack>
         </>
     );
 
     return (
-        <main className="pl-stage">
-            <header className="pl-roombar">
-                <div className="min-w-0 flex-1">
-                    <h3>{placeLabel(place, playerId)}</h3>
-                    <p title={place.description ?? undefined}>
-                        {place.description}
-                    </p>
-                </div>
-                <div className="pl-actions">
+        <Stack gap="md" pad="md">
+            {canKnock || canGo || (mayArrange && !arranging) ? (
+                <Toolbar aria-label="Place tasks">
                     {canKnock ? (
-                        <button
-                            type="button"
-                            className="pl-btn pl-btn--warm"
+                        <ToolbarButton
+                            icon={<Icon name="door" />}
                             disabled={knock.isPending || knock.isSuccess}
                             onClick={() =>
                                 place.id &&
@@ -632,34 +685,33 @@ function PlaceView({
                                 })
                             }
                         >
-                            🚪 {knock.isSuccess ? 'Knocked…' : 'Knock'}
-                        </button>
+                            {knock.isSuccess ? 'Knocked…' : 'Knock'}
+                        </ToolbarButton>
                     ) : null}
                     {canGo ? (
-                        <button
-                            type="button"
-                            className="pl-btn pl-btn--go"
+                        <ToolbarButton
+                            icon={<Icon name="forward" />}
                             onClick={() => goTo()}
                             disabled={move.isPending}
                         >
-                            ➜ Go here
-                        </button>
+                            Go here
+                        </ToolbarButton>
                     ) : null}
                     {mayArrange && !arranging ? (
-                        <button
-                            type="button"
-                            className="pl-btn pl-btn--ghost"
+                        <ToolbarButton
+                            icon={<Icon name="chair" />}
                             onClick={() => setArranging(true)}
                         >
-                            🪑 Arrange
-                        </button>
+                            Arrange
+                        </ToolbarButton>
                     ) : null}
-                </div>
-            </header>
+                </Toolbar>
+            ) : null}
             {!playerId ? (
-                <div className="pl-card pl-card--note">
+                <Stack as="p" direction="row" align="center" gap="md">
+                    <Icon name="info" />
                     Sign in on the Welcome screen to have a body here.
-                </div>
+                </Stack>
             ) : null}
             {allEars ? <MakerTools place={place} playerId={playerId} /> : null}
             {arranging && mayArrange ? (
@@ -688,10 +740,13 @@ function PlaceView({
             {webgl2 ? (
                 <Suspense
                     fallback={
-                        <div
-                            className="pl-view"
-                            style={{ flex: '1 0 240px', background: '#1b2238' }}
-                        />
+                        <Stack
+                            align="center"
+                            justify="center"
+                            className="min-h-[240px] flex-[1_0_240px]"
+                        >
+                            <ProgressBar marquee label="Loading the Place" />
+                        </Stack>
                     }
                 >
                     <PlaceScene
@@ -726,164 +781,180 @@ function PlaceView({
                 </Suspense>
             ) : (
                 <>
-                    {pops}
                     {situation ? (
-                        <div className="pl-card pl-card--note">{situation}</div>
+                        <Stack as="p" direction="row" align="start" gap="md">
+                            <Icon name="info" />
+                            {situation}
+                        </Stack>
                     ) : null}
                     {amHere && me ? (
                         <PoseBar place={place} me={me} bodies={allBodies} />
                     ) : null}
-                    <PlaceCanvas
-                        place={place}
-                        bodies={allBodies}
-                        furni={furni}
-                        playerId={playerId}
-                        allEars={allEars}
-                        onBodyClick={setProfileId}
-                        onSpotClick={onSpot}
-                    />
+                    <div className="relative">
+                        <PlaceCanvas
+                            place={place}
+                            bodies={allBodies}
+                            furni={furni}
+                            playerId={playerId}
+                            allEars={allEars}
+                            onBodyClick={setProfileId}
+                            onSpotClick={onSpot}
+                        />
+                        {pops ? (
+                            <Stack
+                                pad="md"
+                                className="pointer-events-none absolute inset-0"
+                            >
+                                {pops}
+                            </Stack>
+                        ) : null}
+                    </div>
                 </>
             )}
-            <div className="pl-lower" data-tab={tab}>
-                <div className="pl-tabs" role="tablist">
-                    <button
-                        type="button"
-                        role="tab"
-                        aria-selected={tab === 'talk'}
-                        onClick={() => setTab('talk')}
-                    >
-                        💬 Talk
-                    </button>
-                    <button
-                        type="button"
-                        role="tab"
-                        aria-selected={tab === 'spots'}
-                        onClick={() => setTab('spots')}
-                    >
-                        🪑 Spots · {here}
-                    </button>
-                </div>
-                <div className="pl-spots">
-                    {amHere && ownHome ? (
-                        <DecorateForm playerId={playerId} />
-                    ) : null}
-                    {(place.spots ?? []).map((s) => {
-                        const at = bodies.filter((b) => bodySpotId(b) === s.id);
-                        const capacity = Number(s.capacity ?? 1);
-                        const full = at.length >= capacity;
-                        const mineSpot = at.some(
-                            (b) => b.participantId === playerId,
-                        );
-                        const things = furni.filter((f) => f.spotId === s.id);
-                        return (
-                            <div
-                                key={s.id}
-                                className="pl-spot"
-                                data-mine={mineSpot}
-                            >
-                                <div className="pl-spot-head">
-                                    <strong title={s.name ?? ''}>
-                                        {s.name}
-                                    </strong>
-                                    <span
-                                        className="pl-seats"
-                                        title={`${at.length} of ${capacity}`}
-                                    >
-                                        {Array.from(
-                                            { length: capacity },
-                                            (_, n) => (
-                                                <i
-                                                    key={`${s.id}-seat-${n}`}
-                                                    data-on={n < at.length}
-                                                />
-                                            ),
-                                        )}
-                                    </span>
-                                    {amHere && !mineSpot && !full ? (
-                                        <button
-                                            type="button"
-                                            className="pl-btn pl-btn--small"
-                                            disabled={move.isPending}
-                                            onClick={() => goTo(s.id)}
-                                        >
-                                            Go
-                                        </button>
-                                    ) : null}
-                                </div>
-                                <div className="pl-spot-body">
-                                    {at.length > 0 ? (
-                                        <div
-                                            className="flex flex-wrap"
-                                            style={{ gap: 3 }}
-                                        >
-                                            {at.map((b) => (
-                                                <BodyChip
-                                                    key={b.participantId}
-                                                    body={b}
-                                                    isMe={
-                                                        b.participantId ===
-                                                        playerId
-                                                    }
-                                                    onClick={() =>
-                                                        setProfileId(
-                                                            b.participantId ??
-                                                                null,
-                                                        )
-                                                    }
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <span style={{ color: '#97a3bd' }}>
-                                            nobody
-                                        </span>
-                                    )}
-                                    {things.map((f) => (
-                                        <FurniRow
-                                            key={f.furniId}
-                                            furni={f}
-                                            canAct={amHere}
-                                            playerId={playerId}
-                                            onOpen={
-                                                ownHome
-                                                    ? () => setLaptopOpen(true)
-                                                    : undefined
-                                            }
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-                {amHere && place.talkRoomId ? (
-                    <PlaceTalk
-                        shown={tab === 'talk'}
-                        roomId={place.talkRoomId}
-                        playerId={playerId}
-                        allEars={allEars}
-                        nearby={bodies.filter(
-                            (b) =>
-                                b.participantId !== playerId &&
-                                !b.destPlaceId &&
-                                b.spotId === me?.spotId,
-                        )}
-                    />
-                ) : (
-                    <div className="pl-chat">
-                        <div className="pl-chat-head">💬 Talk here</div>
-                        <div
-                            className="pl-chat-log"
-                            style={{ color: '#7a86a0' }}
+            <Columns
+                narrow="one"
+                narrowBelow={640}
+                show={tab === 'spots' ? 0 : 1}
+                className="h-[236px]"
+                switcher={
+                    <Toolbar aria-label="Show">
+                        <ToolbarButton
+                            icon={<Icon name="chat" />}
+                            pressed={tab === 'talk'}
+                            onClick={() => setTab('talk')}
                         >
-                            {amHere
-                                ? 'Nobody to talk to here yet.'
-                                : 'Go here to hear what people are saying.'}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </main>
+                            Talk
+                        </ToolbarButton>
+                        <ToolbarButton
+                            icon={<Icon name="chair" />}
+                            pressed={tab === 'spots'}
+                            onClick={() => setTab('spots')}
+                        >
+                            Spots · {here}
+                        </ToolbarButton>
+                    </Toolbar>
+                }
+            >
+                <Columns.Column weight={1.2}>
+                    <Pane>
+                        <Tiles minWidth="150px">
+                            {amHere && ownHome ? (
+                                <DecorateForm playerId={playerId} />
+                            ) : null}
+                            {(place.spots ?? []).map((s) => {
+                                const at = bodies.filter(
+                                    (b) => bodySpotId(b) === s.id,
+                                );
+                                const capacity = Number(s.capacity ?? 1);
+                                const full = at.length >= capacity;
+                                const mineSpot = at.some(
+                                    (b) => b.participantId === playerId,
+                                );
+                                const things = furni.filter(
+                                    (f) => f.spotId === s.id,
+                                );
+                                return (
+                                    <GroupBox
+                                        key={s.id}
+                                        title={`${s.name ?? ''} · ${at.length}/${capacity}`}
+                                        current={mineSpot}
+                                        icon={
+                                            mineSpot ? (
+                                                <Icon name="location" />
+                                            ) : undefined
+                                        }
+                                        className="gap-1"
+                                    >
+                                        {at.length > 0 ? (
+                                            <Stack
+                                                direction="row"
+                                                wrap
+                                                gap="xs"
+                                            >
+                                                {at.map((b) => (
+                                                    <BodyChip
+                                                        key={b.participantId}
+                                                        body={b}
+                                                        isMe={
+                                                            b.participantId ===
+                                                            playerId
+                                                        }
+                                                        onClick={() =>
+                                                            setProfileId(
+                                                                b.participantId ??
+                                                                    null,
+                                                            )
+                                                        }
+                                                    />
+                                                ))}
+                                            </Stack>
+                                        ) : (
+                                            <span>nobody</span>
+                                        )}
+                                        {amHere && !mineSpot && !full ? (
+                                            <CommandButton
+                                                size="small"
+                                                className="justify-self-start"
+                                                disabled={move.isPending}
+                                                onClick={() => goTo(s.id)}
+                                            >
+                                                Go
+                                            </CommandButton>
+                                        ) : null}
+                                        {things.map((f) => (
+                                            <FurniRow
+                                                key={f.furniId}
+                                                furni={f}
+                                                canAct={amHere}
+                                                playerId={playerId}
+                                                onOpen={
+                                                    ownHome
+                                                        ? () =>
+                                                              setLaptopOpen(
+                                                                  true,
+                                                              )
+                                                        : undefined
+                                                }
+                                            />
+                                        ))}
+                                    </GroupBox>
+                                );
+                            })}
+                        </Tiles>
+                    </Pane>
+                </Columns.Column>
+                <Columns.Column>
+                    {amHere && place.talkRoomId ? (
+                        <PlaceTalk
+                            shown={tab === 'talk'}
+                            roomId={place.talkRoomId}
+                            playerId={playerId}
+                            allEars={allEars}
+                            nearby={bodies.filter(
+                                (b) =>
+                                    b.participantId !== playerId &&
+                                    !b.destPlaceId &&
+                                    b.spotId === me?.spotId,
+                            )}
+                        />
+                    ) : (
+                        <GroupBox
+                            title="Talk here"
+                            icon={<Icon name="chat" />}
+                            fill
+                        >
+                            <ChatLog aria-label="Talk here">
+                                <TalkNote>
+                                    {amHere
+                                        ? 'Nobody to talk to here yet.'
+                                        : 'Go here to hear what people are saying.'}
+                                </TalkNote>
+                            </ChatLog>
+                        </GroupBox>
+                    )}
+                </Columns.Column>
+            </Columns>
+        </Stack>
     );
 }
 
@@ -905,36 +976,38 @@ function Travel({
     const share = end > start ? Math.min(1, (now - start) / (end - start)) : 1;
     const to = places.find((p) => p.id === me.destPlaceId);
     const from = places.find((p) => p.id === me.placeId);
+    const remaining =
+        left > 0
+            ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+            : 'arriving…';
     return (
-        <output className="pl-travel">
-            <span className="pl-travel-walker">🚶</span>
-            <div className="pl-travel-main">
-                <div className="pl-travel-line">
-                    <b>
-                        {from ? `${placeLabel(from, playerId)} → ` : ''}
-                        {placeLabel(to, playerId)}
-                    </b>
-                    <small>
-                        {left > 0
-                            ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
-                            : 'arriving…'}
-                    </small>
-                </div>
-                <div className="pl-travel-bar">
-                    <i style={{ width: `${share * 100}%` }} />
-                </div>
-            </div>
-            {from && left > 0 ? (
-                <button
-                    type="button"
-                    className="pl-btn pl-btn--small"
-                    title={`Go back to ${placeLabel(from, playerId)}`}
-                    onClick={onTurnBack}
-                >
-                    ↩ Back
-                </button>
-            ) : null}
-        </output>
+        <HudPanel
+            anchor="top"
+            role="status"
+            icon={<Icon name="walk" />}
+            title={`${from ? `${placeLabel(from, playerId)} → ` : ''}${placeLabel(to, playerId)}`}
+            className="w-[380px]"
+        >
+            <Stack direction="row" align="center" gap="md">
+                <ProgressBar
+                    className="min-w-0 flex-1"
+                    value={share * 100}
+                    label="On the way"
+                    valueText={remaining}
+                />
+                <span>{remaining}</span>
+                {from && left > 0 ? (
+                    <CommandButton
+                        size="small"
+                        icon={<Icon name="undo" />}
+                        title={`Go back to ${placeLabel(from, playerId)}`}
+                        onClick={onTurnBack}
+                    >
+                        Back
+                    </CommandButton>
+                ) : null}
+            </Stack>
+        </HudPanel>
     );
 }
 
@@ -966,62 +1039,38 @@ function BodyProfile({
               .join(', ')
         : null;
     return (
-        <div
-            className="flex items-start"
-            style={{
-                ...panel,
-                padding: '4px 6px',
-                gap: 8,
-                background: '#f3f7ff',
-            }}
+        <HudPanel
+            icon={<Icon name={postureIcon(body)} size={32} />}
+            title={`${body.name}${isMe ? ' (you)' : ''}${body.isHuman ? ' (human)' : ''}`}
+            onClose={onClose}
         >
-            <span style={{ fontSize: 22 }}>{postureIcon(body)}</span>
-            <div className="min-w-0 flex-1">
-                <strong>
-                    {body.name}
-                    {isMe ? ' (you)' : ''}
-                </strong>
-                {body.isHuman ? (
-                    <span style={{ color: '#888' }}> (human)</span>
-                ) : null}
-                {look ? <div style={{ color: '#555' }}>{look}</div> : null}
-                <div>
-                    {body.asleep
-                        ? 'Asleep.'
-                        : (body.activity ??
-                          (body.destPlaceId
-                              ? 'On the move.'
-                              : 'Just hanging around.'))}
-                </div>
-                {self?.mood ? (
-                    <div style={{ color: '#555' }}>Mood: {self.mood}</div>
-                ) : null}
-                {self?.doing ? (
-                    <div className="pl-clamp" title={self.doing}>
-                        {self.doing}
-                    </div>
-                ) : null}
-            </div>
-            <div className="flex flex-col" style={{ gap: 4 }}>
-                <button
-                    type="button"
-                    style={{ minWidth: 0, padding: '0 6px' }}
-                    onClick={onClose}
+            {look ? <span>{look}</span> : null}
+            <span>
+                {body.asleep
+                    ? 'Asleep.'
+                    : (body.activity ??
+                      (body.destPlaceId
+                          ? 'On the move.'
+                          : 'Just hanging around.'))}
+            </span>
+            {self?.mood ? <span>Mood: {self.mood}</span> : null}
+            {self?.doing ? (
+                <span className="line-clamp-2" title={self.doing}>
+                    {self.doing}
+                </span>
+            ) : null}
+            {canEdit ? (
+                <CommandButton
+                    size="small"
+                    className="justify-self-start"
+                    pressed={editing}
+                    onClick={() => setEditing((e) => !e)}
                 >
-                    ✕
-                </button>
-                {canEdit ? (
-                    <button
-                        type="button"
-                        style={{ minWidth: 0, padding: '0 6px' }}
-                        onClick={() => setEditing((e) => !e)}
-                    >
-                        {editing ? 'Done' : 'Change look'}
-                    </button>
-                ) : null}
-            </div>
+                    {editing ? 'Done' : 'Change look'}
+                </CommandButton>
+            ) : null}
             {editing ? <LookEditor body={body} /> : null}
-        </div>
+        </HudPanel>
     );
 }
 
@@ -1034,10 +1083,11 @@ function LookEditor({ body }: { body: Body }) {
     if (!fields) return null;
     const a = (body.appearance ?? {}) as Record<string, unknown>;
     return (
-        <div className="flex flex-col" style={{ gap: 4 }}>
-            <form
-                className="flex"
-                style={{ gap: 4 }}
+        <Stack gap="xs">
+            <Stack
+                as="form"
+                direction="row"
+                gap="xs"
                 onSubmit={(e) => {
                     e.preventDefault();
                     if (!wish.trim()) return;
@@ -1053,50 +1103,41 @@ function LookEditor({ body }: { body: Body }) {
                     );
                 }}
             >
-                <input
+                <TextBox
                     value={wish}
+                    aria-label="Change the look"
                     placeholder="Say it: dye my hair pink, get a leather jacket…"
-                    style={{ flex: 1 }}
+                    className="min-w-0 flex-1"
                     onChange={(e) => setWish(e.currentTarget.value)}
                 />
-                <button type="submit" disabled={restyle.isPending}>
+                <CommandButton type="submit" disabled={restyle.isPending}>
                     {restyle.isPending ? 'Changing…' : 'Change'}
-                </button>
-            </form>
-            <div
-                className="grid"
-                style={{ gridTemplateColumns: 'auto auto', gap: '2px 6px' }}
-            >
-                {fields.map((f) => (
-                    <label key={f.key} className="contents">
-                        <span style={{ color: '#555' }}>{f.label}</span>
-                        <select
-                            value={String(a[f.key ?? ''] ?? '')}
-                            disabled={save.isPending}
-                            onChange={(e) =>
-                                save.mutate({
-                                    partyId: WORLD_ID,
-                                    data: {
-                                        picked: {
-                                            [f.key ?? '']:
-                                                e.currentTarget.value,
-                                        },
-                                        participantId:
-                                            body.participantId ?? null,
+                </CommandButton>
+            </Stack>
+            {fields.map((f) => (
+                <FieldRow key={f.key} label={f.label}>
+                    <ComboBox
+                        value={String(a[f.key ?? ''] ?? '')}
+                        disabled={save.isPending}
+                        options={(f.options ?? []).map((v) => ({
+                            value: v,
+                            label: v,
+                        }))}
+                        onChange={(e) =>
+                            save.mutate({
+                                partyId: WORLD_ID,
+                                data: {
+                                    picked: {
+                                        [f.key ?? '']: e.currentTarget.value,
                                     },
-                                })
-                            }
-                        >
-                            {(f.options ?? []).map((v) => (
-                                <option key={v} value={v}>
-                                    {v}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                ))}
-            </div>
-        </div>
+                                    participantId: body.participantId ?? null,
+                                },
+                            })
+                        }
+                    />
+                </FieldRow>
+            ))}
+        </Stack>
     );
 }
 
@@ -1117,44 +1158,35 @@ function Droste({ onClose }: { onClose: () => void }) {
         return url.toString();
     }, [depth]);
     return (
-        <fieldset style={{ margin: 0 }}>
-            <legend>
-                💻 Your laptop{' '}
-                <button
-                    type="button"
-                    style={{ minWidth: 0, padding: '0 6px' }}
-                    onClick={onClose}
-                >
-                    Close
-                </button>
-            </legend>
+        <GroupBox
+            title={
+                <Stack as="span" direction="row" align="center" gap="md">
+                    Your laptop
+                    <CommandButton size="small" onClick={onClose}>
+                        Close
+                    </CommandButton>
+                </Stack>
+            }
+            icon={<Icon name="laptop" />}
+        >
             {depth >= DROSTE_MAX ? (
-                <div style={{ color: '#666', padding: 8 }}>
-                    It's laptops all the way down.
-                </div>
+                <p className="p-2">It's laptops all the way down.</p>
             ) : (
-                <div
-                    style={{
-                        width: 480,
-                        height: 300,
-                        overflow: 'hidden',
-                        border: '2px solid #333',
-                    }}
-                >
+                <div className="h-[300px] w-[480px] overflow-hidden">
                     <iframe
                         title="Your laptop"
                         src={src}
+                        className="border-0"
                         style={{
                             width: 960,
                             height: 600,
-                            border: 0,
                             transform: 'scale(0.5)',
                             transformOrigin: '0 0',
                         }}
                     />
                 </div>
             )}
-        </fieldset>
+        </GroupBox>
     );
 }
 
@@ -1162,8 +1194,12 @@ function DecorateForm({ playerId }: { playerId: string | null }) {
     const decorate = usePostWorldsPartyIdPlacesDecorate();
     const [text, setText] = useState('');
     return (
-        <form
-            className="pl-decorate"
+        <Stack
+            as="form"
+            direction="row"
+            align="center"
+            gap="xs"
+            className="col-span-full"
             onSubmit={(e) => {
                 e.preventDefault();
                 if (!text.trim()) return;
@@ -1176,10 +1212,12 @@ function DecorateForm({ playerId }: { playerId: string | null }) {
                 );
             }}
         >
-            <span>🖼️</span>
-            <input
+            <Icon name="picture" />
+            <TextBox
                 value={text}
                 maxLength={200}
+                aria-label="Put something up"
+                className="min-w-0 flex-1"
                 onChange={(e) => setText(e.currentTarget.value)}
                 placeholder={
                     decorate.isError
@@ -1187,14 +1225,14 @@ function DecorateForm({ playerId }: { playerId: string | null }) {
                         : 'Put something up… (a Bowie poster over the sofa)'
                 }
             />
-            <button
+            <CommandButton
                 type="submit"
-                className="pl-btn pl-btn--small"
+                size="small"
                 disabled={!text.trim() || decorate.isPending}
             >
                 Put up
-            </button>
-        </form>
+            </CommandButton>
+        </Stack>
     );
 }
 
@@ -1251,77 +1289,67 @@ function FurniRow({
     )?.data?.done;
     if (doable)
         return (
-            <div
-                className="pl-thing pl-thing--do"
+            <Stack
+                direction="row"
+                align="center"
+                gap="xs"
                 title={
                     left
                         ? `${left.byName?.split(' ')[0]} left: “${left.text}”`
                         : (furni.name ?? undefined)
                 }
             >
-                <span>✦</span>
-                <span className="min-w-0 pl-thing-text">
+                <Icon name="hand" />
+                <Stack.Item grow truncate>
                     {gave ?? furni.useLabel}
-                </span>
+                </Stack.Item>
                 {canAct && !gave ? (
-                    <button
-                        type="button"
-                        className="pl-btn pl-btn--small"
+                    <CommandButton
+                        size="small"
                         disabled={act.isPending}
                         onClick={doIt}
                     >
                         {act.isPending ? '…' : 'Do'}
-                    </button>
+                    </CommandButton>
                 ) : null}
-            </div>
+            </Stack>
         );
     return (
-        <div
-            className="pl-thing"
-            data-notable={!!furni.notable}
+        <Stack
+            direction="row"
+            align="center"
+            gap="xs"
             title={furni.notable ?? furni.name ?? undefined}
         >
             <span>{furniIcon(furni)}</span>
-            <span
-                className="min-w-0"
-                style={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                }}
-            >
+            <Stack.Item grow truncate>
                 {furni.notable ?? furni.name}
-            </span>
+            </Stack.Item>
             {canAct && onOpen && furni.kind === 'laptop' ? (
-                <button
-                    type="button"
-                    className="pl-btn pl-btn--small"
-                    onClick={onOpen}
-                >
+                <CommandButton size="small" onClick={onOpen}>
                     Open
-                </button>
+                </CommandButton>
             ) : null}
             {canAct && furni.careLabel ? (
-                <button
-                    type="button"
-                    className="pl-btn pl-btn--warm pl-btn--small"
+                <CommandButton
+                    size="small"
+                    tone="caution"
                     disabled={act.isPending}
                     onClick={() => run(true)}
                 >
                     {careWord === 'Try' ? 'Fix' : careWord}
-                </button>
+                </CommandButton>
             ) : canAct && furni.useLabel ? (
-                <button
-                    type="button"
-                    className="pl-btn pl-btn--small"
+                <CommandButton
+                    size="small"
                     disabled={act.isPending}
                     onClick={() => run(false)}
                     title={furni.useLabel}
                 >
                     Use
-                </button>
+                </CommandButton>
             ) : null}
-        </div>
+        </Stack>
     );
 }
 
@@ -1338,29 +1366,22 @@ function BodyChip({
     const walking = walkingText(body, now);
     const look = lookOf(body.appearance, avatarColour(body.participantId));
     return (
-        <button
-            type="button"
-            className="pl-chip"
-            data-me={isMe}
-            data-walking={!!walking}
+        <CommandButton
+            size="small"
+            icon={<FaceGlyph look={look} />}
             onClick={onClick}
-            style={{ minWidth: 0, minHeight: 0, cursor: 'pointer' }}
             title={
                 [body.activity, walking].filter(Boolean).join(' · ') ||
                 undefined
             }
         >
-            <span
-                className="pl-face"
-                style={{
-                    background: look.skin,
-                    boxShadow: `inset 0 5px 0 ${look.hair}, 0 0 0 2px ${look.top}`,
-                }}
-            ></span>
             {(body.name ?? '').split(' ')[0]}
             {isMe ? ' ★' : ''}
-            {body.activity?.includes('phone') ? ' 📱' : ''}
-        </button>
+            {walking ? <Icon name="walk" label="walking" /> : null}
+            {body.activity?.includes('phone') ? (
+                <Icon name="phone" label="on the phone" />
+            ) : null}
+        </CommandButton>
     );
 }
 
@@ -1433,20 +1454,17 @@ function PlaceTalk({
     };
 
     return (
-        <section className="pl-chat">
-            <div className="pl-chat-head">💬 Said out loud here</div>
-            <div
+        <GroupBox title="Said out loud here" icon={<Icon name="chat" />} fill>
+            <ChatLog
                 ref={logRef}
-                className="pl-chat-log"
+                aria-label="Said out loud here"
                 onScroll={(e) => {
                     const el = e.currentTarget;
                     atEnd.current =
                         el.scrollHeight - el.scrollTop - el.clientHeight < 24;
                 }}
             >
-                {shown.length === 0 ? (
-                    <div style={{ color: '#7a86a0' }}>Quiet.</div>
-                ) : null}
+                {shown.length === 0 ? <TalkNote>Quiet.</TalkNote> : null}
                 {earshotRuns(shown, playerId, allEars).map((run) => {
                     if (!run.heard && run.lines.length > 1) {
                         const who = [
@@ -1457,93 +1475,127 @@ function PlaceTalk({
                             ),
                         ];
                         return (
-                            <div
+                            <ChatMessage
                                 key={run.lines[0].messageId}
-                                className="pl-line pl-line--muffled"
+                                layout="transcript"
+                                kind="emote"
+                                manner="faint"
+                                sender={
+                                    <>
+                                        <Icon name="muted" /> {who.join(', ')}
+                                    </>
+                                }
                             >
-                                🔇 {who.join(', ')} talking out of earshot ·{' '}
-                                {run.lines.length} lines
-                            </div>
+                                talking out of earshot · {run.lines.length}{' '}
+                                lines
+                            </ChatMessage>
                         );
                     }
                     const m = run.heard ? run.line : run.lines[0];
                     const heard = run.heard;
                     const v = volumeOf(m);
                     return (
-                        <div
+                        <ChatMessage
                             key={m.messageId}
-                            className={`pl-line${heard ? '' : ' pl-line--muffled'}${v === 'whisper' ? ' pl-line--whisper' : v === 'shout' ? ' pl-line--shout' : ''}`}
+                            layout="transcript"
+                            sender={
+                                <>
+                                    {nameOf(m.senderId)}
+                                    {v === 'whisper' ? (
+                                        <>
+                                            {' '}
+                                            <Icon
+                                                name="whisper"
+                                                label="whispers"
+                                            />
+                                        </>
+                                    ) : v === 'shout' ? (
+                                        <>
+                                            {' '}
+                                            <Icon
+                                                name="megaphone"
+                                                label="shouts"
+                                            />
+                                        </>
+                                    ) : null}
+                                </>
+                            }
+                            colour={avatarColour(m.senderId)}
+                            manner={
+                                !heard
+                                    ? 'faint'
+                                    : v === 'whisper'
+                                      ? 'quiet'
+                                      : v === 'shout'
+                                        ? 'loud'
+                                        : 'plain'
+                            }
                         >
-                            <b style={{ background: avatarColour(m.senderId) }}>
-                                {nameOf(m.senderId)}
-                                {v === 'whisper'
-                                    ? ' 🤫'
-                                    : v === 'shout'
-                                      ? ' 📣'
-                                      : ''}
-                            </b>
                             {heard ? m.content : scribble(m.content)}
-                        </div>
+                        </ChatMessage>
                     );
                 })}
                 {speaking.length > 0 ? (
-                    <div className="pl-typing">
-                        💬 {speaking.join(', ')}{' '}
+                    <TalkNote>
+                        {speaking.join(', ')}{' '}
                         {speaking.length === 1 ? 'is' : 'are'} about to say
                         something…
-                    </div>
+                    </TalkNote>
                 ) : null}
-            </div>
-            <form
-                className="pl-chat-form"
+            </ChatLog>
+            <Stack
+                as="form"
+                direction="row"
+                align="center"
+                gap="xs"
                 onSubmit={(e) => {
                     e.preventDefault();
                     void say();
                 }}
             >
-                <div
-                    className="pl-volume"
+                <Toolbar
+                    variant="bare"
+                    labels="none"
+                    aria-label="Volume"
                     title="Talk reaches your spot, a shout the whole Place, a whisper one person next to you"
                 >
                     {(
                         [
-                            ['whisper', '🤫'],
-                            ['talk', '💬'],
-                            ['shout', '📣'],
+                            ['whisper', 'whisper'],
+                            ['talk', 'chat'],
+                            ['shout', 'megaphone'],
                         ] as const
                     ).map(([v, icon]) => (
-                        <button
+                        <ToolbarButton
                             key={v}
-                            type="button"
                             title={v}
-                            aria-pressed={volume === v}
+                            icon={<Icon name={icon} />}
+                            pressed={volume === v}
                             disabled={
                                 !playerId ||
                                 (v === 'whisper' && nearby.length === 0)
                             }
                             onClick={() => setVolume(v)}
                         >
-                            {icon}
-                        </button>
+                            {v}
+                        </ToolbarButton>
                     ))}
-                </div>
+                </Toolbar>
                 {volume === 'whisper' && nearby.length > 0 ? (
-                    <select
+                    <ComboBox
+                        aria-label="Whisper to"
                         value={to}
                         onChange={(e) => setTo(e.currentTarget.value)}
-                    >
-                        {nearby.map((b) => (
-                            <option
-                                key={b.participantId}
-                                value={b.participantId}
-                            >
-                                to {(b.name ?? '').split(' ')[0]}
-                            </option>
-                        ))}
-                    </select>
+                        options={nearby.map((b) => ({
+                            value: b.participantId ?? '',
+                            label: `to ${(b.name ?? '').split(' ')[0]}`,
+                        }))}
+                    />
                 ) : null}
-                <input
+                <TextBox
                     value={draft}
+                    aria-label="Say something"
+                    className="min-w-0 flex-1"
                     onChange={(e) => setDraft(e.currentTarget.value)}
                     placeholder={
                         playerId
@@ -1556,14 +1608,22 @@ function PlaceTalk({
                     }
                     disabled={!playerId}
                 />
-                <button
+                <CommandButton
                     type="submit"
-                    className="pl-btn pl-btn--go"
+                    tone="go"
                     disabled={!playerId || !draft.trim() || prompt.isPending}
                 >
                     Say
-                </button>
-            </form>
-        </section>
+                </CommandButton>
+            </Stack>
+        </GroupBox>
+    );
+}
+
+function TalkNote({ children }: { children: ReactNode }) {
+    return (
+        <Text as="p" tone="muted" italic>
+            {children}
+        </Text>
     );
 }

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f6fd8"/>
+      <stop offset="0.45" stop-color="#6aa5ee"/>
+      <stop offset="0.7" stop-color="#b7d6f6"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6fbf3c"/>
+      <stop offset="0.5" stop-color="#4b9a24"/>
+      <stop offset="1" stop-color="#2f6f15"/>
+    </linearGradient>
+    <radialGradient id="cloud" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <ellipse cx="380" cy="230" rx="260" ry="60" fill="url(#cloud)"/>
+  <ellipse cx="1180" cy="170" rx="320" ry="70" fill="url(#cloud)"/>
+  <ellipse cx="860" cy="330" rx="200" ry="40" fill="url(#cloud)"/>
+  <path d="M0 720 C 300 560 700 540 1000 600 C 1250 650 1450 620 1600 560 L1600 1000 L0 1000 Z" fill="url(#hill)"/>
+</svg>

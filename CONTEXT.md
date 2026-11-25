@@ -1,20 +1,20 @@
 # Proompting
 
-The domain language of Proompting (aka Partytown): a Windows-XP-themed desktop where humans and AI **Personas** live together in a **World** — chatting in **Rooms**, messaging privately, posting on a **Board**, keeping **Diaries** — and remember what happened.
+The domain language of Proompting (aka Partytown): a Windows-XP-themed desktop where humans and AI **Personas** live together in a **World** — chatting in **Conversations**, messaging privately, posting on a **Board**, keeping **Diaries** — and remember what happened.
 
 ## Language
 
 **Party**:
-A tenant boundary. Hosts a set of **Rooms** and a list of **Participants** (the **Personas** present in this Party). Each Party is a self-contained universe with its own cast, its own Rooms, and its own per-Persona **Memories**. When it is running, a Party is a **World** (see § World) — same entity, the word used when talking about its clock and Apps; API routes `/worlds/{partyId}`.
+A tenant boundary. Hosts a set of **Conversations** and a list of **Participants** (the **Personas** present in this Party). Each Party is a self-contained universe with its own cast, its own Conversations, and its own per-Persona **Memories**. When it is running, a Party is a **World** (see § World) — same entity, the word used when talking about its clock and Apps; API routes `/worlds/{partyId}`.
 _Avoid_: server, workspace, tenant, desktop.
 
 > Note: the frontend opens the World picked at the login screen (`WORLD_ID` in `lib/world.tsx`); the root Party (id = `Guid.Empty`) is the first one. See **Move**.
 
-**Room**:
-A named conversation thread inside a **Party** that a small cast of **Participants** talks in. Has its own message log, optional **Scenario** text, a subset of the Party's **Participants** as cast, and zero or more **Driver overrides**.
-_Avoid_: chat-group, chat-room, channel, thread.
+**Conversation**:
+A thread of messages that a small cast of **Participants** talks in, inside a **Party**: a **Messenger** conversation, one-to-one (a DM) or a group, or the talk at a **Place**. Has its own message log and a subset of the Party's **Participants** as cast. Group conversations are private to their members and never public or joinable: they start fresh, by invitation (ADR 0068). In code a `ChatGroup`; its kind is `dm`, `room` (a group; the stored value predates the name) or `place`.
+_Avoid_: room (retired with D'Accord), chat-room, channel, thread.
 
-> Note: the backend code currently spells this `ChatGroup` (`ChatGroupGrain`, `ChatGroupEvent`, `chatGroupId` in API paths). That spelling is legacy — treat `Room` as the canonical name in all new code, comments, issues, and docs. Existing code can be renamed opportunistically.
+> Note: the backend code spells this `ChatGroup` (`ChatGroupGrain`, `ChatGroupEvent`, `chatGroupId` in API paths). Treat **Conversation** as the canonical name in new docs and issues; the code name stays.
 
 **Persona**:
 A character with a name, bio, system prompt, and behavioural dials (**Chattiness**, **Impulsivity**). Lives outside any Party — Personas are library entries that can join multiple Parties (eventually) and accumulate per-Party **Memories**. A Persona is a definition, not a membership.
@@ -29,34 +29,30 @@ The half of a **Persona** that is what happened to them: **Events**, **Recollect
 _Avoid_: backstory, history, lore, memories (too broad).
 
 **Narrator**:
-The singleton library **Persona** representing un-personed speech in a **Room** — narration ("Vlad enters the room"), scenario-voice, ambient description. Joins every **Party** as a **Participant** with **Default Driver** = `System` so the **Response pipeline** never auto-generates from it. Authored content (scripted scenes) attributes to the Narrator when no specific Persona owns the line. Accumulates **Memories** like any other Participant — narrator-as-observer remembers what happened, available to future scripted narration.
+The singleton library **Persona** representing un-personed speech in a **Conversation** — narration ("Vlad enters the room"), scenario-voice, ambient description. Joins every **Party** as a **Participant** with **Default Driver** = `System` so the **Response pipeline** never auto-generates from it. Authored content (scripted scenes) attributes to the Narrator when no specific Persona owns the line. Accumulates **Memories** like any other Participant — narrator-as-observer remembers what happened, available to future scripted narration.
 
 **Participant**:
-A **Persona**'s membership in a **Party**. The link object that says "Persona X is in Party Y, defaulting to Driver Z." Rooms draw their cast from the Party's Participants. Removing a Persona from a Party deletes the Participant; the Persona itself remains in the library. The Participant owns the **Default Driver** — the same Persona can be User-driven by default in one Party and LLM-driven by default in another.
+A **Persona**'s membership in a **Party**. The link object that says "Persona X is in Party Y, defaulting to Driver Z." Conversations draw their cast from the Party's Participants. Removing a Persona from a Party deletes the Participant; the Persona itself remains in the library. The Participant owns the **Default Driver** — the same Persona can be User-driven by default in one Party and LLM-driven by default in another.
 _Avoid_: member, attendee, party-member.
 
 **Driver**:
-The thing currently operating a **Participant** in a given **Room**. One of three kinds: `User` (a human types the messages), `LLM` (the agent stack generates them), or `System` (a sentinel for un-personed voices — narration, scenario-voice, scripted NPCs — that the **Response pipeline** never auto-generates from). Driver is contextual: every reference to "the Driver" in a Room means the **Effective Driver** for that (Participant, Room) pair. Two flavours of stored Driver back this up:
+The thing currently operating a **Participant** in a given **Conversation**. One of three kinds: `User` (a human types the messages), `LLM` (the agent stack generates them), or `System` (a sentinel for un-personed voices — narration, scenario-voice, scripted NPCs — that the **Response pipeline** never auto-generates from). Driver is contextual: every reference to "the Driver" in a Conversation means the **Effective Driver** for that (Participant, Conversation) pair. Two flavours of stored Driver back this up:
 _Avoid_: operator, pilot, controller, agent.
 
 **Default Driver**:
-The **Driver** stored on a **Participant** — what applies in every Room of the Party unless that Room overrides it. Lives at Party scope. Set when the Participant is created (or edited via Party-level UI).
+The **Driver** stored on a **Participant** — what applies in every Conversation of the Party. Lives at Party scope. Set when the Participant is created (or edited via Party-level UI).
 
-**Driver override**:
-A per-Persona override stored on a **Room** — "in *this* Room, Persona X is driven differently from the Party default." Sparse: present only where the Room intentionally diverges. Lets the same Participant be User-driven in one Room and LLM-driven in another within the same Party (e.g. drop into the kitchen Room and watch Vlad-as-LLM chat with Denise even though Vlad is normally your User character).
-_Avoid_: room-driver, local-driver, room-override.
+> Retired: **Driver overrides** (per-Conversation drivers, D'Accord's "Speak as") were removed with ADR 0068. The **Effective Driver** is the Participant's **Default Driver**.
 
 **Effective Driver**:
-The resolution rule consulted by the **Response pipeline** and any other consumer that needs to know "who is operating this Participant *right now*": `Driver override` for this (Persona, Room) if present, else the Participant's `Default Driver`. Always defined. Consumers see the Effective Driver only; the distinction between default and overridden is invisible to them.
+Who is operating this Participant *right now*, as consulted by the **Response pipeline** and any other consumer: the Participant's **Default Driver** (per-Conversation overrides were retired with ADR 0068). Consumers ask the cast for it rather than re-deriving it.
 _Avoid_: resolved-driver, current-driver.
 
-> Note: backend storage for **Default Driver** is now `enum DriverKind` (`User | LLM | System`) on `PartyParticipant` — the legacy `bool IsUser` field was removed when the **Narrator** work introduced the third kind. Pipeline-internal types (`CastMember`, `ParticipantView`, `SelfView`) and Room-level override storage already used `DriverKind`. See [ADR 0012](docs/adr/0012-driver-system-and-driverkind-migration.md).
+> Note: backend storage for **Default Driver** is now `enum DriverKind` (`User | LLM | System`) on `PartyParticipant` — the legacy `bool IsUser` field was removed when the **Narrator** work introduced the third kind. Pipeline-internal types (`CastMember`, `ParticipantView`, `SelfView`) already used `DriverKind`. See [ADR 0012](docs/adr/0012-driver-system-and-driverkind-migration.md).
 
 > Code home: `RoomCast` (`IChatGroupGrain.GetCastAsync`) — the present cast with Effective Drivers resolved. Consumers ask it, never re-derive.
 
-**Scenario**:
-Free-text in-fiction setup for a **Room**: where we are, what's going on, what the mood is. Visible to (and influences) every Persona in the Room. Optional — Rooms can have no Scenario.
-_Avoid_: prompt, setting, premise, context.
+> Retired: **Scenario** (free-text setup on a Conversation) was removed with ADR 0068; where something happens is a **Place**.
 
 **Arrival**:
 A **Persona** joining a **Party** with their **Nurture** seeded, so they don't arrive as a blank slate. An agent works a **Seed corpus** into an **Arrival draft**; the author revises it by prompting and accepts; only then is it committed. Author-driven only. See [ADR 0022](docs/adr/0022-arrival-replaces-import.md).
@@ -96,7 +92,7 @@ How committed the Persona is to a reply once they've started forming one. Low = 
 
 ### Response pipeline
 
-The two-phase process a **Persona** runs when a new message arrives in a **Room**: a **Decision phase** that judges whether and how to engage, then (conditionally) a **Speaking phase** that drafts the visible message. The two phases run as separate LLM calls so the persona reacts in-character before committing to airtime, and so the decision can be skipped when it's clearly not warranted. The pipeline as a whole is what's torn down by a stop-signal race (see ADR 0001) or by `CancelGenerationAsync`.
+The two-phase process a **Persona** runs when a new message arrives in a **Conversation**: a **Decision phase** that judges whether and how to engage, then (conditionally) a **Speaking phase** that drafts the visible message. The two phases run as separate LLM calls so the persona reacts in-character before committing to airtime, and so the decision can be skipped when it's clearly not warranted. The pipeline as a whole is what's torn down by a stop-signal race (see ADR 0001) or by `CancelGenerationAsync`.
 
 **Decision phase**:
 The first phase of the **Response pipeline**. The Persona considers what's been said, forms a **gut reaction** in-character, decides whether they have something worth saying, and — if so — picks which past **Recollection** (if any) is on their mind. Output is consulted, never displayed directly: it shapes the **Speaking phase**.
@@ -109,11 +105,11 @@ _Avoid_: generation, response, output, reply-phase.
 > Note: the code spelling `Generation` (e.g. `GenerationParticipant`, `_ctsByGeneration`, `CancelGenerationAsync`, log/tracing tags) predates the **Response pipeline** vocabulary. The umbrella namespace is now `Services/ResponsePipeline/`, the per-beat session is `SpeakingSession`/`SpeakingResult`, and the in-flight phase enum is `InFlightPhase.Speaking`. Treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Remaining `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
 
 **Stop-signal race**:
-When a new message arrives in a **Room** while a **Persona** has an in-flight **Response pipeline**, the persona evaluates whether the new message warrants interrupting their own draft. Outcomes: cancel the **Decision phase** (cheap, no public artifact yet), cancel the **Speaking phase** before the point-of-no-return (the in-flight draft is discarded and replaced with an emote about being interrupted), or commit and acknowledge the missed message on the next turn via a **Repair hint**. Per-persona; one race evaluation per in-flight pipeline per new message. See ADR 0001.
+When a new message arrives in a **Conversation** while a **Persona** has an in-flight **Response pipeline**, the persona evaluates whether the new message warrants interrupting their own draft. Outcomes: cancel the **Decision phase** (cheap, no public artifact yet), cancel the **Speaking phase** before the point-of-no-return (the in-flight draft is discarded and replaced with an emote about being interrupted), or commit and acknowledge the missed message on the next turn via a **Repair hint**. Per-persona; one race evaluation per in-flight pipeline per new message. See ADR 0001.
 _Avoid_: interruption, preemption, barge-in.
 
 **Repair hint**:
-A one-shot Levelt-style speech-repair cue stashed by the **Stop-signal race** when a **Persona** committed past the point-of-no-return (or chose to continue) while a relevant message arrived. Consumed by the next **Decision phase** for that **Room** and cleared regardless of outcome — surfaces the missed message to the persona so they can acknowledge it naturally. In-memory only.
+A one-shot Levelt-style speech-repair cue stashed by the **Stop-signal race** when a **Persona** committed past the point-of-no-return (or chose to continue) while a relevant message arrived. Consumed by the next **Decision phase** for that **Conversation** and cleared regardless of outcome — surfaces the missed message to the persona so they can acknowledge it naturally. In-memory only.
 _Avoid_: catch-up, backlog, missed-message-marker.
 
 > Note: the code spelling `Generation` (the `Services/Generation/` namespace, `GenerationSession`, `GenerationResult`, `GenerationParticipant`, `InFlightPhase.Generation`, `_ctsByGeneration`, `CancelGenerationAsync`, etc.) predates the **Response pipeline** vocabulary — treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Existing `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
@@ -137,7 +133,7 @@ The instance of **Relevance Realization** between a stimulus and a response. Ini
 _Avoid_: trigger, event handler, reaction.
 
 **Percept**:
-One thing that reached a **Persona**, in any modality: a private message, a line in a Room, something said within **Earshot**, a Body arriving, their name caught across the room, a knock. A **Percept** can go unnoticed.
+One thing that reached a **Persona**, in any modality: a private message, a line in a Conversation, something said within **Earshot**, a Body arriving, their name caught across the room, a knock. A **Percept** can go unnoticed.
 _Avoid_: stimulus, event, notification.
 
 **Load**:
@@ -181,7 +177,7 @@ Surfacing past knowing into a **Persona**'s present beat — the backward-facing
 _Avoid_: retrieval, query, lookup, RAG.
 
 **Capture**:
-Crystallizing a present moment into memory: one marked **Message** becomes an **Event** (with its **Concept** tags) plus per-**Participant** **Recollections**. Capture writes the propositional and perspectival layers only — never the participatory. Beliefs don't crystallise *during* an experience but in the rest after it, so **Stances** form retroactively via **Consolidation**. A Capture may be triggered by an author ("Remember"), by a lull closing a Room/DM conversation, or by a Board post (ADR 0018).
+Crystallizing a present moment into memory: one marked **Message** becomes an **Event** (with its **Concept** tags) plus per-**Participant** **Recollections**. Capture writes the propositional and perspectival layers only — never the participatory. Beliefs don't crystallise *during* an experience but in the rest after it, so **Stances** form retroactively via **Consolidation**. A Capture is triggered by a lull closing a **Conversation** or by a Board post (ADR 0018).
 _Avoid_: extraction, ingestion, save, remember-flow.
 
 ### Memory
@@ -242,7 +238,7 @@ A thing in the **Arena** — abstract or concrete — that a Persona can have a 
 _Avoid_: topic, tag, thing, subject.
 
 **Event**:
-A crystallized moment in the **Arena** that **Participants** may **Recollect**. An Event often *points to* a **Message** (or a span of Messages) when it happened in a Room — the Message holds the raw content, the Event is the anchor multiple **Recollections** hang off. Events can also represent backstory or non-Message happenings in the **Arena** (Scenario change, a Persona joining a Room) without a Message anchor. Events carry **objective** edges to the **Concepts** and **Participants** they are *about* (used by graph-walk recall) — these tags belong to the Event, not to any single Recollection of it. Subjective spin lives only on the Recollection edge.
+A crystallized moment in the **Arena** that **Participants** may **Recollect**. An Event often *points to* a **Message** (or a span of Messages) when it happened in a Conversation — the Message holds the raw content, the Event is the anchor multiple **Recollections** hang off. Events can also represent backstory or non-Message happenings in the **Arena** (Scenario change, a Persona joining a Conversation) without a Message anchor. Events carry **objective** edges to the **Concepts** and **Participants** they are *about* (used by graph-walk recall) — these tags belong to the Event, not to any single Recollection of it. Subjective spin lives only on the Recollection edge.
 _Avoid_: episode, fact, occurrence, snapshot.
 
 ### World
@@ -254,16 +250,15 @@ A **Party** seen as a living place: its **World clock**, its **Apps**, and the *
 _Avoid_: simulation, sandbox, game.
 
 **App**:
-A mode of engagement inside a World — a distinct rhythm in which Personas and the Player meet. Today: **Rooms** (synchronous group, D'Accord), **Messenger** (synchronous 1:1), **Board** (asynchronous, public feed), **Diary** (private, reflective), **Calendar** (future-facing: plan and attend **Gatherings**). All Apps run concurrently and write into the same **Arena**. In code, `IWorldApp`: perceive → **Affordances**; act → activity.
+A mode of engagement inside a World — a distinct rhythm in which Personas and the Player meet. Today: **Messenger** (synchronous, one-to-one and group), **Places** (being somewhere, with its talk), **Board** (asynchronous, public feed), **Diary** (private, reflective), **Calendar** (future-facing: plan and attend **Gatherings**). All Apps run concurrently and write into the same **Arena**. In code, `IWorldApp`: perceive → **Affordances**; act → activity.
 _Avoid_: feature, channel, module, tool.
 
-**Messenger thread** (DM):
-A two-person **Room** (`ChatGroupInfo.Kind = "dm"`). Everything a Room has — Response pipeline, race, recall — applies.
-_Avoid_: private room, whisper.
+**Messenger**:
+The App of private, live conversations: one-to-one (a DM) or a group. A DM's words are private to its two members, so inviting someone never turns a DM into a group: it starts a new group conversation. Humans start groups by inviting from a conversation or picking several contacts; Personas start them with people they know, invite people who know a member, talk in them and leave them when they've run their course (ADR 0068).
+_Avoid_: D'Accord, rooms, channels, private room, whisper.
 
 **Gathering**:
-A get-together planned in a **Room** for a later time, on the World's **Calendar** App. Personas and humans plan them and RSVP. When one comes due, the **World clock** adds the attendees to the Room and gives each a **Life** turn pointed at it. It gives Initiative a future-facing arm: anticipation.
-_Avoid_: event (taken — see **Event**), meeting, appointment.
+A get-together planned for a later time at a **Place**, on the World's **Calendar** App. Personas and humans plan them anywhere and RSVP. When one comes due, the **World clock** gives each attendee a **Life** turn to go there. It gives Initiative a future-facing arm: anticipation. Gatherings in a Conversation were retired with ADR 0068.
 
 **Board**:
 The World's public social feed, shown as **Partyboard** (Hyves look, timeline behaviour): short posts (≤ 280 characters) with replies under them, and **Respect!**. Each post or reply is **Captured** for the Participants under it. Posts have no titles.
@@ -303,7 +298,7 @@ What a Persona has in mind of an App, as opposed to what exists in it. Ambient A
 _Avoid_: context, visibility, read state.
 
 **Look**:
-An Affordance that only brings something into view — open the Board, scroll back through a chat, catch up on a Room. Costs no LLM voice; Life follows it with a choice over what is now in mind.
+An Affordance that only brings something into view — open the Board, scroll back through a chat, catch up on a Conversation. Costs no LLM voice; Life follows it with a choice over what is now in mind.
 _Avoid_: browse tool, fetch, search.
 
 **Notification**:
@@ -312,7 +307,7 @@ A **Player** gets theirs from the desktop's notification service: DMs waiting, r
 _Avoid_: alert, ping, event.
 
 **Lived self**:
-What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by sleep and by time: at full rate alone, slower in company; [ADR 0063](docs/adr/0063-solitude-recharges.md)), their **Reserves**, the words that have **gone stale** in the world or in their own mouth, their **Ties** (how well they know each person present, and when they last talked), and the Room's **thermostat** (a System One read of whether the talk has been heavy and circling too long). The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
+What a Persona brings into every prompt besides their sheet. It covers today's ordinary offscreen **Day** (timed mundane beats, mood, energy, one practical preoccupation), their **Social battery** (drained by talking, recharged by sleep and by time: at full rate alone, slower in company; [ADR 0063](docs/adr/0063-solitude-recharges.md)), their **Reserves**, the words that have **gone stale** in the world or in their own mouth, their **Ties** (how well they know each person present, and when they last talked), and the Conversation's **thermostat** (a System One read of whether the talk has been heavy and circling too long). The sheet is background, not a script. See [ADR 0021](docs/adr/0021-lived-self.md).
 _Avoid_: persona state, stats, needs.
 
 **Reserve**:
@@ -377,7 +372,7 @@ _Avoid_: offline (that's no Life at all), idle (that's dozing at the screen, aft
 
 **Place**:
 A physical location in the World: a **Home**, the Lobby, the Café, the city centre (outdoors). Has named **Spots** and **Furni**. Events captured there carry its `place_id`, so being back there brings them to mind.
-_Avoid_: room (taken, see **Room**), location, map, level.
+_Avoid_: room (taken, see **Conversation**), location, map, level.
 
 **Spot**:
 A named place to be inside a Place ("the window table"). Canonical: Personas reason in Spots, never tiles; the iso renderer derives tiles from them.
@@ -429,10 +424,10 @@ What one person came away with from a **Feature**: one concrete line. The world 
 _Avoid_: reward, loot, result.
 
 **Place talk**:
-Speech between Bodies in a Place. A Room with `Kind = "place"` whose cast follows the occupants, delivered per line to its **Earshot**.
+Speech between Bodies in a Place. A Conversation with `Kind = "place"` whose cast follows the occupants, delivered per line to its **Earshot**.
 
 **Earshot**:
-Who hears one line, fixed when it's spoken: talk reaches your Spot, a shout the whole Place, a whisper one addressee next to you. Stored as `HeardBy` on the message; `null` means everyone (Rooms, DMs).
+Who hears one line, fixed when it's spoken: talk reaches your Spot, a shout the whole Place, a whisper one addressee next to you. Stored as `HeardBy` on the message; `null` means everyone (Conversations, DMs).
 _Avoid_: range, radius, audience.
 
 **Asleep**:
@@ -720,20 +715,18 @@ _Avoid_: dev-mode, test-mode, live-session.
 
 ## Relationships
 
-- A **Party** contains zero or more **Rooms**.
+- A **Party** contains zero or more **Conversations**.
 - A **Party** has zero or more **Participants**.
 - A **Participant** refers to exactly one **Persona**.
 - A **Persona** can be a **Participant** in zero or more **Parties** (one Participant per Party).
-- A **Room** draws its cast from its **Party**'s **Participants**.
-- A **Room** may carry zero or more **Driver overrides**, one per overridden Persona.
+- A **Conversation** draws its cast from its **Party**'s **Participants**.
 - A **Participant** has exactly one **Default Driver** (`User`, `LLM`, or `System`).
-- The **Effective Driver** in a given Room is that Room's **Driver override** for the Persona if present, else the Participant's **Default Driver**.
 - Every **Party** auto-carries the singleton **Narrator** as a **Participant** with **Default Driver** = `System`.
-- A **World** (Party) has one **World clock**, one **Board**, one **Diary** per Participant, and any number of **Rooms** and **Messenger threads**.
+- A **World** (Party) has one **World clock**, one **Board**, one **Diary** per Participant, and any number of **Conversations**.
 - A **Player** is a **Participant** with **Default Driver** = `User`.
 - A **Participant** has exactly one **Body**; a **Body** is in exactly one **Place**, at one **Spot**.
 - A **Participant** has two **Reserves** beside the **Social battery**; a **Place** gives **Sustenance** by what it is and holds.
-- A **Place** has one **Place talk** Room; a **Home** belongs to one **Participant** and has zero or more **Housemates**.
+- A **Place** has one **Place talk** Conversation; a **Home** belongs to one **Participant** and has zero or more **Housemates**.
 - A **Relation** is between exactly two **Participants**; a pair has at most one current **Relation** and any number of past ones.
 - An **Ask** comes from one **Persona** and is answered by one other.
 - A **Place talk** message has one **Earshot**.
@@ -758,5 +751,5 @@ _Avoid_: dev-mode, test-mode, live-session.
 
 ## Flagged ambiguities
 
-- **"chat-group" / "ChatGroup"** was used throughout the backend to mean **Room** — resolved: **Room** is canonical; `ChatGroup` is a code-level legacy spelling that will be migrated opportunistically.
+- **"chat-group" / "ChatGroup"** was used throughout the backend to mean **Conversation** — resolved: **Conversation** is canonical; `ChatGroup` is a code-level legacy spelling that will be migrated opportunistically.
 - **Persona deletion semantics** are not yet defined. If a Persona is deleted from the library, what happens to Participants referencing it (and to the messages they sent)? Soft-delete with tombstones? Hard delete with orphaned messages? Block deletion while participating? **Undecided.** Not blocking today — only set when this feature is built.

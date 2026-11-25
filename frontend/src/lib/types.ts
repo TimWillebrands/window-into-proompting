@@ -1,5 +1,3 @@
-import type { ComponentType } from 'react';
-
 export interface Persona {
     id: string;
     name: string;
@@ -49,37 +47,4 @@ export interface ChatMessage {
     personaName?: string;
     timestamp: number;
     status?: 'sent' | 'streaming';
-}
-
-export interface DesktopWindowState {
-    id: string;
-    appId: string;
-    title: string;
-    url?: string;
-    icon: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    zIndex: number;
-    minimized: boolean;
-    maximized: boolean;
-    restoreBounds: WindowSnapshot | null;
-    props: Record<string, unknown>;
-}
-
-export interface WindowSnapshot {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-}
-
-export interface WindowDescriptor {
-    id: string;
-    title: string;
-    component: ComponentType<any>;
-    icon: string;
-    initialPosition?: { x: number; y: number };
-    initialSize?: { width: number; height: number };
 }

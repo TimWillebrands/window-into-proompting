@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { FurniView } from '../../../api/model/furniView';
 import type { Place } from '../../../api/model/place';
-import '../places.css';
 import PlaceScene from './PlaceScene';
 import type { SceneDef } from './scene';
 

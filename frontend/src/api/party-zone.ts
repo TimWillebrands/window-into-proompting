@@ -41,7 +41,6 @@ import type {
     ConsolidationRunResponse,
     CreateBoardPostRequest,
     CreateBoardReplyRequest,
-    CreateChatGroupRequest,
     CreatePartyRequest,
     CreatePlaceRequest,
     CreatePlayerRequest,
@@ -55,7 +54,6 @@ import type {
     DirectChatSummary,
     DismissNotificationsRequest,
     DoorRow,
-    DriverOverrideEntry,
     FoundCompanyRequest,
     FreePersona,
     FurniActionRequest,
@@ -70,10 +68,12 @@ import type {
     HireRequest,
     IdleRequest,
     InviteResidentRequest,
+    InviteToConversationRequest,
     JobRequest,
     JobSummary,
     JoinBodyRequest,
     KnockRequest,
+    LeaveGroupRequest,
     LetInRequest,
     LifeSummary,
     LlmModel,
@@ -92,6 +92,7 @@ import type {
     PartyInfo,
     Persona,
     PersonaRoute,
+    Place,
     PlaceAccessRequest,
     PlaceStyleRequest,
     PlacesSnapshot,
@@ -103,7 +104,6 @@ import type {
     PracticeRequest,
     PracticeSummary,
     ProblemDetails,
-    ProceedRequest,
     PromptRequest,
     ProviderAvailability,
     ProviderUsage,
@@ -111,7 +111,6 @@ import type {
     RefocusRequest,
     Relation,
     RelationHomeRequest,
-    RepromptRequest,
     RsvpRequest,
     SelfSummary,
     SessionSummary,
@@ -126,6 +125,7 @@ import type {
     SkillSummary,
     SkillView,
     StanceRecord,
+    StartGroupRequest,
     TakePersonaRequest,
     TextRequest,
     ThingRefRequest,
@@ -133,9 +133,6 @@ import type {
     TickRequest,
     TickResponse,
     TradeRequest,
-    UpdateChatGroupDriverOverridesRequest,
-    UpdateChatGroupParticipantIdsRequest,
-    UpdateChatGroupScenarioRequest,
     UpdatePartyParticipantsRequest,
     UpdateWorldRequest,
     VoiceLine,
@@ -11292,1387 +11289,6 @@ export const usePutPartyIdParticipants = <TError = unknown, TContext = unknown>(
     );
 };
 
-export type getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain = {
-    data: string[];
-    status: 200;
-};
-
-export type getPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson =
-    {
-        data: string[];
-        status: 200;
-    };
-
-export type getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson = {
-    data: string[];
-    status: 200;
-};
-
-export type getPartyIdChatGroupsChatGroupIdParticipantsResponse404TextPlain = {
-    data: ProblemDetails;
-    status: 404;
-};
-
-export type getPartyIdChatGroupsChatGroupIdParticipantsResponse404ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type getPartyIdChatGroupsChatGroupIdParticipantsResponse404TextJson = {
-    data: ProblemDetails;
-    status: 404;
-};
-
-export type getPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess = (
-    | getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain
-    | getPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson
-    | getPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson
-) & {
-    headers: Headers;
-};
-export type getPartyIdChatGroupsChatGroupIdParticipantsResponseError = (
-    | getPartyIdChatGroupsChatGroupIdParticipantsResponse404TextPlain
-    | getPartyIdChatGroupsChatGroupIdParticipantsResponse404ApplicationJson
-    | getPartyIdChatGroupsChatGroupIdParticipantsResponse404TextJson
-) & {
-    headers: Headers;
-};
-
-export type getPartyIdChatGroupsChatGroupIdParticipantsResponse =
-    | getPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess
-    | getPartyIdChatGroupsChatGroupIdParticipantsResponseError;
-
-export const getGetPartyIdChatGroupsChatGroupIdParticipantsUrl = (
-    id: string,
-    chatGroupId: string,
-) => {
-    return `/api/Party/${id}/chat-groups/${chatGroupId}/participants`;
-};
-
-export const getPartyIdChatGroupsChatGroupIdParticipants = async (
-    id: string,
-    chatGroupId: string,
-    options?: RequestInit,
-): Promise<getPartyIdChatGroupsChatGroupIdParticipantsResponse> => {
-    return customFetch<getPartyIdChatGroupsChatGroupIdParticipantsResponse>(
-        getGetPartyIdChatGroupsChatGroupIdParticipantsUrl(id, chatGroupId),
-        {
-            ...options,
-            method: 'GET',
-        },
-    );
-};
-
-export const getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey = (
-    id: string,
-    chatGroupId: string,
-) => {
-    return [
-        `/api/Party/${id}/chat-groups/${chatGroupId}/participants`,
-    ] as const;
-};
-
-export const getGetPartyIdChatGroupsChatGroupIdParticipantsQueryOptions = <
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdParticipants
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
-
-    const queryKey =
-        queryOptions?.queryKey ??
-        getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey(id, chatGroupId);
-
-    const queryFn: QueryFunction<
-        Awaited<ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>>
-    > = ({ signal }) =>
-        getPartyIdChatGroupsChatGroupIdParticipants(id, chatGroupId, {
-            signal,
-            ...requestOptions,
-        });
-
-    return {
-        queryKey,
-        queryFn,
-        enabled: !!(id && chatGroupId),
-        ...queryOptions,
-    } as UseQueryOptions<
-        Awaited<ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>>,
-        TError,
-        TData
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-};
-
-export type GetPartyIdChatGroupsChatGroupIdParticipantsQueryResult =
-    NonNullable<
-        Awaited<ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>>
-    >;
-export type GetPartyIdChatGroupsChatGroupIdParticipantsQueryError =
-    ProblemDetails;
-
-export function useGetPartyIdChatGroupsChatGroupIdParticipants<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options: {
-        query: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdParticipants
-                    >
-                >,
-                TError,
-                TData
-            >
-        > &
-            Pick<
-                DefinedInitialDataOptions<
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdParticipants
-                        >
-                    >,
-                    TError,
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdParticipants
-                        >
-                    >
-                >,
-                'initialData'
-            >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetPartyIdChatGroupsChatGroupIdParticipants<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdParticipants
-                    >
-                >,
-                TError,
-                TData
-            >
-        > &
-            Pick<
-                UndefinedInitialDataOptions<
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdParticipants
-                        >
-                    >,
-                    TError,
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdParticipants
-                        >
-                    >
-                >,
-                'initialData'
-            >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetPartyIdChatGroupsChatGroupIdParticipants<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdParticipants
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useGetPartyIdChatGroupsChatGroupIdParticipants<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdParticipants
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-} {
-    const queryOptions =
-        getGetPartyIdChatGroupsChatGroupIdParticipantsQueryOptions(
-            id,
-            chatGroupId,
-            options,
-        );
-
-    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-        TData,
-        TError
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-    return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export const getGetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryOptions =
-    <
-        TData = Awaited<
-            ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-        >,
-        TError = ProblemDetails,
-    >(
-        id: string,
-        chatGroupId: string,
-        options?: {
-            query?: Partial<
-                UseSuspenseQueryOptions<
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdParticipants
-                        >
-                    >,
-                    TError,
-                    TData
-                >
-            >;
-            request?: SecondParameter<typeof customFetch>;
-        },
-    ) => {
-        const { query: queryOptions, request: requestOptions } = options ?? {};
-
-        const queryKey =
-            queryOptions?.queryKey ??
-            getGetPartyIdChatGroupsChatGroupIdParticipantsQueryKey(
-                id,
-                chatGroupId,
-            );
-
-        const queryFn: QueryFunction<
-            Awaited<
-                ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-            >
-        > = ({ signal }) =>
-            getPartyIdChatGroupsChatGroupIdParticipants(id, chatGroupId, {
-                signal,
-                ...requestOptions,
-            });
-
-        return {
-            queryKey,
-            queryFn,
-            ...queryOptions,
-        } as UseSuspenseQueryOptions<
-            Awaited<
-                ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-            >,
-            TError,
-            TData
-        > & { queryKey: DataTag<QueryKey, TData, TError> };
-    };
-
-export type GetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryResult =
-    NonNullable<
-        Awaited<ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>>
-    >;
-export type GetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryError =
-    ProblemDetails;
-
-export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options: {
-        query: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdParticipants
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdParticipants
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdParticipants
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useGetPartyIdChatGroupsChatGroupIdParticipantsSuspense<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdParticipants>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdParticipants
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-} {
-    const queryOptions =
-        getGetPartyIdChatGroupsChatGroupIdParticipantsSuspenseQueryOptions(
-            id,
-            chatGroupId,
-            options,
-        );
-
-    const query = useSuspenseQuery(
-        queryOptions,
-        queryClient,
-    ) as UseSuspenseQueryResult<TData, TError> & {
-        queryKey: DataTag<QueryKey, TData, TError>;
-    };
-
-    return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain = {
-    data: string[];
-    status: 200;
-};
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson =
-    {
-        data: string[];
-        status: 200;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson = {
-    data: string[];
-    status: 200;
-};
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse400TextPlain = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse400ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse400TextJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse404TextPlain = {
-    data: ProblemDetails;
-    status: 404;
-};
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse404ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse404TextJson = {
-    data: ProblemDetails;
-    status: 404;
-};
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess = (
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextPlain
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponse200ApplicationJson
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponse200TextJson
-) & {
-    headers: Headers;
-};
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponseError = (
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponse400TextPlain
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponse400ApplicationJson
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponse400TextJson
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponse404TextPlain
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponse404ApplicationJson
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponse404TextJson
-) & {
-    headers: Headers;
-};
-
-export type putPartyIdChatGroupsChatGroupIdParticipantsResponse =
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponseSuccess
-    | putPartyIdChatGroupsChatGroupIdParticipantsResponseError;
-
-export const getPutPartyIdChatGroupsChatGroupIdParticipantsUrl = (
-    id: string,
-    chatGroupId: string,
-) => {
-    return `/api/Party/${id}/chat-groups/${chatGroupId}/participants`;
-};
-
-export const putPartyIdChatGroupsChatGroupIdParticipants = async (
-    id: string,
-    chatGroupId: string,
-    updateChatGroupParticipantIdsRequest: UpdateChatGroupParticipantIdsRequest,
-    options?: RequestInit,
-): Promise<putPartyIdChatGroupsChatGroupIdParticipantsResponse> => {
-    return customFetch<putPartyIdChatGroupsChatGroupIdParticipantsResponse>(
-        getPutPartyIdChatGroupsChatGroupIdParticipantsUrl(id, chatGroupId),
-        {
-            ...options,
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(updateChatGroupParticipantIdsRequest),
-        },
-    );
-};
-
-export const getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
-        TError,
-        {
-            id: string;
-            chatGroupId: string;
-            data: UpdateChatGroupParticipantIdsRequest;
-        },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
-    TError,
-    {
-        id: string;
-        chatGroupId: string;
-        data: UpdateChatGroupParticipantIdsRequest;
-    },
-    TContext
-> => {
-    const mutationKey = ['putPartyIdChatGroupsChatGroupIdParticipants'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
-        {
-            id: string;
-            chatGroupId: string;
-            data: UpdateChatGroupParticipantIdsRequest;
-        }
-    > = (props) => {
-        const { id, chatGroupId, data } = props ?? {};
-
-        return putPartyIdChatGroupsChatGroupIdParticipants(
-            id,
-            chatGroupId,
-            data,
-            requestOptions,
-        );
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationResult =
-    NonNullable<
-        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>
-    >;
-export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationBody =
-    UpdateChatGroupParticipantIdsRequest;
-export type PutPartyIdChatGroupsChatGroupIdParticipantsMutationError =
-    ProblemDetails;
-
-export const usePutPartyIdChatGroupsChatGroupIdParticipants = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<
-                ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>
-            >,
-            TError,
-            {
-                id: string;
-                chatGroupId: string;
-                data: UpdateChatGroupParticipantIdsRequest;
-            },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdParticipants>>,
-    TError,
-    {
-        id: string;
-        chatGroupId: string;
-        data: UpdateChatGroupParticipantIdsRequest;
-    },
-    TContext
-> => {
-    return useMutation(
-        getPutPartyIdChatGroupsChatGroupIdParticipantsMutationOptions(options),
-        queryClient,
-    );
-};
-
-export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextPlain =
-    {
-        data: DriverOverrideEntry[];
-        status: 200;
-    };
-
-export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200ApplicationJson =
-    {
-        data: DriverOverrideEntry[];
-        status: 200;
-    };
-
-export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextJson =
-    {
-        data: DriverOverrideEntry[];
-        status: 200;
-    };
-
-export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextPlain =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextJson =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponseSuccess = (
-    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextPlain
-    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200ApplicationJson
-    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextJson
-) & {
-    headers: Headers;
-};
-export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponseError = (
-    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextPlain
-    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404ApplicationJson
-    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextJson
-) & {
-    headers: Headers;
-};
-
-export type getPartyIdChatGroupsChatGroupIdDriverOverridesResponse =
-    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponseSuccess
-    | getPartyIdChatGroupsChatGroupIdDriverOverridesResponseError;
-
-export const getGetPartyIdChatGroupsChatGroupIdDriverOverridesUrl = (
-    id: string,
-    chatGroupId: string,
-) => {
-    return `/api/Party/${id}/chat-groups/${chatGroupId}/driver-overrides`;
-};
-
-export const getPartyIdChatGroupsChatGroupIdDriverOverrides = async (
-    id: string,
-    chatGroupId: string,
-    options?: RequestInit,
-): Promise<getPartyIdChatGroupsChatGroupIdDriverOverridesResponse> => {
-    return customFetch<getPartyIdChatGroupsChatGroupIdDriverOverridesResponse>(
-        getGetPartyIdChatGroupsChatGroupIdDriverOverridesUrl(id, chatGroupId),
-        {
-            ...options,
-            method: 'GET',
-        },
-    );
-};
-
-export const getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey = (
-    id: string,
-    chatGroupId: string,
-) => {
-    return [
-        `/api/Party/${id}/chat-groups/${chatGroupId}/driver-overrides`,
-    ] as const;
-};
-
-export const getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryOptions = <
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-) => {
-    const { query: queryOptions, request: requestOptions } = options ?? {};
-
-    const queryKey =
-        queryOptions?.queryKey ??
-        getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey(
-            id,
-            chatGroupId,
-        );
-
-    const queryFn: QueryFunction<
-        Awaited<
-            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-        >
-    > = ({ signal }) =>
-        getPartyIdChatGroupsChatGroupIdDriverOverrides(id, chatGroupId, {
-            signal,
-            ...requestOptions,
-        });
-
-    return {
-        queryKey,
-        queryFn,
-        enabled: !!(id && chatGroupId),
-        ...queryOptions,
-    } as UseQueryOptions<
-        Awaited<
-            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-        >,
-        TError,
-        TData
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-};
-
-export type GetPartyIdChatGroupsChatGroupIdDriverOverridesQueryResult =
-    NonNullable<
-        Awaited<
-            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-        >
-    >;
-export type GetPartyIdChatGroupsChatGroupIdDriverOverridesQueryError =
-    ProblemDetails;
-
-export function useGetPartyIdChatGroupsChatGroupIdDriverOverrides<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options: {
-        query: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                    >
-                >,
-                TError,
-                TData
-            >
-        > &
-            Pick<
-                DefinedInitialDataOptions<
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                        >
-                    >,
-                    TError,
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                        >
-                    >
-                >,
-                'initialData'
-            >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetPartyIdChatGroupsChatGroupIdDriverOverrides<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                    >
-                >,
-                TError,
-                TData
-            >
-        > &
-            Pick<
-                UndefinedInitialDataOptions<
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                        >
-                    >,
-                    TError,
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                        >
-                    >
-                >,
-                'initialData'
-            >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetPartyIdChatGroupsChatGroupIdDriverOverrides<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useGetPartyIdChatGroupsChatGroupIdDriverOverrides<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-} {
-    const queryOptions =
-        getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryOptions(
-            id,
-            chatGroupId,
-            options,
-        );
-
-    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-        TData,
-        TError
-    > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-    return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export const getGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspenseQueryOptions =
-    <
-        TData = Awaited<
-            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-        >,
-        TError = ProblemDetails,
-    >(
-        id: string,
-        chatGroupId: string,
-        options?: {
-            query?: Partial<
-                UseSuspenseQueryOptions<
-                    Awaited<
-                        ReturnType<
-                            typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                        >
-                    >,
-                    TError,
-                    TData
-                >
-            >;
-            request?: SecondParameter<typeof customFetch>;
-        },
-    ) => {
-        const { query: queryOptions, request: requestOptions } = options ?? {};
-
-        const queryKey =
-            queryOptions?.queryKey ??
-            getGetPartyIdChatGroupsChatGroupIdDriverOverridesQueryKey(
-                id,
-                chatGroupId,
-            );
-
-        const queryFn: QueryFunction<
-            Awaited<
-                ReturnType<
-                    typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                >
-            >
-        > = ({ signal }) =>
-            getPartyIdChatGroupsChatGroupIdDriverOverrides(id, chatGroupId, {
-                signal,
-                ...requestOptions,
-            });
-
-        return {
-            queryKey,
-            queryFn,
-            ...queryOptions,
-        } as UseSuspenseQueryOptions<
-            Awaited<
-                ReturnType<
-                    typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                >
-            >,
-            TError,
-            TData
-        > & { queryKey: DataTag<QueryKey, TData, TError> };
-    };
-
-export type GetPartyIdChatGroupsChatGroupIdDriverOverridesSuspenseQueryResult =
-    NonNullable<
-        Awaited<
-            ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-        >
-    >;
-export type GetPartyIdChatGroupsChatGroupIdDriverOverridesSuspenseQueryError =
-    ProblemDetails;
-
-export function useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options: {
-        query: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspense<
-    TData = Awaited<
-        ReturnType<typeof getPartyIdChatGroupsChatGroupIdDriverOverrides>
-    >,
-    TError = ProblemDetails,
->(
-    id: string,
-    chatGroupId: string,
-    options?: {
-        query?: Partial<
-            UseSuspenseQueryOptions<
-                Awaited<
-                    ReturnType<
-                        typeof getPartyIdChatGroupsChatGroupIdDriverOverrides
-                    >
-                >,
-                TError,
-                TData
-            >
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & {
-    queryKey: DataTag<QueryKey, TData, TError>;
-} {
-    const queryOptions =
-        getGetPartyIdChatGroupsChatGroupIdDriverOverridesSuspenseQueryOptions(
-            id,
-            chatGroupId,
-            options,
-        );
-
-    const query = useSuspenseQuery(
-        queryOptions,
-        queryClient,
-    ) as UseSuspenseQueryResult<TData, TError> & {
-        queryKey: DataTag<QueryKey, TData, TError>;
-    };
-
-    return { ...query, queryKey: queryOptions.queryKey };
-}
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextPlain =
-    {
-        data: DriverOverrideEntry[];
-        status: 200;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200ApplicationJson =
-    {
-        data: DriverOverrideEntry[];
-        status: 200;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextJson =
-    {
-        data: DriverOverrideEntry[];
-        status: 200;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400TextPlain =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400TextJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextPlain =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextJson =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponseSuccess = (
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextPlain
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200ApplicationJson
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse200TextJson
-) & {
-    headers: Headers;
-};
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponseError = (
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400TextPlain
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400ApplicationJson
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse400TextJson
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextPlain
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404ApplicationJson
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponse404TextJson
-) & {
-    headers: Headers;
-};
-
-export type putPartyIdChatGroupsChatGroupIdDriverOverridesResponse =
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponseSuccess
-    | putPartyIdChatGroupsChatGroupIdDriverOverridesResponseError;
-
-export const getPutPartyIdChatGroupsChatGroupIdDriverOverridesUrl = (
-    id: string,
-    chatGroupId: string,
-) => {
-    return `/api/Party/${id}/chat-groups/${chatGroupId}/driver-overrides`;
-};
-
-export const putPartyIdChatGroupsChatGroupIdDriverOverrides = async (
-    id: string,
-    chatGroupId: string,
-    updateChatGroupDriverOverridesRequest: UpdateChatGroupDriverOverridesRequest,
-    options?: RequestInit,
-): Promise<putPartyIdChatGroupsChatGroupIdDriverOverridesResponse> => {
-    return customFetch<putPartyIdChatGroupsChatGroupIdDriverOverridesResponse>(
-        getPutPartyIdChatGroupsChatGroupIdDriverOverridesUrl(id, chatGroupId),
-        {
-            ...options,
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(updateChatGroupDriverOverridesRequest),
-        },
-    );
-};
-
-export const getPutPartyIdChatGroupsChatGroupIdDriverOverridesMutationOptions =
-    <TError = ProblemDetails, TContext = unknown>(options?: {
-        mutation?: UseMutationOptions<
-            Awaited<
-                ReturnType<
-                    typeof putPartyIdChatGroupsChatGroupIdDriverOverrides
-                >
-            >,
-            TError,
-            {
-                id: string;
-                chatGroupId: string;
-                data: UpdateChatGroupDriverOverridesRequest;
-            },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    }): UseMutationOptions<
-        Awaited<
-            ReturnType<typeof putPartyIdChatGroupsChatGroupIdDriverOverrides>
-        >,
-        TError,
-        {
-            id: string;
-            chatGroupId: string;
-            data: UpdateChatGroupDriverOverridesRequest;
-        },
-        TContext
-    > => {
-        const mutationKey = ['putPartyIdChatGroupsChatGroupIdDriverOverrides'];
-        const { mutation: mutationOptions, request: requestOptions } = options
-            ? options.mutation &&
-              'mutationKey' in options.mutation &&
-              options.mutation.mutationKey
-                ? options
-                : { ...options, mutation: { ...options.mutation, mutationKey } }
-            : { mutation: { mutationKey }, request: undefined };
-
-        const mutationFn: MutationFunction<
-            Awaited<
-                ReturnType<
-                    typeof putPartyIdChatGroupsChatGroupIdDriverOverrides
-                >
-            >,
-            {
-                id: string;
-                chatGroupId: string;
-                data: UpdateChatGroupDriverOverridesRequest;
-            }
-        > = (props) => {
-            const { id, chatGroupId, data } = props ?? {};
-
-            return putPartyIdChatGroupsChatGroupIdDriverOverrides(
-                id,
-                chatGroupId,
-                data,
-                requestOptions,
-            );
-        };
-
-        return { mutationFn, ...mutationOptions };
-    };
-
-export type PutPartyIdChatGroupsChatGroupIdDriverOverridesMutationResult =
-    NonNullable<
-        Awaited<
-            ReturnType<typeof putPartyIdChatGroupsChatGroupIdDriverOverrides>
-        >
-    >;
-export type PutPartyIdChatGroupsChatGroupIdDriverOverridesMutationBody =
-    UpdateChatGroupDriverOverridesRequest;
-export type PutPartyIdChatGroupsChatGroupIdDriverOverridesMutationError =
-    ProblemDetails;
-
-export const usePutPartyIdChatGroupsChatGroupIdDriverOverrides = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<
-                ReturnType<
-                    typeof putPartyIdChatGroupsChatGroupIdDriverOverrides
-                >
-            >,
-            TError,
-            {
-                id: string;
-                chatGroupId: string;
-                data: UpdateChatGroupDriverOverridesRequest;
-            },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdDriverOverrides>>,
-    TError,
-    {
-        id: string;
-        chatGroupId: string;
-        data: UpdateChatGroupDriverOverridesRequest;
-    },
-    TContext
-> => {
-    return useMutation(
-        getPutPartyIdChatGroupsChatGroupIdDriverOverridesMutationOptions(
-            options,
-        ),
-        queryClient,
-    );
-};
-
 export type postPartyIdPromptResponse202 = {
     data: void;
     status: 202;
@@ -12791,703 +11407,6 @@ export const usePostPartyIdPrompt = <
 > => {
     return useMutation(
         getPostPartyIdPromptMutationOptions(options),
-        queryClient,
-    );
-};
-
-export type postPartyIdProceedResponse202 = {
-    data: void;
-    status: 202;
-};
-
-export type postPartyIdProceedResponse400TextPlain = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postPartyIdProceedResponse400ApplicationJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postPartyIdProceedResponse400TextJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postPartyIdProceedResponseSuccess =
-    postPartyIdProceedResponse202 & {
-        headers: Headers;
-    };
-export type postPartyIdProceedResponseError = (
-    | postPartyIdProceedResponse400TextPlain
-    | postPartyIdProceedResponse400ApplicationJson
-    | postPartyIdProceedResponse400TextJson
-) & {
-    headers: Headers;
-};
-
-export type postPartyIdProceedResponse =
-    | postPartyIdProceedResponseSuccess
-    | postPartyIdProceedResponseError;
-
-export const getPostPartyIdProceedUrl = (id: string) => {
-    return `/api/Party/${id}/proceed`;
-};
-
-export const postPartyIdProceed = async (
-    id: string,
-    proceedRequest: ProceedRequest,
-    options?: RequestInit,
-): Promise<postPartyIdProceedResponse> => {
-    return customFetch<postPartyIdProceedResponse>(
-        getPostPartyIdProceedUrl(id),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(proceedRequest),
-        },
-    );
-};
-
-export const getPostPartyIdProceedMutationOptions = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof postPartyIdProceed>>,
-        TError,
-        { id: string; data: ProceedRequest },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof postPartyIdProceed>>,
-    TError,
-    { id: string; data: ProceedRequest },
-    TContext
-> => {
-    const mutationKey = ['postPartyIdProceed'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof postPartyIdProceed>>,
-        { id: string; data: ProceedRequest }
-    > = (props) => {
-        const { id, data } = props ?? {};
-
-        return postPartyIdProceed(id, data, requestOptions);
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PostPartyIdProceedMutationResult = NonNullable<
-    Awaited<ReturnType<typeof postPartyIdProceed>>
->;
-export type PostPartyIdProceedMutationBody = ProceedRequest;
-export type PostPartyIdProceedMutationError = ProblemDetails;
-
-export const usePostPartyIdProceed = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof postPartyIdProceed>>,
-            TError,
-            { id: string; data: ProceedRequest },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof postPartyIdProceed>>,
-    TError,
-    { id: string; data: ProceedRequest },
-    TContext
-> => {
-    return useMutation(
-        getPostPartyIdProceedMutationOptions(options),
-        queryClient,
-    );
-};
-
-export type postPartyIdCancelResponse204 = {
-    data: void;
-    status: 204;
-};
-
-export type postPartyIdCancelResponseSuccess = postPartyIdCancelResponse204 & {
-    headers: Headers;
-};
-
-export type postPartyIdCancelResponse = postPartyIdCancelResponseSuccess;
-
-export const getPostPartyIdCancelUrl = (id: string) => {
-    return `/api/Party/${id}/cancel`;
-};
-
-export const postPartyIdCancel = async (
-    id: string,
-    options?: RequestInit,
-): Promise<postPartyIdCancelResponse> => {
-    return customFetch<postPartyIdCancelResponse>(getPostPartyIdCancelUrl(id), {
-        ...options,
-        method: 'POST',
-    });
-};
-
-export const getPostPartyIdCancelMutationOptions = <
-    TError = unknown,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof postPartyIdCancel>>,
-        TError,
-        { id: string },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof postPartyIdCancel>>,
-    TError,
-    { id: string },
-    TContext
-> => {
-    const mutationKey = ['postPartyIdCancel'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof postPartyIdCancel>>,
-        { id: string }
-    > = (props) => {
-        const { id } = props ?? {};
-
-        return postPartyIdCancel(id, requestOptions);
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PostPartyIdCancelMutationResult = NonNullable<
-    Awaited<ReturnType<typeof postPartyIdCancel>>
->;
-
-export type PostPartyIdCancelMutationError = unknown;
-
-export const usePostPartyIdCancel = <TError = unknown, TContext = unknown>(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof postPartyIdCancel>>,
-            TError,
-            { id: string },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof postPartyIdCancel>>,
-    TError,
-    { id: string },
-    TContext
-> => {
-    return useMutation(
-        getPostPartyIdCancelMutationOptions(options),
-        queryClient,
-    );
-};
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse204 = {
-    data: void;
-    status: 204;
-};
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextPlain =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess =
-    deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse204 & {
-        headers: Headers;
-    };
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseError = (
-    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextPlain
-    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400ApplicationJson
-    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse400TextJson
-) & {
-    headers: Headers;
-};
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse =
-    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseSuccess
-    | deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponseError;
-
-export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdUrl = (
-    id: string,
-    chatGroupId: string,
-    messageId: number,
-) => {
-    return `/api/Party/${id}/chat-groups/${chatGroupId}/messages/${messageId}`;
-};
-
-export const deletePartyIdChatGroupsChatGroupIdMessagesMessageId = async (
-    id: string,
-    chatGroupId: string,
-    messageId: number,
-    options?: RequestInit,
-): Promise<deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse> => {
-    return customFetch<deletePartyIdChatGroupsChatGroupIdMessagesMessageIdResponse>(
-        getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdUrl(
-            id,
-            chatGroupId,
-            messageId,
-        ),
-        {
-            ...options,
-            method: 'DELETE',
-        },
-    );
-};
-
-export const getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationOptions =
-    <TError = ProblemDetails, TContext = unknown>(options?: {
-        mutation?: UseMutationOptions<
-            Awaited<
-                ReturnType<
-                    typeof deletePartyIdChatGroupsChatGroupIdMessagesMessageId
-                >
-            >,
-            TError,
-            { id: string; chatGroupId: string; messageId: number },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    }): UseMutationOptions<
-        Awaited<
-            ReturnType<
-                typeof deletePartyIdChatGroupsChatGroupIdMessagesMessageId
-            >
-        >,
-        TError,
-        { id: string; chatGroupId: string; messageId: number },
-        TContext
-    > => {
-        const mutationKey = [
-            'deletePartyIdChatGroupsChatGroupIdMessagesMessageId',
-        ];
-        const { mutation: mutationOptions, request: requestOptions } = options
-            ? options.mutation &&
-              'mutationKey' in options.mutation &&
-              options.mutation.mutationKey
-                ? options
-                : { ...options, mutation: { ...options.mutation, mutationKey } }
-            : { mutation: { mutationKey }, request: undefined };
-
-        const mutationFn: MutationFunction<
-            Awaited<
-                ReturnType<
-                    typeof deletePartyIdChatGroupsChatGroupIdMessagesMessageId
-                >
-            >,
-            { id: string; chatGroupId: string; messageId: number }
-        > = (props) => {
-            const { id, chatGroupId, messageId } = props ?? {};
-
-            return deletePartyIdChatGroupsChatGroupIdMessagesMessageId(
-                id,
-                chatGroupId,
-                messageId,
-                requestOptions,
-            );
-        };
-
-        return { mutationFn, ...mutationOptions };
-    };
-
-export type DeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationResult =
-    NonNullable<
-        Awaited<
-            ReturnType<
-                typeof deletePartyIdChatGroupsChatGroupIdMessagesMessageId
-            >
-        >
-    >;
-
-export type DeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationError =
-    ProblemDetails;
-
-export const useDeletePartyIdChatGroupsChatGroupIdMessagesMessageId = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<
-                ReturnType<
-                    typeof deletePartyIdChatGroupsChatGroupIdMessagesMessageId
-                >
-            >,
-            TError,
-            { id: string; chatGroupId: string; messageId: number },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<
-        ReturnType<typeof deletePartyIdChatGroupsChatGroupIdMessagesMessageId>
-    >,
-    TError,
-    { id: string; chatGroupId: string; messageId: number },
-    TContext
-> => {
-    return useMutation(
-        getDeletePartyIdChatGroupsChatGroupIdMessagesMessageIdMutationOptions(
-            options,
-        ),
-        queryClient,
-    );
-};
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse204 =
-    {
-        data: void;
-        status: 204;
-    };
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextPlain =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseSuccess =
-    deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse204 & {
-        headers: Headers;
-    };
-export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseError =
-    (
-        | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextPlain
-        | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400ApplicationJson
-        | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse400TextJson
-    ) & {
-        headers: Headers;
-    };
-
-export type deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse =
-    | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseSuccess
-    | deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponseError;
-
-export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdUrl = (
-    id: string,
-    chatGroupId: string,
-    messageId: number,
-) => {
-    return `/api/Party/${id}/chat-groups/${chatGroupId}/messages-after/${messageId}`;
-};
-
-export const deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = async (
-    id: string,
-    chatGroupId: string,
-    messageId: number,
-    options?: RequestInit,
-): Promise<deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse> => {
-    return customFetch<deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdResponse>(
-        getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdUrl(
-            id,
-            chatGroupId,
-            messageId,
-        ),
-        {
-            ...options,
-            method: 'DELETE',
-        },
-    );
-};
-
-export const getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationOptions =
-    <TError = ProblemDetails, TContext = unknown>(options?: {
-        mutation?: UseMutationOptions<
-            Awaited<
-                ReturnType<
-                    typeof deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId
-                >
-            >,
-            TError,
-            { id: string; chatGroupId: string; messageId: number },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    }): UseMutationOptions<
-        Awaited<
-            ReturnType<
-                typeof deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId
-            >
-        >,
-        TError,
-        { id: string; chatGroupId: string; messageId: number },
-        TContext
-    > => {
-        const mutationKey = [
-            'deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId',
-        ];
-        const { mutation: mutationOptions, request: requestOptions } = options
-            ? options.mutation &&
-              'mutationKey' in options.mutation &&
-              options.mutation.mutationKey
-                ? options
-                : { ...options, mutation: { ...options.mutation, mutationKey } }
-            : { mutation: { mutationKey }, request: undefined };
-
-        const mutationFn: MutationFunction<
-            Awaited<
-                ReturnType<
-                    typeof deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId
-                >
-            >,
-            { id: string; chatGroupId: string; messageId: number }
-        > = (props) => {
-            const { id, chatGroupId, messageId } = props ?? {};
-
-            return deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId(
-                id,
-                chatGroupId,
-                messageId,
-                requestOptions,
-            );
-        };
-
-        return { mutationFn, ...mutationOptions };
-    };
-
-export type DeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationResult =
-    NonNullable<
-        Awaited<
-            ReturnType<
-                typeof deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId
-            >
-        >
-    >;
-
-export type DeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationError =
-    ProblemDetails;
-
-export const useDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<
-                ReturnType<
-                    typeof deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId
-                >
-            >,
-            TError,
-            { id: string; chatGroupId: string; messageId: number },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<
-        ReturnType<
-            typeof deletePartyIdChatGroupsChatGroupIdMessagesAfterMessageId
-        >
-    >,
-    TError,
-    { id: string; chatGroupId: string; messageId: number },
-    TContext
-> => {
-    return useMutation(
-        getDeletePartyIdChatGroupsChatGroupIdMessagesAfterMessageIdMutationOptions(
-            options,
-        ),
-        queryClient,
-    );
-};
-
-export type postPartyIdRepromptMessageIdResponse202 = {
-    data: void;
-    status: 202;
-};
-
-export type postPartyIdRepromptMessageIdResponse400TextPlain = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postPartyIdRepromptMessageIdResponse400ApplicationJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postPartyIdRepromptMessageIdResponse400TextJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type postPartyIdRepromptMessageIdResponseSuccess =
-    postPartyIdRepromptMessageIdResponse202 & {
-        headers: Headers;
-    };
-export type postPartyIdRepromptMessageIdResponseError = (
-    | postPartyIdRepromptMessageIdResponse400TextPlain
-    | postPartyIdRepromptMessageIdResponse400ApplicationJson
-    | postPartyIdRepromptMessageIdResponse400TextJson
-) & {
-    headers: Headers;
-};
-
-export type postPartyIdRepromptMessageIdResponse =
-    | postPartyIdRepromptMessageIdResponseSuccess
-    | postPartyIdRepromptMessageIdResponseError;
-
-export const getPostPartyIdRepromptMessageIdUrl = (
-    id: string,
-    messageId: number,
-) => {
-    return `/api/Party/${id}/reprompt/${messageId}`;
-};
-
-export const postPartyIdRepromptMessageId = async (
-    id: string,
-    messageId: number,
-    repromptRequest: RepromptRequest,
-    options?: RequestInit,
-): Promise<postPartyIdRepromptMessageIdResponse> => {
-    return customFetch<postPartyIdRepromptMessageIdResponse>(
-        getPostPartyIdRepromptMessageIdUrl(id, messageId),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(repromptRequest),
-        },
-    );
-};
-
-export const getPostPartyIdRepromptMessageIdMutationOptions = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>,
-        TError,
-        { id: string; messageId: number; data: RepromptRequest },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>,
-    TError,
-    { id: string; messageId: number; data: RepromptRequest },
-    TContext
-> => {
-    const mutationKey = ['postPartyIdRepromptMessageId'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>,
-        { id: string; messageId: number; data: RepromptRequest }
-    > = (props) => {
-        const { id, messageId, data } = props ?? {};
-
-        return postPartyIdRepromptMessageId(
-            id,
-            messageId,
-            data,
-            requestOptions,
-        );
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PostPartyIdRepromptMessageIdMutationResult = NonNullable<
-    Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>
->;
-export type PostPartyIdRepromptMessageIdMutationBody = RepromptRequest;
-export type PostPartyIdRepromptMessageIdMutationError = ProblemDetails;
-
-export const usePostPartyIdRepromptMessageId = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>,
-            TError,
-            { id: string; messageId: number; data: RepromptRequest },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof postPartyIdRepromptMessageId>>,
-    TError,
-    { id: string; messageId: number; data: RepromptRequest },
-    TContext
-> => {
-    return useMutation(
-        getPostPartyIdRepromptMessageIdMutationOptions(options),
         queryClient,
     );
 };
@@ -14421,486 +12340,6 @@ export function useGetPartyIdChatGroupsSuspense<
 
     return { ...query, queryKey: queryOptions.queryKey };
 }
-
-export type postPartyIdChatGroupsResponse200TextPlain = {
-    data: ChatGroupInfo;
-    status: 200;
-};
-
-export type postPartyIdChatGroupsResponse200ApplicationJson = {
-    data: ChatGroupInfo;
-    status: 200;
-};
-
-export type postPartyIdChatGroupsResponse200TextJson = {
-    data: ChatGroupInfo;
-    status: 200;
-};
-
-export type postPartyIdChatGroupsResponseSuccess = (
-    | postPartyIdChatGroupsResponse200TextPlain
-    | postPartyIdChatGroupsResponse200ApplicationJson
-    | postPartyIdChatGroupsResponse200TextJson
-) & {
-    headers: Headers;
-};
-
-export type postPartyIdChatGroupsResponse =
-    postPartyIdChatGroupsResponseSuccess;
-
-export const getPostPartyIdChatGroupsUrl = (id: string) => {
-    return `/api/Party/${id}/chat-groups`;
-};
-
-export const postPartyIdChatGroups = async (
-    id: string,
-    createChatGroupRequest: CreateChatGroupRequest,
-    options?: RequestInit,
-): Promise<postPartyIdChatGroupsResponse> => {
-    return customFetch<postPartyIdChatGroupsResponse>(
-        getPostPartyIdChatGroupsUrl(id),
-        {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(createChatGroupRequest),
-        },
-    );
-};
-
-export const getPostPartyIdChatGroupsMutationOptions = <
-    TError = unknown,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof postPartyIdChatGroups>>,
-        TError,
-        { id: string; data: CreateChatGroupRequest },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof postPartyIdChatGroups>>,
-    TError,
-    { id: string; data: CreateChatGroupRequest },
-    TContext
-> => {
-    const mutationKey = ['postPartyIdChatGroups'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof postPartyIdChatGroups>>,
-        { id: string; data: CreateChatGroupRequest }
-    > = (props) => {
-        const { id, data } = props ?? {};
-
-        return postPartyIdChatGroups(id, data, requestOptions);
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PostPartyIdChatGroupsMutationResult = NonNullable<
-    Awaited<ReturnType<typeof postPartyIdChatGroups>>
->;
-export type PostPartyIdChatGroupsMutationBody = CreateChatGroupRequest;
-export type PostPartyIdChatGroupsMutationError = unknown;
-
-export const usePostPartyIdChatGroups = <TError = unknown, TContext = unknown>(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof postPartyIdChatGroups>>,
-            TError,
-            { id: string; data: CreateChatGroupRequest },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof postPartyIdChatGroups>>,
-    TError,
-    { id: string; data: CreateChatGroupRequest },
-    TContext
-> => {
-    return useMutation(
-        getPostPartyIdChatGroupsMutationOptions(options),
-        queryClient,
-    );
-};
-
-export type putPartyIdChatGroupsChatGroupIdScenarioResponse204 = {
-    data: void;
-    status: 204;
-};
-
-export type putPartyIdChatGroupsChatGroupIdScenarioResponse400TextPlain = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type putPartyIdChatGroupsChatGroupIdScenarioResponse400ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdScenarioResponse400TextJson = {
-    data: ProblemDetails;
-    status: 400;
-};
-
-export type putPartyIdChatGroupsChatGroupIdScenarioResponse404TextPlain = {
-    data: ProblemDetails;
-    status: 404;
-};
-
-export type putPartyIdChatGroupsChatGroupIdScenarioResponse404ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type putPartyIdChatGroupsChatGroupIdScenarioResponse404TextJson = {
-    data: ProblemDetails;
-    status: 404;
-};
-
-export type putPartyIdChatGroupsChatGroupIdScenarioResponseSuccess =
-    putPartyIdChatGroupsChatGroupIdScenarioResponse204 & {
-        headers: Headers;
-    };
-export type putPartyIdChatGroupsChatGroupIdScenarioResponseError = (
-    | putPartyIdChatGroupsChatGroupIdScenarioResponse400TextPlain
-    | putPartyIdChatGroupsChatGroupIdScenarioResponse400ApplicationJson
-    | putPartyIdChatGroupsChatGroupIdScenarioResponse400TextJson
-    | putPartyIdChatGroupsChatGroupIdScenarioResponse404TextPlain
-    | putPartyIdChatGroupsChatGroupIdScenarioResponse404ApplicationJson
-    | putPartyIdChatGroupsChatGroupIdScenarioResponse404TextJson
-) & {
-    headers: Headers;
-};
-
-export type putPartyIdChatGroupsChatGroupIdScenarioResponse =
-    | putPartyIdChatGroupsChatGroupIdScenarioResponseSuccess
-    | putPartyIdChatGroupsChatGroupIdScenarioResponseError;
-
-export const getPutPartyIdChatGroupsChatGroupIdScenarioUrl = (
-    id: string,
-    chatGroupId: string,
-) => {
-    return `/api/Party/${id}/chat-groups/${chatGroupId}/scenario`;
-};
-
-export const putPartyIdChatGroupsChatGroupIdScenario = async (
-    id: string,
-    chatGroupId: string,
-    updateChatGroupScenarioRequest: UpdateChatGroupScenarioRequest,
-    options?: RequestInit,
-): Promise<putPartyIdChatGroupsChatGroupIdScenarioResponse> => {
-    return customFetch<putPartyIdChatGroupsChatGroupIdScenarioResponse>(
-        getPutPartyIdChatGroupsChatGroupIdScenarioUrl(id, chatGroupId),
-        {
-            ...options,
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: JSON.stringify(updateChatGroupScenarioRequest),
-        },
-    );
-};
-
-export const getPutPartyIdChatGroupsChatGroupIdScenarioMutationOptions = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(options?: {
-    mutation?: UseMutationOptions<
-        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
-        TError,
-        {
-            id: string;
-            chatGroupId: string;
-            data: UpdateChatGroupScenarioRequest;
-        },
-        TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
-    TError,
-    { id: string; chatGroupId: string; data: UpdateChatGroupScenarioRequest },
-    TContext
-> => {
-    const mutationKey = ['putPartyIdChatGroupsChatGroupIdScenario'];
-    const { mutation: mutationOptions, request: requestOptions } = options
-        ? options.mutation &&
-          'mutationKey' in options.mutation &&
-          options.mutation.mutationKey
-            ? options
-            : { ...options, mutation: { ...options.mutation, mutationKey } }
-        : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-        Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
-        {
-            id: string;
-            chatGroupId: string;
-            data: UpdateChatGroupScenarioRequest;
-        }
-    > = (props) => {
-        const { id, chatGroupId, data } = props ?? {};
-
-        return putPartyIdChatGroupsChatGroupIdScenario(
-            id,
-            chatGroupId,
-            data,
-            requestOptions,
-        );
-    };
-
-    return { mutationFn, ...mutationOptions };
-};
-
-export type PutPartyIdChatGroupsChatGroupIdScenarioMutationResult = NonNullable<
-    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>
->;
-export type PutPartyIdChatGroupsChatGroupIdScenarioMutationBody =
-    UpdateChatGroupScenarioRequest;
-export type PutPartyIdChatGroupsChatGroupIdScenarioMutationError =
-    ProblemDetails;
-
-export const usePutPartyIdChatGroupsChatGroupIdScenario = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
-            TError,
-            {
-                id: string;
-                chatGroupId: string;
-                data: UpdateChatGroupScenarioRequest;
-            },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<ReturnType<typeof putPartyIdChatGroupsChatGroupIdScenario>>,
-    TError,
-    { id: string; chatGroupId: string; data: UpdateChatGroupScenarioRequest },
-    TContext
-> => {
-    return useMutation(
-        getPutPartyIdChatGroupsChatGroupIdScenarioMutationOptions(options),
-        queryClient,
-    );
-};
-
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse202 =
-    {
-        data: void;
-        status: 202;
-    };
-
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextPlain =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextJson =
-    {
-        data: ProblemDetails;
-        status: 400;
-    };
-
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextPlain =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404ApplicationJson =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextJson =
-    {
-        data: ProblemDetails;
-        status: 404;
-    };
-
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseSuccess =
-    postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse202 & {
-        headers: Headers;
-    };
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseError =
-    (
-        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextPlain
-        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400ApplicationJson
-        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse400TextJson
-        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextPlain
-        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404ApplicationJson
-        | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse404TextJson
-    ) & {
-        headers: Headers;
-    };
-
-export type postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse =
-    | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseSuccess
-    | postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponseError;
-
-export const getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberUrl = (
-    id: string,
-    chatGroupId: string,
-    messageId: number,
-) => {
-    return `/api/Party/${id}/chat-groups/${chatGroupId}/messages/${messageId}/remember`;
-};
-
-export const postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember = async (
-    id: string,
-    chatGroupId: string,
-    messageId: number,
-    options?: RequestInit,
-): Promise<postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse> => {
-    return customFetch<postPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberResponse>(
-        getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberUrl(
-            id,
-            chatGroupId,
-            messageId,
-        ),
-        {
-            ...options,
-            method: 'POST',
-        },
-    );
-};
-
-export const getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationOptions =
-    <TError = ProblemDetails, TContext = unknown>(options?: {
-        mutation?: UseMutationOptions<
-            Awaited<
-                ReturnType<
-                    typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
-                >
-            >,
-            TError,
-            { id: string; chatGroupId: string; messageId: number },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    }): UseMutationOptions<
-        Awaited<
-            ReturnType<
-                typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
-            >
-        >,
-        TError,
-        { id: string; chatGroupId: string; messageId: number },
-        TContext
-    > => {
-        const mutationKey = [
-            'postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember',
-        ];
-        const { mutation: mutationOptions, request: requestOptions } = options
-            ? options.mutation &&
-              'mutationKey' in options.mutation &&
-              options.mutation.mutationKey
-                ? options
-                : { ...options, mutation: { ...options.mutation, mutationKey } }
-            : { mutation: { mutationKey }, request: undefined };
-
-        const mutationFn: MutationFunction<
-            Awaited<
-                ReturnType<
-                    typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
-                >
-            >,
-            { id: string; chatGroupId: string; messageId: number }
-        > = (props) => {
-            const { id, chatGroupId, messageId } = props ?? {};
-
-            return postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember(
-                id,
-                chatGroupId,
-                messageId,
-                requestOptions,
-            );
-        };
-
-        return { mutationFn, ...mutationOptions };
-    };
-
-export type PostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationResult =
-    NonNullable<
-        Awaited<
-            ReturnType<
-                typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
-            >
-        >
-    >;
-
-export type PostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationError =
-    ProblemDetails;
-
-export const usePostPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember = <
-    TError = ProblemDetails,
-    TContext = unknown,
->(
-    options?: {
-        mutation?: UseMutationOptions<
-            Awaited<
-                ReturnType<
-                    typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
-                >
-            >,
-            TError,
-            { id: string; chatGroupId: string; messageId: number },
-            TContext
-        >;
-        request?: SecondParameter<typeof customFetch>;
-    },
-    queryClient?: QueryClient,
-): UseMutationResult<
-    Awaited<
-        ReturnType<
-            typeof postPartyIdChatGroupsChatGroupIdMessagesMessageIdRemember
-        >
-    >,
-    TError,
-    { id: string; chatGroupId: string; messageId: number },
-    TContext
-> => {
-    return useMutation(
-        getPostPartyIdChatGroupsChatGroupIdMessagesMessageIdRememberMutationOptions(
-            options,
-        ),
-        queryClient,
-    );
-};
 
 export type getPartyIdChatGroupsChatGroupIdPapertrailResponse200 = {
     data: void;
@@ -23344,6 +20783,350 @@ export const useDeleteWorldsPartyIdRelationsRelationId = <
     );
 };
 
+export type getRenderDraftsKeyResponse200TextPlain = {
+    data: Place;
+    status: 200;
+};
+
+export type getRenderDraftsKeyResponse200ApplicationJson = {
+    data: Place;
+    status: 200;
+};
+
+export type getRenderDraftsKeyResponse200TextJson = {
+    data: Place;
+    status: 200;
+};
+
+export type getRenderDraftsKeyResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type getRenderDraftsKeyResponse404ApplicationJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type getRenderDraftsKeyResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type getRenderDraftsKeyResponseSuccess = (
+    | getRenderDraftsKeyResponse200TextPlain
+    | getRenderDraftsKeyResponse200ApplicationJson
+    | getRenderDraftsKeyResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type getRenderDraftsKeyResponseError = (
+    | getRenderDraftsKeyResponse404TextPlain
+    | getRenderDraftsKeyResponse404ApplicationJson
+    | getRenderDraftsKeyResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type getRenderDraftsKeyResponse =
+    | getRenderDraftsKeyResponseSuccess
+    | getRenderDraftsKeyResponseError;
+
+export const getGetRenderDraftsKeyUrl = (key: string) => {
+    return `/api/render/drafts/${key}`;
+};
+
+export const getRenderDraftsKey = async (
+    key: string,
+    options?: RequestInit,
+): Promise<getRenderDraftsKeyResponse> => {
+    return customFetch<getRenderDraftsKeyResponse>(
+        getGetRenderDraftsKeyUrl(key),
+        {
+            ...options,
+            method: 'GET',
+        },
+    );
+};
+
+export const getGetRenderDraftsKeyQueryKey = (key: string) => {
+    return [`/api/render/drafts/${key}`] as const;
+};
+
+export const getGetRenderDraftsKeyQueryOptions = <
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetRenderDraftsKeyQueryKey(key);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getRenderDraftsKey>>
+    > = ({ signal }) => getRenderDraftsKey(key, { signal, ...requestOptions });
+
+    return {
+        queryKey,
+        queryFn,
+        enabled: !!key,
+        ...queryOptions,
+    } as UseQueryOptions<
+        Awaited<ReturnType<typeof getRenderDraftsKey>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetRenderDraftsKeyQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getRenderDraftsKey>>
+>;
+export type GetRenderDraftsKeyQueryError = ProblemDetails;
+
+export function useGetRenderDraftsKey<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options: {
+        query: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                DefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                    TError,
+                    Awaited<ReturnType<typeof getRenderDraftsKey>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRenderDraftsKey<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        > &
+            Pick<
+                UndefinedInitialDataOptions<
+                    Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                    TError,
+                    Awaited<ReturnType<typeof getRenderDraftsKey>>
+                >,
+                'initialData'
+            >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRenderDraftsKey<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetRenderDraftsKey<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetRenderDraftsKeyQueryOptions(key, options);
+
+    const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+        TData,
+        TError
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetRenderDraftsKeySuspenseQueryOptions = <
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+) => {
+    const { query: queryOptions, request: requestOptions } = options ?? {};
+
+    const queryKey =
+        queryOptions?.queryKey ?? getGetRenderDraftsKeyQueryKey(key);
+
+    const queryFn: QueryFunction<
+        Awaited<ReturnType<typeof getRenderDraftsKey>>
+    > = ({ signal }) => getRenderDraftsKey(key, { signal, ...requestOptions });
+
+    return { queryKey, queryFn, ...queryOptions } as UseSuspenseQueryOptions<
+        Awaited<ReturnType<typeof getRenderDraftsKey>>,
+        TError,
+        TData
+    > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetRenderDraftsKeySuspenseQueryResult = NonNullable<
+    Awaited<ReturnType<typeof getRenderDraftsKey>>
+>;
+export type GetRenderDraftsKeySuspenseQueryError = ProblemDetails;
+
+export function useGetRenderDraftsKeySuspense<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options: {
+        query: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRenderDraftsKeySuspense<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRenderDraftsKeySuspense<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useGetRenderDraftsKeySuspense<
+    TData = Awaited<ReturnType<typeof getRenderDraftsKey>>,
+    TError = ProblemDetails,
+>(
+    key: string,
+    options?: {
+        query?: Partial<
+            UseSuspenseQueryOptions<
+                Awaited<ReturnType<typeof getRenderDraftsKey>>,
+                TError,
+                TData
+            >
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+} {
+    const queryOptions = getGetRenderDraftsKeySuspenseQueryOptions(
+        key,
+        options,
+    );
+
+    const query = useSuspenseQuery(
+        queryOptions,
+        queryClient,
+    ) as UseSuspenseQueryResult<TData, TError> & {
+        queryKey: DataTag<QueryKey, TData, TError>;
+    };
+
+    return { ...query, queryKey: queryOptions.queryKey };
+}
+
 export type getWorldsPartyIdSelvesResponse200TextPlain = {
     data: SelfSummary[];
     status: 200;
@@ -30991,6 +28774,500 @@ export const usePostWorldsPartyIdMessenger = <
     );
 };
 
+export type postWorldsPartyIdMessengerGroupsResponse200TextPlain = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
+export type postWorldsPartyIdMessengerGroupsResponse200ApplicationJson = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
+export type postWorldsPartyIdMessengerGroupsResponse200TextJson = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
+export type postWorldsPartyIdMessengerGroupsResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdMessengerGroupsResponse400ApplicationJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdMessengerGroupsResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdMessengerGroupsResponseSuccess = (
+    | postWorldsPartyIdMessengerGroupsResponse200TextPlain
+    | postWorldsPartyIdMessengerGroupsResponse200ApplicationJson
+    | postWorldsPartyIdMessengerGroupsResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type postWorldsPartyIdMessengerGroupsResponseError = (
+    | postWorldsPartyIdMessengerGroupsResponse400TextPlain
+    | postWorldsPartyIdMessengerGroupsResponse400ApplicationJson
+    | postWorldsPartyIdMessengerGroupsResponse400TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdMessengerGroupsResponse =
+    | postWorldsPartyIdMessengerGroupsResponseSuccess
+    | postWorldsPartyIdMessengerGroupsResponseError;
+
+export const getPostWorldsPartyIdMessengerGroupsUrl = (partyId: string) => {
+    return `/api/worlds/${partyId}/messenger/groups`;
+};
+
+export const postWorldsPartyIdMessengerGroups = async (
+    partyId: string,
+    startGroupRequest: StartGroupRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdMessengerGroupsResponse> => {
+    return customFetch<postWorldsPartyIdMessengerGroupsResponse>(
+        getPostWorldsPartyIdMessengerGroupsUrl(partyId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(startGroupRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdMessengerGroupsMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdMessengerGroups>>,
+        TError,
+        { partyId: string; data: StartGroupRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdMessengerGroups>>,
+    TError,
+    { partyId: string; data: StartGroupRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdMessengerGroups'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdMessengerGroups>>,
+        { partyId: string; data: StartGroupRequest }
+    > = (props) => {
+        const { partyId, data } = props ?? {};
+
+        return postWorldsPartyIdMessengerGroups(partyId, data, requestOptions);
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdMessengerGroupsMutationResult = NonNullable<
+    Awaited<ReturnType<typeof postWorldsPartyIdMessengerGroups>>
+>;
+export type PostWorldsPartyIdMessengerGroupsMutationBody = StartGroupRequest;
+export type PostWorldsPartyIdMessengerGroupsMutationError = ProblemDetails;
+
+export const usePostWorldsPartyIdMessengerGroups = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<ReturnType<typeof postWorldsPartyIdMessengerGroups>>,
+            TError,
+            { partyId: string; data: StartGroupRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdMessengerGroups>>,
+    TError,
+    { partyId: string; data: StartGroupRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdMessengerGroupsMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse200TextPlain = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse200ApplicationJson =
+    {
+        data: ChatGroupInfo;
+        status: 200;
+    };
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse200TextJson = {
+    data: ChatGroupInfo;
+    status: 200;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponseSuccess = (
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse200TextPlain
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse200ApplicationJson
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse200TextJson
+) & {
+    headers: Headers;
+};
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponseError = (
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse400TextPlain
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse400ApplicationJson
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse400TextJson
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse404TextPlain
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse404ApplicationJson
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdInviteResponse =
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponseSuccess
+    | postWorldsPartyIdMessengerChatGroupIdInviteResponseError;
+
+export const getPostWorldsPartyIdMessengerChatGroupIdInviteUrl = (
+    partyId: string,
+    chatGroupId: string,
+) => {
+    return `/api/worlds/${partyId}/messenger/${chatGroupId}/invite`;
+};
+
+export const postWorldsPartyIdMessengerChatGroupIdInvite = async (
+    partyId: string,
+    chatGroupId: string,
+    inviteToConversationRequest: InviteToConversationRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdMessengerChatGroupIdInviteResponse> => {
+    return customFetch<postWorldsPartyIdMessengerChatGroupIdInviteResponse>(
+        getPostWorldsPartyIdMessengerChatGroupIdInviteUrl(partyId, chatGroupId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(inviteToConversationRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdMessengerChatGroupIdInviteMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdInvite>>,
+        TError,
+        {
+            partyId: string;
+            chatGroupId: string;
+            data: InviteToConversationRequest;
+        },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdInvite>>,
+    TError,
+    { partyId: string; chatGroupId: string; data: InviteToConversationRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdMessengerChatGroupIdInvite'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdInvite>>,
+        {
+            partyId: string;
+            chatGroupId: string;
+            data: InviteToConversationRequest;
+        }
+    > = (props) => {
+        const { partyId, chatGroupId, data } = props ?? {};
+
+        return postWorldsPartyIdMessengerChatGroupIdInvite(
+            partyId,
+            chatGroupId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdMessengerChatGroupIdInviteMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdInvite>>
+    >;
+export type PostWorldsPartyIdMessengerChatGroupIdInviteMutationBody =
+    InviteToConversationRequest;
+export type PostWorldsPartyIdMessengerChatGroupIdInviteMutationError =
+    ProblemDetails;
+
+export const usePostWorldsPartyIdMessengerChatGroupIdInvite = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdInvite>
+            >,
+            TError,
+            {
+                partyId: string;
+                chatGroupId: string;
+                data: InviteToConversationRequest;
+            },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdInvite>>,
+    TError,
+    { partyId: string; chatGroupId: string; data: InviteToConversationRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdMessengerChatGroupIdInviteMutationOptions(options),
+        queryClient,
+    );
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponse204 = {
+    data: void;
+    status: 204;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponse400TextPlain = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponse400ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 400;
+    };
+
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponse400TextJson = {
+    data: ProblemDetails;
+    status: 400;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponse404TextPlain = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponse404ApplicationJson =
+    {
+        data: ProblemDetails;
+        status: 404;
+    };
+
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponse404TextJson = {
+    data: ProblemDetails;
+    status: 404;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponseSuccess =
+    postWorldsPartyIdMessengerChatGroupIdLeaveResponse204 & {
+        headers: Headers;
+    };
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponseError = (
+    | postWorldsPartyIdMessengerChatGroupIdLeaveResponse400TextPlain
+    | postWorldsPartyIdMessengerChatGroupIdLeaveResponse400ApplicationJson
+    | postWorldsPartyIdMessengerChatGroupIdLeaveResponse400TextJson
+    | postWorldsPartyIdMessengerChatGroupIdLeaveResponse404TextPlain
+    | postWorldsPartyIdMessengerChatGroupIdLeaveResponse404ApplicationJson
+    | postWorldsPartyIdMessengerChatGroupIdLeaveResponse404TextJson
+) & {
+    headers: Headers;
+};
+
+export type postWorldsPartyIdMessengerChatGroupIdLeaveResponse =
+    | postWorldsPartyIdMessengerChatGroupIdLeaveResponseSuccess
+    | postWorldsPartyIdMessengerChatGroupIdLeaveResponseError;
+
+export const getPostWorldsPartyIdMessengerChatGroupIdLeaveUrl = (
+    partyId: string,
+    chatGroupId: string,
+) => {
+    return `/api/worlds/${partyId}/messenger/${chatGroupId}/leave`;
+};
+
+export const postWorldsPartyIdMessengerChatGroupIdLeave = async (
+    partyId: string,
+    chatGroupId: string,
+    leaveGroupRequest: LeaveGroupRequest,
+    options?: RequestInit,
+): Promise<postWorldsPartyIdMessengerChatGroupIdLeaveResponse> => {
+    return customFetch<postWorldsPartyIdMessengerChatGroupIdLeaveResponse>(
+        getPostWorldsPartyIdMessengerChatGroupIdLeaveUrl(partyId, chatGroupId),
+        {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
+            body: JSON.stringify(leaveGroupRequest),
+        },
+    );
+};
+
+export const getPostWorldsPartyIdMessengerChatGroupIdLeaveMutationOptions = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(options?: {
+    mutation?: UseMutationOptions<
+        Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdLeave>>,
+        TError,
+        { partyId: string; chatGroupId: string; data: LeaveGroupRequest },
+        TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+    Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdLeave>>,
+    TError,
+    { partyId: string; chatGroupId: string; data: LeaveGroupRequest },
+    TContext
+> => {
+    const mutationKey = ['postWorldsPartyIdMessengerChatGroupIdLeave'];
+    const { mutation: mutationOptions, request: requestOptions } = options
+        ? options.mutation &&
+          'mutationKey' in options.mutation &&
+          options.mutation.mutationKey
+            ? options
+            : { ...options, mutation: { ...options.mutation, mutationKey } }
+        : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+        Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdLeave>>,
+        { partyId: string; chatGroupId: string; data: LeaveGroupRequest }
+    > = (props) => {
+        const { partyId, chatGroupId, data } = props ?? {};
+
+        return postWorldsPartyIdMessengerChatGroupIdLeave(
+            partyId,
+            chatGroupId,
+            data,
+            requestOptions,
+        );
+    };
+
+    return { mutationFn, ...mutationOptions };
+};
+
+export type PostWorldsPartyIdMessengerChatGroupIdLeaveMutationResult =
+    NonNullable<
+        Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdLeave>>
+    >;
+export type PostWorldsPartyIdMessengerChatGroupIdLeaveMutationBody =
+    LeaveGroupRequest;
+export type PostWorldsPartyIdMessengerChatGroupIdLeaveMutationError =
+    ProblemDetails;
+
+export const usePostWorldsPartyIdMessengerChatGroupIdLeave = <
+    TError = ProblemDetails,
+    TContext = unknown,
+>(
+    options?: {
+        mutation?: UseMutationOptions<
+            Awaited<
+                ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdLeave>
+            >,
+            TError,
+            { partyId: string; chatGroupId: string; data: LeaveGroupRequest },
+            TContext
+        >;
+        request?: SecondParameter<typeof customFetch>;
+    },
+    queryClient?: QueryClient,
+): UseMutationResult<
+    Awaited<ReturnType<typeof postWorldsPartyIdMessengerChatGroupIdLeave>>,
+    TError,
+    { partyId: string; chatGroupId: string; data: LeaveGroupRequest },
+    TContext
+> => {
+    return useMutation(
+        getPostWorldsPartyIdMessengerChatGroupIdLeaveMutationOptions(options),
+        queryClient,
+    );
+};
+
 export type getWorldsPartyIdGatheringsResponse200TextPlain = {
     data: Gathering[];
     status: 200;
@@ -31319,6 +29596,21 @@ export function useGetWorldsPartyIdGatheringsSuspense<
     return { ...query, queryKey: queryOptions.queryKey };
 }
 
+export type postWorldsPartyIdGatheringsResponse200TextPlain = {
+    data: Gathering;
+    status: 200;
+};
+
+export type postWorldsPartyIdGatheringsResponse200ApplicationJson = {
+    data: Gathering;
+    status: 200;
+};
+
+export type postWorldsPartyIdGatheringsResponse200TextJson = {
+    data: Gathering;
+    status: 200;
+};
+
 export type postWorldsPartyIdGatheringsResponse400TextPlain = {
     data: ProblemDetails;
     status: 400;
@@ -31333,6 +29625,14 @@ export type postWorldsPartyIdGatheringsResponse400TextJson = {
     data: ProblemDetails;
     status: 400;
 };
+
+export type postWorldsPartyIdGatheringsResponseSuccess = (
+    | postWorldsPartyIdGatheringsResponse200TextPlain
+    | postWorldsPartyIdGatheringsResponse200ApplicationJson
+    | postWorldsPartyIdGatheringsResponse200TextJson
+) & {
+    headers: Headers;
+};
 export type postWorldsPartyIdGatheringsResponseError = (
     | postWorldsPartyIdGatheringsResponse400TextPlain
     | postWorldsPartyIdGatheringsResponse400ApplicationJson
@@ -31342,7 +29642,8 @@ export type postWorldsPartyIdGatheringsResponseError = (
 };
 
 export type postWorldsPartyIdGatheringsResponse =
-    postWorldsPartyIdGatheringsResponseError;
+    | postWorldsPartyIdGatheringsResponseSuccess
+    | postWorldsPartyIdGatheringsResponseError;
 
 export const getPostWorldsPartyIdGatheringsUrl = (partyId: string) => {
     return `/api/worlds/${partyId}/gatherings`;

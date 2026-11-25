@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { fn } from 'storybook/test';
-import WindowFrame from '../../components/desktop/WindowFrame';
+import StoryWindow from '../../components/desktop/StoryWindow';
 import CduApp from './CduApp';
 
 const meta = {
@@ -8,29 +7,18 @@ const meta = {
     component: CduApp,
     parameters: { layout: 'fullscreen' },
     decorators: [
-        (Story) => (
+        (Story, { parameters }) => (
             <div
-                style={{
-                    width: 880,
-                    height: 600,
-                    padding: 24,
-                    background: '#5C87C2',
-                }}
+                className={
+                    parameters.narrow
+                        ? 'h-[600px] w-[480px] p-4'
+                        : 'h-[600px] w-[880px] p-4'
+                }
             >
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
-                <WindowFrame
-                    id="cdu"
-                    title="C:\CDU\"
-                    icon="🜂"
-                    width={840}
-                    height={560}
-                    zIndex={1}
-                    onMinimize={fn()}
-                    onMaximize={fn()}
-                    onClose={fn()}
-                >
+                <StoryWindow id="cdu" title="C:\CDU\" icon="cdu">
                     <Story />
-                </WindowFrame>
+                </StoryWindow>
             </div>
         ),
     ],
@@ -39,3 +27,5 @@ const meta = {
 export default meta;
 
 export const Awake: StoryObj<typeof meta> = {};
+
+export const Narrow: StoryObj<typeof meta> = { parameters: { narrow: true } };

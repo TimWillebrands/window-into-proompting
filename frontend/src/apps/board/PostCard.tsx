@@ -1,3 +1,4 @@
+import { CommandButton, Hyperlink, Icon, Post, Text } from '@partytown/ui';
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import type { BoardReply } from '../../api/model/boardReply';
 import type { BoardThread } from '../../api/model/boardThread';
@@ -55,94 +56,99 @@ export default function PostCard({
     }, [focused]);
 
     return (
-        <article
+        <Post
             ref={cardRef}
-            className={`pb-card ${focused ? 'pb-flash' : ''} ${isNewLine(thread, playerId, since) ? 'pb-new' : ''}`}
             aria-label={`Post by ${thread.authorName}`}
-        >
-            {bump && bump.authorId !== thread.authorId && (
-                <div className="pb-bump">
-                    ↩ {bump.authorId === playerId ? 'You' : bump.authorName}{' '}
-                    replied · {relativeTime(ms(bump.createdAt), now)}
-                </div>
+            current={focused}
+            unread={isNewLine(thread, playerId, since)}
+            picture={<Portrait who={thread.authorId ?? ''} alt="" />}
+            title={authorTitle(
+                thread.authorName ?? '?',
+                thread.authorId,
+                playerId,
             )}
-            <Line
-                authorId={thread.authorId ?? ''}
-                authorName={thread.authorName ?? '?'}
-                createdAt={ms(thread.createdAt)}
-                body={thread.body ?? ''}
-                playerId={playerId}
-                now={now}
-                names={names}
-                size={44}
-            >
-                <RespectButton
-                    respect={thread.respect}
-                    playerId={playerId}
-                    own={mine}
-                    onToggle={(given) => onRespect(id, null, given)}
-                />
-                <button
-                    type="button"
-                    className="pb-action"
-                    onClick={() => setReplying((r) => !r)}
-                >
-                    💬 Reply{replies.length > 0 ? ` · ${replies.length}` : ''}
-                </button>
-            </Line>
-
-            {(replies.length > 0 || replying) && (
-                <div className="pb-replies">
-                    {hidden > 0 && (
-                        <button
-                            type="button"
-                            className="pb-more"
-                            onClick={() => setExpanded(true)}
-                        >
-                            Show {hidden} earlier{' '}
-                            {hidden === 1 ? 'reply' : 'replies'}
-                        </button>
-                    )}
-                    {shown.map((r) => (
-                        <ReplyLine
-                            key={r.id}
-                            reply={r}
-                            playerId={playerId}
-                            now={now}
-                            names={names}
-                            isNew={isNewLine(r, playerId, since)}
-                            onRespect={(given) =>
-                                onRespect(id, r.id ?? null, given)
-                            }
-                        />
-                    ))}
-                    {replying ? (
-                        <Composer
-                            compact
-                            autoFocus
-                            playerId={playerId}
-                            placeholder={`Reply to ${mine ? 'your post' : thread.authorName}…`}
-                            submitLabel="Reply"
-                            onCancel={() => setReplying(false)}
-                            onSubmit={async (body) => {
-                                await onReply(id, body);
-                                setExpanded(true);
-                            }}
-                        />
-                    ) : (
-                        replies.length > 0 && (
-                            <button
-                                type="button"
-                                className="pb-reply-prompt"
-                                onClick={() => setReplying(true)}
+            meta={<When at={ms(thread.createdAt)} now={now} />}
+            context={
+                bump && bump.authorId !== thread.authorId ? (
+                    <>
+                        <Icon name="undo" />
+                        {bump.authorId === playerId ? 'You' : bump.authorName}{' '}
+                        replied · {relativeTime(ms(bump.createdAt), now)}
+                    </>
+                ) : undefined
+            }
+            actions={
+                <>
+                    <RespectButton
+                        respect={thread.respect}
+                        playerId={playerId}
+                        own={mine}
+                        onToggle={(given) => onRespect(id, null, given)}
+                    />
+                    <CommandButton
+                        size="small"
+                        icon={<Icon name="chat" />}
+                        pressed={replying}
+                        onClick={() => setReplying((r) => !r)}
+                    >
+                        Reply{replies.length > 0 ? ` · ${replies.length}` : ''}
+                    </CommandButton>
+                </>
+            }
+            replies={
+                replies.length > 0 || replying ? (
+                    <>
+                        {hidden > 0 && (
+                            <Hyperlink
+                                className="justify-self-start"
+                                onClick={() => setExpanded(true)}
                             >
-                                Write a reply…
-                            </button>
-                        )
-                    )}
-                </div>
-            )}
-        </article>
+                                Show {hidden} earlier{' '}
+                                {hidden === 1 ? 'reply' : 'replies'}
+                            </Hyperlink>
+                        )}
+                        {shown.map((r) => (
+                            <ReplyLine
+                                key={r.id}
+                                reply={r}
+                                playerId={playerId}
+                                now={now}
+                                names={names}
+                                isNew={isNewLine(r, playerId, since)}
+                                onRespect={(given) =>
+                                    onRespect(id, r.id ?? null, given)
+                                }
+                            />
+                        ))}
+                        {replying ? (
+                            <Composer
+                                compact
+                                autoFocus
+                                playerId={playerId}
+                                placeholder={`Reply to ${mine ? 'your post' : thread.authorName}…`}
+                                submitLabel="Reply"
+                                onCancel={() => setReplying(false)}
+                                onSubmit={async (body) => {
+                                    await onReply(id, body);
+                                    setExpanded(true);
+                                }}
+                            />
+                        ) : (
+                            replies.length > 0 && (
+                                <Hyperlink
+                                    className="justify-self-start"
+                                    onClick={() => setReplying(true)}
+                                >
+                                    Write a reply…
+                                </Hyperlink>
+                            )
+                        )}
+                    </>
+                ) : undefined
+            }
+        >
+            {withMentions(thread.body ?? '', names)}
+        </Post>
     );
 }
 
@@ -162,81 +168,44 @@ function ReplyLine({
     onRespect: (given: boolean) => void;
 }) {
     return (
-        <div className={`pb-reply ${isNew ? 'pb-new' : ''}`}>
-            <Line
-                authorId={reply.authorId ?? ''}
-                authorName={reply.authorName ?? '?'}
-                createdAt={ms(reply.createdAt)}
-                body={reply.body ?? ''}
-                playerId={playerId}
-                now={now}
-                names={names}
-                size={30}
-            >
+        <Post
+            variant="flat"
+            size="compact"
+            unread={isNew}
+            picture={<Portrait who={reply.authorId ?? ''} alt="" />}
+            title={authorTitle(
+                reply.authorName ?? '?',
+                reply.authorId,
+                playerId,
+            )}
+            meta={<When at={ms(reply.createdAt)} now={now} />}
+            actions={
                 <RespectButton
-                    small
                     respect={reply.respect}
                     playerId={playerId}
                     own={!!playerId && reply.authorId === playerId}
                     onToggle={onRespect}
                 />
-            </Line>
-        </div>
+            }
+        >
+            {withMentions(reply.body ?? '', names)}
+        </Post>
     );
 }
 
-function Line({
-    authorId,
-    authorName,
-    createdAt,
-    body,
-    playerId,
-    now,
-    names,
-    size,
-    children,
-}: {
-    authorId: string;
-    authorName: string;
-    createdAt: number;
-    body: string;
-    playerId: string | null;
-    now: number;
-    names: string[];
-    size: number;
-    children: ReactNode;
-}) {
-    const isPlayer = !!playerId && authorId === playerId;
+function authorTitle(
+    name: string,
+    authorId: string | null | undefined,
+    playerId: string | null,
+) {
+    return !!playerId && authorId === playerId ? `${name} (you)` : name;
+}
+
+function When({ at, now }: { at: number; now: number }) {
     return (
-        <div className="pb-line">
-            <Portrait
-                className="pb-avatar"
-                who={authorId}
-                alt=""
-                width={size}
-                height={size}
-            />
-            <div className="min-w-0 flex-1">
-                <div className="pb-meta">
-                    <span
-                        className={`pb-name ${isPlayer ? 'pb-player-name' : ''}`}
-                    >
-                        {authorName}
-                    </span>
-                    {isPlayer && <span className="pb-you">you</span>}
-                    <span className="pb-muted">·</span>
-                    <time
-                        className="pb-muted"
-                        dateTime={new Date(createdAt).toISOString()}
-                        title={fullDate(createdAt)}
-                    >
-                        {relativeTime(createdAt, now)}
-                    </time>
-                </div>
-                <p className="pb-body">{withMentions(body, names)}</p>
-                <div className="pb-actions">{children}</div>
-            </div>
-        </div>
+        <time dateTime={new Date(at).toISOString()} title={fullDate(at)}>
+            {relativeTime(at, now)}
+        </time>
     );
 }
 
@@ -248,9 +217,9 @@ export function withMentions(text: string, names: string[]): ReactNode {
     return parts.map((part, i) =>
         i % 2 === 1 ? (
             // biome-ignore lint/suspicious/noArrayIndexKey: split output is positional
-            <span key={i} className="pb-mention">
+            <Text key={i} as="strong" tone="neutral" strong>
                 {part}
-            </span>
+            </Text>
         ) : (
             // biome-ignore lint/suspicious/noArrayIndexKey: split output is positional
             <Fragment key={i}>{part}</Fragment>

@@ -1,0 +1,32 @@
+@layer ui {
+    .ui-hyperlink {
+        display: inline;
+        margin: 0;
+        padding: max(0px, calc((24px - 1lh) / 2)) 0;
+        border: 0;
+        border-radius: var(--ui-radius-control);
+        background: transparent;
+        color: var(--ui-link);
+        font: inherit;
+        text-align: inherit;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        cursor: pointer;
+    }
+
+    .ui-hyperlink:is(:hover, [data-ui-preview~="hover"]) {
+        color: var(--ui-link-hover);
+    }
+
+    .ui-hyperlink:focus-visible,
+    .ui-hyperlink[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: 1px;
+    }
+
+    .ui-hyperlink:disabled {
+        color: var(--ui-text-disabled);
+        text-decoration: none;
+        cursor: default;
+    }
+}

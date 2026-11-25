@@ -42,13 +42,12 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         var chatGroups = await partyGrain.GetChatGroups();
         var thisChatGroup = chatGroups.FirstOrDefault(g => g.Id == this.GetPrimaryKey());
 
-        var seedIds = new HashSet<Guid>(party.Participants.Select(p => p.Id));
+        var seedIds = new HashSet<Guid>(thisChatGroup?.MemberIds ?? party.Participants.Select(p => p.Id));
 
         RaiseEvent(new ChatGroupInitializedEvent
         {
             PartyId = partyId.Value,
             ParticipantIds = seedIds,
-            Scenario = thisChatGroup?.Scenario
         });
         await ConfirmEvents();
 
@@ -57,22 +56,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     }
 
     public Task<Guid> GetPartyIdAsync() => Task.FromResult(State.PartyId);
-
-    public Task<string?> GetScenarioAsync() => Task.FromResult(State.Scenario);
-
-    public async Task SetScenarioAsync(string? scenario)
-    {
-        var normalized = string.IsNullOrWhiteSpace(scenario) ? null : scenario.Trim();
-        if (normalized is { Length: > ChatGroupLimits.MaxScenarioLength })
-        {
-            logger.LogWarning(
-                "Scenario length {Length} exceeded cap {Cap} for chat group {ChatGroupId}; truncating",
-                normalized.Length, ChatGroupLimits.MaxScenarioLength, this.GetPrimaryKey());
-            normalized = normalized[..ChatGroupLimits.MaxScenarioLength];
-        }
-        RaiseEvent(new ChatGroupScenarioSetEvent { Scenario = normalized });
-        await ConfirmEvents();
-    }
 
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync()
         => Task.FromResult<IReadOnlyList<ChatMessage>>(State.Messages.OrderBy(m => m.MessageId).ToList());
@@ -84,6 +67,9 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
     }
 
     private static readonly TimeSpan OpenTurnHolds = TimeSpan.FromMinutes(3);
+
+    public Task<bool> AnySaidByAsync(List<Guid> senderIds)
+        => Task.FromResult(State.Messages.Any(m => !string.IsNullOrWhiteSpace(m.Content) && m.Error is null && senderIds.Contains(m.SenderId)));
 
     public Task<List<ChatMessage>> GetRecentMessagesAsync(int count)
         => Task.FromResult(State.Messages
@@ -129,12 +115,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         await AnswerOwedAsync();
     }
 
-    public Task ContinueAsync()
-    {
-        var last = State.Messages.OrderBy(m => m.MessageId).LastOrDefault();
-        return last is null ? Task.CompletedTask : NotifyAllParticipantsAsync(last);
-    }
-
     private static bool IsOpen(ChatMessage slot)
         => string.IsNullOrEmpty(slot.Content) && slot.Error is null && slot.Appraisal is null;
 
@@ -163,57 +143,18 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         await ConfirmEvents();
     }
 
-    public async Task<IReadOnlySet<Guid>> JoinAsync(IReadOnlyList<Guid> personaIds)
-    {
-        var party = await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetParty();
-        var cast = party.Participants.Select(p => p.Id).ToHashSet();
-        var next = new HashSet<Guid>(State.ParticipantIds);
-        next.UnionWith(personaIds.Where(cast.Contains));
-        await SetParticipantIdsAsync(next);
-        return State.ParticipantIds;
-    }
-
     public Task<IReadOnlySet<Guid>> GetParticipantIdsAsync()
         => Task.FromResult<IReadOnlySet<Guid>>(State.ParticipantIds);
-
-    public Task<IReadOnlyDictionary<Guid, DriverKind>> GetDriverOverridesAsync()
-        => Task.FromResult<IReadOnlyDictionary<Guid, DriverKind>>(State.DriverOverrides);
 
     public async Task<RoomCast> GetCastAsync()
     {
         var cast = await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetCastAsync();
-        return RoomCast.Create(cast, State.ParticipantIds, State.DriverOverrides, await KindAsync());
+        return RoomCast.Create(cast, State.ParticipantIds, await KindAsync());
     }
 
     private async Task<string> KindAsync()
         => _kind ??= (await GrainFactory.GetGrain<IPartyGrain>(State.PartyId).GetChatGroups())
-            .FirstOrDefault(g => g.Id == this.GetPrimaryKey())?.Kind ?? ChatGroupKinds.Room;
-
-    public async Task SetDriverOverrideAsync(Guid personaId, DriverKind kind)
-    {
-        if (State.DriverOverrides.TryGetValue(personaId, out var existing) && existing == kind) return;
-        RaiseEvent(new ChatGroupDriverOverrideSetEvent { PersonaId = personaId, Kind = kind });
-        await ConfirmEvents();
-    }
-
-    public async Task ClearDriverOverrideAsync(Guid personaId)
-    {
-        if (!State.DriverOverrides.ContainsKey(personaId)) return;
-        RaiseEvent(new ChatGroupDriverOverrideClearedEvent { PersonaId = personaId });
-        await ConfirmEvents();
-    }
-
-    public async Task SetDriverOverridesAsync(IReadOnlyDictionary<Guid, DriverKind> overrides)
-    {
-        var deduped = overrides
-            .Where(kv => kv.Key != Guid.Empty)
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
-        if (State.DriverOverrides.Count == deduped.Count
-            && deduped.All(kv => State.DriverOverrides.TryGetValue(kv.Key, out var v) && v == kv.Value))
-            return;
-        RaiseEvent(new ChatGroupDriverOverridesReplacedEvent { Overrides = deduped });
-        await ConfirmEvents();
-    }
+            .FirstOrDefault(g => g.Id == this.GetPrimaryKey())?.Kind ?? ChatGroupKinds.Group;
 
     public async Task<ChatMessage> SendNewMessageAsync(
         Guid senderId,
@@ -437,16 +378,6 @@ public sealed class ChatGroupGrain(ILogger<ChatGroupGrain> logger)
         await PublishPartyEvent(new PartyStreamEvent { Type = "deleteMessage", ChatGroupId = chatGroupId, MessageId = messageId });
     }
 
-    public async Task DeleteMessagesAfterAsync(int messageId)
-    {
-
-        var chatGroupId = this.GetPrimaryKey();
-        RaiseEvent(new ChatGroupMessagesAfterDeletedEvent { MessageId = messageId });
-        await ConfirmEvents();
-        _owed.Forget(messageId);
-        await PublishPartyEvent(new PartyStreamEvent { Type = "deleteMessagesAfter", ChatGroupId = chatGroupId, MessageId = messageId });
-    }
-
     public Task NotifyStreamChunkAsync(int messageId, MessageStreamEvent evt)
     {
 
@@ -596,11 +527,8 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("GetPartyIdAsync")]
     Task<Guid> GetPartyIdAsync();
 
-    [Alias("GetScenarioAsync")]
-    Task<string?> GetScenarioAsync();
-
-    [Alias("SetScenarioAsync")]
-    Task SetScenarioAsync(string? scenario);
+    [Alias("AnySaidByAsync")]
+    Task<bool> AnySaidByAsync(List<Guid> senderIds);
 
     [Alias("GetMessagesAsync")]
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync();
@@ -611,32 +539,14 @@ public interface IChatGroupGrain : IGrainWithGuidKey
     [Alias("EndTurnAsync")]
     Task EndTurnAsync(int turnId, TurnOutcome outcome);
 
-    [Alias("ContinueAsync")]
-    Task ContinueAsync();
-
     [Alias("SetParticipantIdsAsync")]
     Task SetParticipantIdsAsync(IReadOnlySet<Guid> participantIds);
 
     [Alias("GetParticipantIdsAsync")]
     Task<IReadOnlySet<Guid>> GetParticipantIdsAsync();
 
-    [Alias("JoinAsync")]
-    Task<IReadOnlySet<Guid>> JoinAsync(IReadOnlyList<Guid> personaIds);
-
-    [Alias("GetDriverOverridesAsync")]
-    Task<IReadOnlyDictionary<Guid, DriverKind>> GetDriverOverridesAsync();
-
     [Alias("GetCastAsync")]
     Task<RoomCast> GetCastAsync();
-
-    [Alias("SetDriverOverrideAsync")]
-    Task SetDriverOverrideAsync(Guid personaId, DriverKind kind);
-
-    [Alias("ClearDriverOverrideAsync")]
-    Task ClearDriverOverrideAsync(Guid personaId);
-
-    [Alias("SetDriverOverridesAsync")]
-    Task SetDriverOverridesAsync(IReadOnlyDictionary<Guid, DriverKind> overrides);
 
     [Alias("SendNewMessageAsync")]
     Task<ChatMessage> SendNewMessageAsync(
@@ -675,9 +585,6 @@ public interface IChatGroupGrain : IGrainWithGuidKey
 
     [Alias("DeleteMessageAsync")]
     Task DeleteMessageAsync(int messageId);
-
-    [Alias("DeleteMessagesAfterAsync")]
-    Task DeleteMessagesAfterAsync(int messageId);
 
     [Alias("NotifyStreamChunkAsync")]
     Task NotifyStreamChunkAsync(int messageId, MessageStreamEvent evt);
@@ -723,7 +630,6 @@ public sealed record class ChatGroupState
     {
         PartyId = @event.PartyId;
         ParticipantIds = new HashSet<Guid>(@event.ParticipantIds);
-        Scenario = @event.Scenario;
         Initialized = true;
     }
 
@@ -732,24 +638,20 @@ public sealed record class ChatGroupState
         ParticipantIds = new HashSet<Guid>(@event.ParticipantIds);
     }
 
-    public void Apply(ChatGroupDriverOverrideSetEvent @event)
+    public void Apply(ChatGroupDriverOverrideSetEvent _)
     {
-        DriverOverrides[@event.PersonaId] = @event.Kind;
     }
 
-    public void Apply(ChatGroupDriverOverrideClearedEvent @event)
+    public void Apply(ChatGroupDriverOverrideClearedEvent _)
     {
-        DriverOverrides.Remove(@event.PersonaId);
     }
 
-    public void Apply(ChatGroupDriverOverridesReplacedEvent @event)
+    public void Apply(ChatGroupDriverOverridesReplacedEvent _)
     {
-        DriverOverrides = new Dictionary<Guid, DriverKind>(@event.Overrides);
     }
 
-    public void Apply(ChatGroupScenarioSetEvent @event)
+    public void Apply(ChatGroupScenarioSetEvent _)
     {
-        Scenario = @event.Scenario;
     }
 
     public void Apply(ChatGroupMessageSlotReservedEvent @event)

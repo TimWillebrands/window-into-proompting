@@ -34,32 +34,51 @@ export default function NotificationStack({
             data-expanded={open || undefined}
             aria-label={`${group.source.name}, ${group.items.length} notification${group.items.length === 1 ? '' : 's'}${group.unread ? `, ${group.unread} new` : ''}`}
         >
-            {many && (
-                <div
-                    className="nc-stack-head"
-                    data-shown={expanded || undefined}
+            <div className="nc-stack-head">
+                <img
+                    src={group.source.icon}
+                    alt=""
+                    aria-hidden
+                    className="nc-app-icon"
+                />
+                <h2 className="nc-stack-name">{group.source.name}</h2>
+                <button
+                    type="button"
+                    className="nc-link"
+                    aria-label={`Clear ${group.source.name} notifications`}
+                    onClick={() => onDismiss(group.items)}
                 >
-                    <h2 className="nc-stack-name">{group.source.name}</h2>
+                    Clear
+                </button>
+                {many && (
                     <button
                         type="button"
-                        className="nc-pill"
+                        className="nc-chevron"
+                        data-up={expanded || undefined}
                         aria-expanded={expanded}
                         aria-controls={listId}
+                        aria-label={
+                            expanded
+                                ? `Show less from ${group.source.name}`
+                                : `Show all ${group.items.length} from ${group.source.name}`
+                        }
                         onClick={() => setExpanded((e) => !e)}
                     >
-                        {expanded ? 'Show less' : `Show ${rest.length} more`}
+                        <svg
+                            aria-hidden="true"
+                            viewBox="0 0 10 10"
+                            width="9"
+                            height="9"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                        >
+                            <path d="M1.5 1.5 5 5l3.5-3.5M1.5 5.5 5 9l3.5-3.5" />
+                        </svg>
                     </button>
-                    <button
-                        type="button"
-                        className="nc-pill"
-                        aria-label={`Clear ${group.source.name} notifications`}
-                        onClick={() => onDismiss(group.items)}
-                    >
-                        Clear
-                    </button>
-                </div>
-            )}
-            <ul id={listId} className="nc-stack-list">
+                )}
+            </div>
+            <ul id={listId} className="nc-stack-list nc-stack-body">
                 <li className="nc-stack-item">
                     <NotificationCard
                         notification={top}

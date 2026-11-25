@@ -1,0 +1,46 @@
+@layer ui {
+    .ui-menubar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ui-space-1);
+        padding: var(--ui-space-1) var(--ui-space-2);
+        background: var(--ui-face);
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+        user-select: none;
+    }
+
+    .ui-menubar-item {
+        min-height: 22px;
+        margin: 0;
+        padding: var(--ui-space-1) var(--ui-space-4);
+        border: 0;
+        border-radius: var(--ui-radius-control);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: default;
+    }
+
+    .ui-menubar-item:is(
+            :hover,
+            [data-ui-preview~="hover"],
+            [aria-expanded="true"]
+        ):not([aria-disabled]) {
+        background: var(--ui-select);
+        color: var(--ui-select-text);
+    }
+
+    .ui-menubar-item:focus-visible,
+    .ui-menubar-item[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: -1px;
+    }
+
+    .ui-menubar-item[aria-disabled] {
+        color: var(--ui-text-disabled);
+    }
+}

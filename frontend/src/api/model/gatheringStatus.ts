@@ -13,4 +13,5 @@ export const GatheringStatus = {
     Started: 'Started',
     Over: 'Over',
     Missed: 'Missed',
+    Cancelled: 'Cancelled',
 } as const;

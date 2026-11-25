@@ -1,0 +1,319 @@
+@layer ui {
+    .ui-story-stage {
+        display: grid;
+        gap: var(--ui-space-5);
+        justify-items: start;
+        padding: var(--ui-space-6);
+        border-radius: var(--ui-radius-pane);
+        background: var(--ui-face);
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-story-stage[data-width="wide"] {
+        width: min(880px, calc(100vw - 64px));
+        justify-items: stretch;
+    }
+
+    .ui-story-states {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: var(--ui-space-4) var(--ui-space-6);
+        align-items: center;
+    }
+
+    .ui-story-state {
+        display: contents;
+    }
+
+    .ui-story-state-label {
+        color: var(--ui-text-muted);
+        font-family: var(--ui-font-mono);
+    }
+
+    .ui-story-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ui-space-4);
+        align-items: center;
+    }
+}
+
+@layer ui {
+    .ui-story-w-200 {
+        width: 200px;
+    }
+
+    .ui-story-w-320 {
+        width: 320px;
+    }
+
+    .ui-story-h-200 {
+        height: 200px;
+    }
+
+    .ui-story-h-260 {
+        height: 260px;
+    }
+
+    .ui-story-column {
+        display: grid;
+        gap: var(--ui-space-4);
+        align-content: start;
+    }
+}
+
+@layer ui {
+    .ui-story-w-360 {
+        width: 360px;
+    }
+
+    .ui-story-w-560 {
+        width: 560px;
+    }
+
+    .ui-story-p {
+        margin: 0;
+    }
+}
+
+@layer ui {
+    .ui-story-taskpane {
+        width: 210px;
+    }
+
+    .ui-story-taskpane-narrow {
+        width: 150px;
+    }
+
+    .ui-story-surface {
+        padding: var(--ui-space-4);
+        border: 1px solid var(--ui-face-edge);
+        background: var(--ui-content);
+    }
+}
+
+@layer ui {
+    .ui-story-dialog-body {
+        display: grid;
+        gap: var(--ui-space-5);
+        width: 400px;
+    }
+
+    .ui-story-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--ui-space-3);
+    }
+}
+
+@layer ui {
+    .ui-story-desk {
+        position: relative;
+        display: grid;
+        place-items: center;
+        box-sizing: border-box;
+        padding: var(--ui-space-6);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+    }
+
+    .ui-story-desk[data-size="small"] {
+        width: 420px;
+        height: 280px;
+    }
+
+    .ui-story-desk[data-size="medium"] {
+        width: 680px;
+        height: 440px;
+    }
+
+    .ui-story-desk[data-size="large"] {
+        width: 920px;
+        height: 600px;
+    }
+
+    .ui-story-desk[data-size="full"] {
+        width: 100vw;
+        height: 100vh;
+        padding: 0;
+    }
+
+    .ui-story-chrome-states {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ui-space-6);
+        align-items: flex-start;
+        max-width: 960px;
+    }
+
+    .ui-story-chrome-state {
+        display: grid;
+        gap: var(--ui-space-3);
+        justify-items: start;
+        margin: 0;
+    }
+
+    .ui-story-chrome-state > figcaption {
+        padding: var(--ui-space-1) var(--ui-space-3);
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-face);
+        color: var(--ui-text-muted);
+        font-family: var(--ui-font-mono);
+        font-size: var(--ui-text-chrome);
+    }
+
+    .ui-story-body {
+        padding: var(--ui-space-5);
+        font-size: var(--ui-text-reading);
+        line-height: var(--ui-leading-reading);
+    }
+
+    .ui-story-swatch {
+        display: inline-grid;
+        place-items: center;
+        width: 100%;
+        height: 100%;
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-titlebar);
+        color: var(--ui-titlebar-text);
+        font-family: var(--ui-font-title);
+        font-weight: 700;
+        font-style: normal;
+        line-height: 1;
+    }
+}
+
+@layer ui {
+    .ui-story-window {
+        width: 520px;
+        height: 320px;
+    }
+
+    .ui-story-window[data-size="small"] {
+        width: 300px;
+        height: 180px;
+    }
+
+    .ui-story-window[data-size="wide"] {
+        width: 640px;
+        height: 360px;
+    }
+
+    .ui-story-fill {
+        position: absolute;
+        inset: 0;
+    }
+
+    .ui-story-bottom {
+        position: absolute;
+        inset: auto 0 0;
+    }
+
+    .ui-story-bottom-left {
+        position: absolute;
+        bottom: 30px;
+        left: 0;
+    }
+
+    .ui-story-bottom-right {
+        position: absolute;
+        right: var(--ui-space-4);
+        bottom: 40px;
+    }
+
+    .ui-story-chrome-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ui-space-5);
+        align-items: center;
+    }
+
+    .ui-story-target {
+        padding: var(--ui-space-6);
+        border: 1px dashed var(--ui-text-on-chrome);
+        border-radius: var(--ui-radius-pane);
+        color: var(--ui-text-on-chrome);
+        font-size: var(--ui-text-reading);
+        text-shadow: 1px 1px 2px var(--ui-control-edge);
+    }
+
+    .ui-story-logon {
+        width: 960px;
+        height: 600px;
+    }
+
+    .ui-story-logon[data-size="narrow"] {
+        width: 380px;
+        height: 680px;
+    }
+}
+
+@layer ui {
+    .ui-story-chat-w-420 {
+        width: 420px;
+    }
+
+    .ui-story-chat-w-260 {
+        width: 260px;
+    }
+
+    .ui-story-chat-h-300 {
+        height: 300px;
+    }
+
+    .ui-story-chat-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--ui-space-5);
+    }
+
+    .ui-story-chat-column {
+        display: grid;
+        gap: var(--ui-space-5);
+        align-content: start;
+    }
+
+    .ui-story-chat-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ui-space-1);
+    }
+}
+
+@layer ui {
+    .ui-story-feed {
+        display: grid;
+        gap: var(--ui-space-4);
+        width: 520px;
+        padding: var(--ui-space-5);
+        border-radius: var(--ui-radius-control);
+        background: var(--ui-face-lite);
+    }
+
+    .ui-story-feed-narrow {
+        width: 300px;
+    }
+
+    .ui-story-console {
+        width: 560px;
+        height: 220px;
+    }
+
+    .ui-story-pane {
+        width: 420px;
+        height: 240px;
+    }
+
+    .ui-story-header {
+        width: 560px;
+    }
+
+    .ui-story-portrait {
+        display: block;
+        background: var(--ui-face);
+    }
+}

@@ -1,3 +1,11 @@
+import {
+    CheckBox,
+    CommandButton,
+    Icon,
+    ProgressBar,
+    Stack,
+    TaskPaneSection,
+} from '@partytown/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     getGetWorldsPartyIdGrowthQueryKey,
@@ -27,63 +35,68 @@ export default function GrowingPane() {
     const auto = usePutWorldsPartyIdGrowthAuto(refresh);
     if (!report) return null;
     return (
-        <section className="pl-pane">
-            <div className="pl-pane-head">
-                Growing
-                <small>{report.rows.length} offscreen</small>
-            </div>
-            <label className="pl-grow">
-                <span>
-                    <input
-                        type="checkbox"
-                        checked={report.auto}
-                        onChange={(e) =>
-                            auto.mutate({
-                                partyId: WORLD_ID,
-                                data: { on: e.currentTarget.checked },
-                            })
-                        }
-                    />{' '}
-                    Open automatically (one a day)
-                </span>
-            </label>
+        <TaskPaneSection
+            title="Growing"
+            aside={`${report.rows.length} offscreen`}
+        >
+            <CheckBox
+                checked={report.auto}
+                onChange={(e) =>
+                    auto.mutate({
+                        partyId: WORLD_ID,
+                        data: { on: e.currentTarget.checked },
+                    })
+                }
+            >
+                Open automatically (one a day)
+            </CheckBox>
             {report.rows.slice(0, 8).map((row) => {
                 const s = growingSummary(row, Number(report.openAt));
                 return (
-                    <div key={row.localeId} className="pl-grow" title={s.who}>
-                        <span className="pl-grow-name">{s.name}</span>
-                        <button
-                            type="button"
-                            className="pl-grow-act"
-                            disabled={open.isPending}
-                            onClick={() =>
-                                open.mutate({
-                                    partyId: WORLD_ID,
-                                    localeId: row.localeId,
-                                })
-                            }
-                        >
-                            Open
-                        </button>
-                        <span
-                            className="pl-occ-bar"
-                            data-level={s.ready ? 'full' : 'some'}
-                        >
-                            <i style={{ width: `${s.share * 100}%` }} />
-                        </span>
-                        <span className="pl-grow-note">{s.note}</span>
-                    </div>
+                    <Stack key={row.localeId} gap="xxs" title={s.who}>
+                        <Stack direction="row" align="center" gap="sm">
+                            <Stack.Item grow truncate>
+                                {s.name}
+                            </Stack.Item>
+                            <CommandButton
+                                size="small"
+                                disabled={open.isPending}
+                                onClick={() =>
+                                    open.mutate({
+                                        partyId: WORLD_ID,
+                                        localeId: row.localeId,
+                                    })
+                                }
+                            >
+                                Open
+                            </CommandButton>
+                        </Stack>
+                        <ProgressBar
+                            value={s.share * 100}
+                            tone="neutral"
+                            label={`${s.name} footfall`}
+                        />
+                        <span>{s.note}</span>
+                    </Stack>
                 );
             })}
             {report.opened.map((o) => (
-                <div key={o.placeId} className="pl-grow">
-                    <span className="pl-grow-name">
-                        🆕 {o.name}
-                        {o.district ? ` (${o.district})` : ''}
-                    </span>
-                    <button
-                        type="button"
-                        className="pl-grow-act"
+                <Stack key={o.placeId} direction="row" align="center" gap="sm">
+                    <Stack
+                        as="span"
+                        direction="row"
+                        align="center"
+                        gap="xs"
+                        grow
+                    >
+                        <Icon name="new" />
+                        <Stack.Item truncate>
+                            {o.name}
+                            {o.district ? ` (${o.district})` : ''}
+                        </Stack.Item>
+                    </Stack>
+                    <CommandButton
+                        size="small"
                         disabled={close.isPending}
                         onClick={() =>
                             close.mutate({
@@ -93,9 +106,9 @@ export default function GrowingPane() {
                         }
                     >
                         Close
-                    </button>
-                </div>
+                    </CommandButton>
+                </Stack>
             ))}
-        </section>
+        </TaskPaneSection>
     );
 }

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { fn } from 'storybook/test';
-import WindowFrame from '../../components/desktop/WindowFrame';
+import { userEvent, within } from 'storybook/test';
+import StoryWindow from '../../components/desktop/StoryWindow';
 import PersonasApp from './PersonasApp';
 
 const meta = {
@@ -8,29 +8,22 @@ const meta = {
     component: PersonasApp,
     parameters: { layout: 'fullscreen' },
     decorators: [
-        (Story) => (
+        (Story, { parameters }) => (
             <div
-                style={{
-                    width: 760,
-                    height: 520,
-                    padding: 24,
-                    background: '#5C87C2',
-                }}
+                className={
+                    parameters.narrow
+                        ? 'h-[560px] w-[500px] p-6'
+                        : 'h-[520px] w-[760px] p-6'
+                }
             >
                 {/* biome-ignore lint/correctness/useUniqueElementIds: stories render single instance */}
-                <WindowFrame
+                <StoryWindow
                     id="personas"
                     title="Persona Manager"
-                    icon="👤"
-                    width={720}
-                    height={480}
-                    zIndex={1}
-                    onMinimize={fn()}
-                    onMaximize={fn()}
-                    onClose={fn()}
+                    icon="personas"
                 >
                     <Story />
-                </WindowFrame>
+                </StoryWindow>
             </div>
         ),
     ],
@@ -40,3 +33,18 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const Editing: Story = {
+    play: async ({ canvasElement }) => {
+        await userEvent.click(
+            await within(canvasElement).findByText('Indie Hacker Girl'),
+        );
+    },
+};
+
+export const Narrow: Story = { parameters: { narrow: true } };
+
+export const NarrowEditing: Story = {
+    ...Editing,
+    parameters: { narrow: true },
+};

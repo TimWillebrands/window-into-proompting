@@ -12,15 +12,7 @@ const meta = {
     },
     decorators: [
         (Story) => (
-            <div
-                className="app-surface"
-                style={{
-                    position: 'relative',
-                    width: 720,
-                    height: 480,
-                    background: '#ECE9D8',
-                }}
-            >
+            <div className="relative h-[480px] w-[720px]">
                 <Story />
             </div>
         ),

@@ -1,17 +1,23 @@
 export const PERSON_PALETTE = [
-    '#7B5CC4',
-    '#D2477A',
-    '#2F7FC1',
-    '#E0662E',
-    '#1F9AA6',
-    '#B34FB0',
-    '#6B7A8F',
-    '#A0522D',
+    'var(--ui-series-1)',
+    'var(--ui-series-2)',
+    'var(--ui-series-5)',
+    'var(--ui-series-6)',
+    'var(--ui-series-7)',
+    'var(--ui-series-8)',
 ] as const;
 
+export const PERSON_OTHER = 'var(--ui-series-other)';
+
+export const personColour = (i: number): string =>
+    PERSON_PALETTE[i] ?? PERSON_OTHER;
+
 export const KIND_COLOUR = {
-    Event: '#F3C487',
-    Concept: '#7CC4A4',
+    Event: 'var(--ui-series-4)',
+    Concept: 'var(--ui-series-3)',
 } as const;
 
-export const STANCE_COLOUR = { warm: '#2E9E4F', cold: '#D23C3C' } as const;
+export const STANCE_COLOUR = {
+    warm: 'var(--ui-tone-go)',
+    cold: 'var(--ui-tone-danger)',
+} as const;

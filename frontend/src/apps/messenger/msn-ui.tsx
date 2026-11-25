@@ -1,4 +1,10 @@
-import { Fragment, type ReactNode } from 'react';
+import {
+    Presence,
+    type PresenceStatus,
+    Text,
+    type UserPictureSize,
+} from '@partytown/ui';
+import { Fragment } from 'react';
 import { create } from 'zustand';
 
 import type { LifeSummary } from '../../api/model/lifeSummary';
@@ -23,14 +29,6 @@ export const statusOf = (
               ? 'away'
               : 'online';
 
-const STATUS_COLORS: Record<BuddyStatus, [string, string]> = {
-    online: ['#7ed957', '#2f8f1c'],
-    away: ['#ffd75e', '#c79a00'],
-    busy: ['#ff7b6b', '#b8241a'],
-    afk: ['#ffb066', '#c46a12'],
-    offline: ['#c9c9c9', '#7c7c7c'],
-};
-
 export const STATUS_LABEL: Record<BuddyStatus, string> = {
     online: 'Online',
     away: 'Away',
@@ -39,53 +37,30 @@ export const STATUS_LABEL: Record<BuddyStatus, string> = {
     offline: 'Offline',
 };
 
+const PRESENCE: Record<BuddyStatus, PresenceStatus> = {
+    online: 'online',
+    away: 'away',
+    busy: 'busy',
+    afk: 'away',
+    offline: 'offline',
+};
+
 export function BuddyIcon({
     status,
-    size = 16,
+    size = 'medium',
+    active,
 }: {
     status: BuddyStatus;
-    size?: number;
+    size?: 'small' | 'medium';
+    active?: boolean;
 }) {
-    const [light, dark] = STATUS_COLORS[status];
     return (
-        <svg
-            width={size}
-            height={size}
-            viewBox="0 0 16 16"
-            aria-hidden="true"
-            style={{ flexShrink: 0 }}
-        >
-            <circle
-                cx="8"
-                cy="4.6"
-                r="3.4"
-                fill={light}
-                stroke={dark}
-                strokeWidth="0.7"
-            />
-            <path
-                d="M2.2 15.2c0-3.6 2.6-6 5.8-6s5.8 2.4 5.8 6z"
-                fill={light}
-                stroke={dark}
-                strokeWidth="0.7"
-            />
-            <ellipse
-                cx="6.9"
-                cy="3.5"
-                rx="1.3"
-                ry="0.9"
-                fill="#fff"
-                opacity="0.8"
-            />
-            <ellipse
-                cx="6"
-                cy="11.4"
-                rx="2"
-                ry="0.9"
-                fill="#fff"
-                opacity="0.55"
-            />
-        </svg>
+        <Presence
+            shape="buddy"
+            status={PRESENCE[status]}
+            size={size}
+            active={active}
+        />
     );
 }
 
@@ -94,37 +69,9 @@ export function DisplayPicture({
     size,
 }: {
     who: string | null | undefined;
-    size: number;
+    size: UserPictureSize;
 }) {
-    return (
-        <div
-            style={{
-                width: size + 8,
-                height: size + 8,
-                padding: 3,
-                borderRadius: 6,
-                background: 'linear-gradient(180deg, #ffffff 0%, #c9dbf5 100%)',
-                border: '1px solid #8eaedc',
-                boxShadow:
-                    'inset 0 1px 0 #fff, 0 1px 2px rgba(31, 55, 148, 0.25)',
-                flexShrink: 0,
-            }}
-        >
-            <Portrait
-                who={who}
-                width={size}
-                height={size}
-                style={{
-                    width: size,
-                    height: size,
-                    borderRadius: 3,
-                    background: '#fff',
-                    border: '1px solid #b5c8e8',
-                    display: 'block',
-                }}
-            />
-        </div>
-    );
+    return <Portrait who={who} size={size} />;
 }
 
 const EMOTICONS: Array<[RegExp, string]> = [
@@ -147,9 +94,9 @@ export function MsnText({ text }: { text: string }) {
                 const key = `${i}-${part.length}`;
                 if (/^\*[^*\n]+\*$/.test(part)) {
                     return (
-                        <em key={key} style={{ color: '#5a5a5a' }}>
+                        <Text key={key} as="em" italic tone="muted">
                             {part.slice(1, -1)}
-                        </em>
+                        </Text>
                     );
                 }
                 return <Fragment key={key}>{part}</Fragment>;
@@ -174,53 +121,6 @@ export function shortTime(ms: number): string {
     return sameDay
         ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : d.toLocaleDateString([], { day: 'numeric', month: 'short' });
-}
-
-export function GroupHeader({
-    label,
-    count,
-    open,
-    onToggle,
-    extra,
-}: {
-    label: string;
-    count: number;
-    open: boolean;
-    onToggle: () => void;
-    extra?: ReactNode;
-}) {
-    return (
-        <button
-            type="button"
-            className="xp-bare flex w-full items-center gap-1 px-2 py-[3px] text-left"
-            onClick={onToggle}
-            style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#1d3f73',
-                fontWeight: 700,
-                fontSize: 11,
-                cursor: 'pointer',
-            }}
-        >
-            <span
-                style={{
-                    display: 'inline-block',
-                    width: 9,
-                    fontSize: 8,
-                    color: '#4a6ea9',
-                    transform: open ? 'rotate(90deg)' : 'none',
-                    transition: 'transform 120ms',
-                }}
-            >
-                ▶
-            </span>
-            <span>
-                {label} ({count})
-            </span>
-            {extra}
-        </button>
-    );
 }
 
 interface SeenStore {

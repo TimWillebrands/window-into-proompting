@@ -16,7 +16,7 @@ const meta = {
     },
     decorators: [
         (Story) => (
-            <div style={{ position: 'relative', height: 320 }}>
+            <div className="relative h-[320px]">
                 <Story />
             </div>
         ),

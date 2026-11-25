@@ -1,7 +1,12 @@
-import { useEffect, useRef } from 'react';
+import {
+    Icon,
+    StartMenuAction,
+    StartMenuItem,
+    StartMenu as StartMenuPart,
+} from '@partytown/ui';
 import { analyticsAvailable, askConsent } from '../../lib/analytics';
 import { redirectToSignIn, signOut } from '../../lib/clerk-session';
-import { DESKTOP_ICONS, WINDOW_PRESETS } from '../../lib/window-presets';
+import { PROGRAMS } from '../../lib/window-presets';
 import {
     useCanOpen,
     usePlayerName,
@@ -9,6 +14,7 @@ import {
     usePlayerSession,
     useWorldChoice,
 } from '../../lib/world';
+import AppIcon from './AppIcon';
 
 interface StartMenuProps {
     onLaunch: (windowId: string) => void;
@@ -16,191 +22,93 @@ interface StartMenuProps {
 }
 
 export default function StartMenu({ onLaunch, onClose }: StartMenuProps) {
-    const rootRef = useRef<HTMLDivElement | null>(null);
     const playerName = usePlayerName();
     const onAuto = usePlayerOnAuto();
     const signedIn = usePlayerSession((s) => !!s.userId);
     const canOpen = useCanOpen();
     const leaveWorld = useWorldChoice((s) => s.leave);
 
-    useEffect(() => {
-        const handlePointer = (event: PointerEvent) => {
-            const target = event.target as Node | null;
-            if (!rootRef.current || !target) return;
-            if (rootRef.current.contains(target)) return;
-            if (
-                target instanceof Element &&
-                target.closest('[data-start-button]')
-            ) {
-                return;
-            }
-            onClose();
-        };
-        const handleKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') onClose();
-        };
-        document.addEventListener('pointerdown', handlePointer);
-        document.addEventListener('keydown', handleKey);
-        return () => {
-            document.removeEventListener('pointerdown', handlePointer);
-            document.removeEventListener('keydown', handleKey);
-        };
-    }, [onClose]);
+    const closeThen = (action?: () => void) => {
+        action?.();
+        onClose();
+    };
 
-    const items = DESKTOP_ICONS.filter((i) => canOpen(i.access)).map((icon) => {
-        const preset = WINDOW_PRESETS.find((p) => p.id === icon.windowId);
-        return {
-            ...icon,
-            title: preset?.title ?? icon.label,
-        };
-    });
-
-    const pinned = items;
+    const items = PROGRAMS.filter(
+        (program) =>
+            (program.shortcut || program.startMenu) && canOpen(program.access),
+    );
 
     return (
-        <div
-            ref={rootRef}
-            className="xp-startmenu absolute bottom-[30px] left-0 z-[100000]"
-        >
-            <header className="xp-startmenu-header">
-                <span
-                    className="xp-startmenu-avatar"
-                    aria-hidden
-                    role="presentation"
-                >
-                    👤
-                </span>
-                <h1>{playerName ?? 'Visitor'}</h1>
-                <button
-                    type="button"
-                    className="ml-auto mr-2 text-xs"
-                    onClick={() => {
-                        onClose();
-                        if (signedIn) signOut();
-                        else redirectToSignIn();
-                    }}
-                >
-                    {signedIn ? 'Log Off' : 'Sign In'}
-                </button>
-            </header>
-
-            <main className="xp-startmenu-body">
-                <section className="py-1">
-                    {pinned.map((item) => (
-                        <button
-                            key={item.id}
-                            type="button"
-                            className="xp-startmenu-item"
-                            onClick={() => {
-                                onLaunch(item.windowId);
-                                onClose();
-                            }}
-                        >
-                            <img
-                                src={item.icon}
-                                alt=""
-                                aria-hidden
-                                className="w-7 h-7 shrink-0 object-contain"
-                                style={{ imageRendering: 'pixelated' }}
-                            />
-                            <span className="flex flex-col leading-tight">
-                                <span className="font-semibold">
-                                    {item.title}
-                                </span>
-                                <span className="text-[10px] opacity-70">
-                                    Open
-                                </span>
-                            </span>
-                        </button>
-                    ))}
-                </section>
-
-                <section className="xp-startmenu-section--system py-1">
+        <StartMenuPart
+            user={playerName ?? 'Visitor'}
+            picture={<Icon name="user" size={32} />}
+            onClose={() => closeThen()}
+            programs={items.map((item) => (
+                <StartMenuItem
+                    key={item.id}
+                    icon={<AppIcon icon={item.icon} size={32} />}
+                    label={item.title}
+                    description="Open"
+                    onClick={() => closeThen(() => onLaunch(item.id))}
+                />
+            ))}
+            places={
+                <>
                     {playerName && (
-                        <button
-                            type="button"
-                            className="xp-startmenu-item"
-                            onClick={() => {
-                                onLaunch('auto');
-                                onClose();
-                            }}
-                        >
-                            <span className="text-lg" aria-hidden>
-                                🤖
-                            </span>
-                            <span>Auto Mode{onAuto ? ' (on)' : ''}</span>
-                        </button>
+                        <StartMenuItem
+                            icon={<Icon name="auto" size={32} />}
+                            label={`Auto Mode${onAuto ? ' (on)' : ''}`}
+                            onClick={() => closeThen(() => onLaunch('auto'))}
+                        />
                     )}
                     {analyticsAvailable && (
-                        <button
-                            type="button"
-                            className="xp-startmenu-item"
-                            onClick={() => {
-                                askConsent();
-                                onClose();
-                            }}
-                        >
-                            <span className="text-lg" aria-hidden>
-                                🍪
-                            </span>
-                            <span>Cookies</span>
-                        </button>
+                        <StartMenuItem
+                            icon={<Icon name="cookie" size={32} />}
+                            label="Cookies"
+                            onClick={() => closeThen(askConsent)}
+                        />
                     )}
-                    <button
-                        type="button"
-                        className="xp-startmenu-item"
-                        onClick={onClose}
+                    <StartMenuItem
+                        icon={<Icon name="help" size={32} />}
+                        label="Help and Support"
+                        onClick={() => closeThen()}
+                    />
+                    <StartMenuItem
+                        icon={<Icon name="search" size={32} />}
+                        label="Search"
+                        onClick={() => closeThen()}
+                    />
+                    <StartMenuItem
+                        icon={<Icon name="run" size={32} />}
+                        label="Run..."
+                        onClick={() => closeThen()}
+                    />
+                </>
+            }
+            footer={
+                <>
+                    <StartMenuAction
+                        tone={signedIn ? 'caution' : 'go'}
+                        icon={signedIn ? undefined : <Icon name="key" />}
+                        onClick={() => {
+                            onClose();
+                            if (signedIn) signOut();
+                            else redirectToSignIn();
+                        }}
                     >
-                        <span className="text-lg" aria-hidden>
-                            ❓
-                        </span>
-                        <span>Help and Support</span>
-                    </button>
-                    <button
-                        type="button"
-                        className="xp-startmenu-item"
-                        onClick={onClose}
+                        {signedIn ? 'Log Off' : 'Sign In'}
+                    </StartMenuAction>
+                    <StartMenuAction
+                        tone="danger"
+                        onClick={() => {
+                            onClose();
+                            leaveWorld();
+                        }}
                     >
-                        <span className="text-lg" aria-hidden>
-                            🔍
-                        </span>
-                        <span>Search</span>
-                    </button>
-                    <button
-                        type="button"
-                        className="xp-startmenu-item"
-                        onClick={onClose}
-                    >
-                        <span className="text-lg" aria-hidden>
-                            🏃
-                        </span>
-                        <span>Run...</span>
-                    </button>
-                </section>
-            </main>
-
-            <footer className="xp-startmenu-footer">
-                <span>v0.1</span>
-                <button
-                    type="button"
-                    className="xp-startmenu-item ml-auto mr-1 w-auto px-3 py-1 rounded bg-white/10 hover:bg-white/25"
-                    onClick={() => {
-                        onClose();
-                        leaveWorld();
-                    }}
-                >
-                    <span aria-hidden>🔑</span>
-                    <span>Switch World</span>
-                </button>
-                <button
-                    type="button"
-                    className="xp-startmenu-item w-auto px-3 py-1 rounded bg-white/10 hover:bg-white/25"
-                    onClick={onClose}
-                >
-                    <span aria-hidden>⏻</span>
-                    <span>Close</span>
-                </button>
-            </footer>
-        </div>
+                        Switch World
+                    </StartMenuAction>
+                </>
+            }
+        />
     );
 }

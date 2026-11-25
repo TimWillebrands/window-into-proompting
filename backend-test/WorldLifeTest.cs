@@ -81,7 +81,7 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     public async Task LifeTurn_ChoosingPlan_SchedulesGatheringHostedByPersona()
     {
         var (partyId, denise) = await _fx.CreateWorldAsync(withRoom: true);
-        ScriptedLlm.ChooseOptionContaining = "Plan a get-together";
+        ScriptedLlm.ChooseOptionContaining = "Plan to meet people";
         var day = await _fx.GrainFactory.GetGrain<PartyTown.World.Self.IPersonaSelfGrain>(WorldKeys.Life(partyId, denise)).GetDayWindowAsync();
         var (bed, wake) = PartyTown.World.Places.Sleep.Window(denise, day.FirstBeatMinute, day.LastBeatMinute);
         var local = DateTimeOffset.Now;
@@ -120,7 +120,7 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         var places = _fx.GrainFactory.GetGrain<PartyTown.World.Places.IPlacesGrain>(partyId);
         var cafe = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Café");
         await _fx.GrainFactory.GetGrain<ICalendarGrain>(partyId)
-            .PlanAsync(denise, "Denise", "Coffee", Guid.Empty, cafe.Name, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 1, cafe.Id);
+            .PlanAsync(denise, "Denise", "Coffee", cafe.Id, cafe.Name, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 1);
         var clock = _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId);
         await clock.UpdateAsync(true, 5, 0);
 
@@ -180,7 +180,7 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         Assert.Equal(denise, await clock.FindPlayerAsync("user_a"));
         var info = await party.GetParty();
         Assert.Equal(DriverKind.User, info.Participants.Single(p => p.Id == denise).Driver);
-        Assert.Empty(Takeover.Free(info.Participants, await clock.GetClaimedAsync(), await party.GetChatGroups()));
+        Assert.Empty(await Takeover.FreeAsync(_fx.GrainFactory, info.Participants, await clock.GetClaimedAsync(), await party.GetChatGroups()));
         Assert.Equal("You are Denise.", await _fx.Auto.SheetAsync(denise));
     }
 
@@ -349,6 +349,7 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
     public sealed class ScriptedLlm : IWorldLlm
     {
         public static volatile string? ChooseOptionContaining;
+        public static volatile Func<string, double?>? Nouls;
         public static volatile string Post = "Scripted post";
         public static readonly ConcurrentQueue<string> Prompts = new();
 
@@ -419,8 +420,7 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
                     services.AddSingleton(Mock.Of<IStanceConsolidator>());
                     services.AddSingleton<ConsolidationService>();
                     services.AddSingleton<WorldMemory>();
-                    services.AddSingleton<ISystemOneJudge>(new MenuJudge(() => ScriptedLlm.ChooseOptionContaining));
-                    services.AddSingleton<IWorldApp, RoomsApp>();
+                    services.AddSingleton<ISystemOneJudge>(new MenuJudge(() => ScriptedLlm.ChooseOptionContaining, key => ScriptedLlm.Nouls?.Invoke(key)));
                     services.AddSingleton<IWorldApp, MessengerApp>();
                     services.AddSingleton<IWorldApp, BoardApp>();
                     services.AddSingleton<IWorldApp, DiaryApp>();

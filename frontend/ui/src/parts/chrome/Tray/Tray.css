@@ -1,0 +1,183 @@
+@layer ui {
+    .ui-tray {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: var(--ui-space-3);
+        margin-inline-start: auto;
+        padding: 0 var(--ui-space-5) 0 var(--ui-space-4);
+        border-inline-start: 1px solid var(--ui-chrome-edge);
+        background:
+            linear-gradient(
+                90deg,
+                oklch(
+                        from var(--ui-chrome-sheen) calc(l + 0.109)
+                            calc(c * 0.856) calc(h - 35.8) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    0 2px,
+                transparent 2px
+            ),
+            linear-gradient(
+                180deg,
+                oklch(
+                        from var(--ui-chrome) calc(l - 0.06) calc(c * 0.836)
+                            calc(h - 4.1) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    0 1px,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.001) calc(c * 0.807)
+                            calc(h - 8.4) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    1px 2px,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.023) calc(c * 0.799)
+                            calc(h - 10) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    2px 3px,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.028) calc(c * 0.794)
+                            calc(h - 10.6) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    45%,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.012) calc(c * 0.811)
+                            calc(h - 9.2) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    58%,
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.035) calc(c * 0.803)
+                            calc(h - 10.8) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    calc(100% - 5px),
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.082) calc(c * 0.769)
+                            calc(h - 15.7) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    calc(100% - 3px) calc(100% - 2px),
+                oklch(
+                        from var(--ui-chrome) calc(l + 0.034) calc(c * 0.787)
+                            calc(h - 10.9) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    calc(100% - 2px) calc(100% - 1px),
+                oklch(
+                        from var(--ui-chrome-shade) calc(l + 0.118)
+                            calc(c * 0.911) calc(h - 2.4) /
+                        calc(var(--ui-glass-alpha-regular) * 1.15)
+                    )
+                    calc(100% - 1px)
+            );
+        color: var(--ui-text-on-chrome);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        white-space: nowrap;
+    }
+
+    .ui-tray-clock {
+        padding-inline-start: var(--ui-space-2);
+        font-variant-numeric: tabular-nums;
+        text-shadow: var(--ui-chrome-text-shadow);
+        user-select: none;
+    }
+
+    .ui-tray-button {
+        position: relative;
+        display: inline-grid;
+        place-items: center;
+        box-sizing: border-box;
+        min-width: 24px;
+        height: 22px;
+        margin: 0;
+        padding: 0 var(--ui-space-2);
+        border: 0;
+        border-radius: var(--ui-radius-pill);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        line-height: 1;
+        cursor: default;
+        transition:
+            background-color var(--ui-dur-quick) var(--ui-ease-out),
+            box-shadow var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-tray-button:is(:hover, [data-ui-preview~="hover"]) {
+        background: var(--ui-taskbar-button-hover);
+        box-shadow: var(--ui-chrome-gloss), var(--ui-chrome-glow);
+    }
+
+    .ui-tray-button:is(
+            :active,
+            [aria-pressed="true"],
+            [aria-expanded="true"],
+            [data-ui-preview~="active"]
+        ) {
+        background: var(--ui-taskbar-button-active);
+        box-shadow: var(--ui-chrome-press);
+    }
+
+    .ui-tray-button:focus-visible,
+    .ui-tray-button[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus-on-chrome);
+        outline-offset: 0;
+    }
+
+    .ui-tray-button:disabled {
+        opacity: 0.5;
+    }
+
+    .ui-tray-button-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+    }
+
+    .ui-tray-button-icon > :is(img, svg) {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+    }
+
+    .ui-tray-count {
+        position: absolute;
+        top: -3px;
+        right: -5px;
+        min-width: 16px;
+        box-sizing: border-box;
+        padding: 1px var(--ui-space-2);
+        border: 1px solid var(--ui-text-on-chrome);
+        border-radius: var(--ui-radius-pill);
+        background: var(--ui-tone-danger);
+        color: var(--ui-tone-danger-text);
+        font-size: var(--ui-text-chrome);
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        pointer-events: none;
+    }
+
+    .ui-tray-count[data-tone="neutral"] {
+        background: var(--ui-tone-neutral);
+        color: var(--ui-tone-neutral-text);
+    }
+
+    .ui-tray-count[data-tone="go"] {
+        background: var(--ui-tone-go);
+        color: var(--ui-tone-go-text);
+    }
+
+    .ui-tray-count[data-tone="caution"] {
+        background: var(--ui-tone-caution);
+        color: var(--ui-tone-caution-text);
+    }
+}

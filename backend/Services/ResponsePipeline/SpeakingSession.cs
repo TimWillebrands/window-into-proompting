@@ -16,7 +16,6 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         Func<string, string, bool, Task> onEvent,
         CancellationToken cancellationToken,
         string? turnInstruction = null,
-        string? scenario = null,
         string? memoryToReference = null,
         IReadOnlyList<string>? stances = null,
         string? gutReaction = null,
@@ -31,7 +30,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             new()
             {
                 Role = "system",
-                Content = Instruction(ComposeIdentity(persona), persona, others, scenario, memoryToReference, stances, presence, inPerson),
+                Content = Instruction(ComposeIdentity(persona), persona, others, memoryToReference, stances, presence, inPerson),
                 Name = persona.Id.ToString()
             }
         };
@@ -130,15 +129,11 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         _ => $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}",
     };
 
-    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? scenario, string? memoryToReference, IReadOnlyList<string>? stances, string? presence = null, bool inPerson = false)
+    private static string Instruction(string personaPrompt, SelfView self, List<ParticipantView> others, string? memoryToReference, IReadOnlyList<string>? stances, string? presence = null, bool inPerson = false)
     {
         var othersSection = others.Count == 0
             ? "(no other participants)"
             : string.Join("\n", others.Select(p => Roster.Line(p)));
-
-        var scenarioSection = string.IsNullOrWhiteSpace(scenario)
-            ? string.Empty
-            : $"\n# Scenario\n{scenario.Trim()}\n";
 
         var presentSubjects = string.IsNullOrWhiteSpace(memoryToReference)
             ? new List<string>()
@@ -167,7 +162,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
 # You are: {self.Name} (ID: {self.Id})
 {LivedSelf.SheetFraming}
 {personaPrompt}
-{scenarioSection}
+
 # Other participants
 {othersSection}
 {stanceSection}

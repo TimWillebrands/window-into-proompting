@@ -1,3 +1,13 @@
+import {
+    CheckBox,
+    CommandButton,
+    Dialog,
+    FieldRow,
+    GroupBox,
+    StatusText,
+    Text,
+    TextBox,
+} from '@partytown/ui';
 import { type ReactNode, useId, useState } from 'react';
 import {
     postWorldsPartyIdMove,
@@ -56,16 +66,14 @@ function CheckRow({
     children,
 }: CheckRowProps) {
     return (
-        <div className="field-row">
-            <input
-                id={id}
-                type="checkbox"
-                checked={checked}
-                disabled={disabled}
-                onChange={onToggle}
-            />
-            <label htmlFor={id}>{children}</label>
-        </div>
+        <CheckBox
+            id={id}
+            checked={checked}
+            disabled={disabled}
+            onChange={onToggle}
+        >
+            {children}
+        </CheckBox>
     );
 }
 
@@ -132,19 +140,20 @@ export default function MoveWorldDialog({
                 {from.name} stops and keeps everything; the new World becomes
                 current.
             </p>
-            <div className="field-row-stacked">
-                <label htmlFor={`${formId}-name`}>New World's name</label>
-                <input
-                    id={`${formId}-name`}
+            <FieldRow label="New World's name" layout="stacked">
+                <TextBox
                     value={name}
                     maxLength={MAX_NAME}
                     onChange={(e) => setName(e.target.value)}
                     autoComplete="off"
                 />
-            </div>
+            </FieldRow>
         </>,
-        <fieldset key="people">
-            <legend>Who comes along</legend>
+        <GroupBox
+            key="people"
+            title="Who comes along"
+            className="flex flex-col gap-1"
+        >
             {lives.map((l) => (
                 <CheckRow
                     key={l.personaId}
@@ -156,9 +165,12 @@ export default function MoveWorldDialog({
                     {l.driver === 'User' ? ' (human)' : ''}
                 </CheckRow>
             ))}
-        </fieldset>,
-        <fieldset key="relations">
-            <legend>Relations that come along, story and all</legend>
+        </GroupBox>,
+        <GroupBox
+            key="relations"
+            title="Relations that come along, story and all"
+            className="flex flex-col gap-1"
+        >
             {relations.length === 0 && <p className="m-0">None.</p>}
             {relations.map((r) => (
                 <CheckRow
@@ -173,9 +185,12 @@ export default function MoveWorldDialog({
                     {nameOf(r.aId)} &amp; {nameOf(r.bId)}: {summary(r)}
                 </CheckRow>
             ))}
-        </fieldset>,
-        <fieldset key="places">
-            <legend>Places that come along, as they were made</legend>
+        </GroupBox>,
+        <GroupBox
+            key="places"
+            title="Places that come along, as they were made"
+            className="flex flex-col gap-1"
+        >
             <p className="m-0">
                 The usual town and a fresh Home for every persona are there
                 anyway. People, keys and guests stay behind.
@@ -189,13 +204,13 @@ export default function MoveWorldDialog({
                     checked={placeComes(p)}
                     onToggle={() => setFlipped((s) => toggled(s, p.id))}
                 >
-                    {p.name} <span className="opacity-70">({origin(p)})</span>
+                    {p.name} <Text tone="muted">({origin(p)})</Text>
                 </CheckRow>
             ))}
-        </fieldset>,
+        </GroupBox>,
         <>
             <p className="m-0">Ready to move to {name.trim()}:</p>
-            <ul className="m-0">
+            <ul className="m-0 pl-6">
                 <li>
                     {people.length} of {lives.length} people
                 </li>
@@ -215,53 +230,55 @@ export default function MoveWorldDialog({
     const last = step === STEPS.length - 1;
 
     return (
-        <div className="window ml-16 max-w-md text-black">
-            <div className="title-bar">
-                <div className="title-bar-text">Move Wizard: {from.name}</div>
-                <div className="title-bar-controls">
-                    <button
-                        type="button"
-                        aria-label="Close"
-                        onClick={onCancel}
-                    />
-                </div>
-            </div>
-            <div className="window-body flex flex-col gap-2">
-                <p className="m-0 font-bold">
-                    Step {step + 1} of {STEPS.length}: {STEPS[step]}
-                </p>
-                {pages[step]}
-                {error && (
-                    <p role="alert" className="m-0">
-                        {error}
-                    </p>
-                )}
-                <div className="field-row justify-end">
-                    <button
-                        type="button"
+        <Dialog
+            title={`Move Wizard: ${from.name}`}
+            onClose={onCancel}
+            className="w-[440px]"
+            bodyClassName="max-h-[80vh]"
+            buttons={
+                <>
+                    <CommandButton
                         disabled={step === 0 || busy}
                         onClick={() => setStep((s) => s - 1)}
                     >
                         &lt; Back
-                    </button>
+                    </CommandButton>
                     {last ? (
-                        <button type="button" disabled={busy} onClick={move}>
+                        <CommandButton
+                            isDefault
+                            type="button"
+                            disabled={busy}
+                            onClick={move}
+                        >
                             {busy ? 'Moving…' : 'Move'}
-                        </button>
+                        </CommandButton>
                     ) : (
-                        <button
+                        <CommandButton
+                            isDefault
                             type="button"
                             disabled={!name.trim()}
                             onClick={() => setStep((s) => s + 1)}
                         >
                             Next &gt;
-                        </button>
+                        </CommandButton>
                     )}
-                    <button type="button" disabled={busy} onClick={onCancel}>
+                    <CommandButton disabled={busy} onClick={onCancel}>
                         Cancel
-                    </button>
-                </div>
+                    </CommandButton>
+                </>
+            }
+        >
+            <div className="flex flex-col gap-2">
+                <Text as="p" strong className="m-0">
+                    Step {step + 1} of {STEPS.length}: {STEPS[step]}
+                </Text>
+                {pages[step]}
+                {error && (
+                    <StatusText role="alert" tone="danger">
+                        {error}
+                    </StatusText>
+                )}
             </div>
-        </div>
+        </Dialog>
     );
 }

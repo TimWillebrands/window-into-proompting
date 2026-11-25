@@ -1,3 +1,4 @@
+import { CommandButton, GroupBox, Stack, StatusText } from '@partytown/ui';
 import type { Persona } from '../../../api/model';
 import { useIsAdmin } from '../../../lib/world';
 import { canMoveIn, useResidency, useResidents } from '../residence';
@@ -17,22 +18,16 @@ export default function Residence({
     const lives = residents.has(id);
 
     return (
-        <fieldset className="border border-[#9db2c8] p-2 m-0">
-            <legend className="text-xp-legend font-semibold text-[11px] px-1">
-                World
-            </legend>
-            <div
-                className="flex items-center justify-between"
-                style={{ gap: 8 }}
-            >
+        <GroupBox title="World">
+            <Stack direction="row" align="center" justify="between" gap="md">
                 <span>
                     {lives
                         ? 'Lives in the World: has a Home and can be hired.'
                         : 'Library only: not in Places and not for hire.'}
                 </span>
                 {isAdmin && lives ? (
-                    <button
-                        type="button"
+                    <CommandButton
+                        tone="caution"
                         disabled={isPending}
                         onClick={() => {
                             if (
@@ -44,20 +39,20 @@ export default function Residence({
                         }}
                     >
                         Move out
-                    </button>
+                    </CommandButton>
                 ) : null}
                 {isAdmin && !lives ? (
-                    <button
-                        type="button"
+                    <CommandButton
+                        tone="go"
                         disabled={isPending || unsaved}
                         title={unsaved ? 'Save your changes first' : undefined}
                         onClick={() => moveIn(id)}
                     >
                         Move in
-                    </button>
+                    </CommandButton>
                 ) : null}
-            </div>
-            {error ? <p style={{ color: '#c00' }}>{error}</p> : null}
-        </fieldset>
+            </Stack>
+            {error ? <StatusText tone="danger">{error}</StatusText> : null}
+        </GroupBox>
     );
 }

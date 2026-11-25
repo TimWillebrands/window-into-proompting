@@ -20,42 +20,42 @@ public class RoomCastTest
         Member(Tim, "Tim", DriverKind.LLM),
     };
 
-    private static RoomCast Cast(IEnumerable<Guid> members, Dictionary<Guid, DriverKind>? overrides = null, string? kind = null)
-        => RoomCast.Create(Party, members.ToHashSet(), overrides ?? new(), kind);
+    private static RoomCast Cast(IEnumerable<Guid> members, string? kind = null)
+        => RoomCast.Create(Party, members.ToHashSet(), kind);
 
     [Fact]
-    public void UserDefault_OverriddenToLlm_SpeaksWithFullLibraryPayload()
+    public void LlmDefault_SpeaksWithFullLibraryPayload()
     {
-        var cast = Cast(new[] { Vlad, Denise }, new() { [Vlad] = DriverKind.LLM });
+        var cast = Cast(new[] { Vlad, Denise });
 
-        var self = cast.Speaker(Vlad);
+        var self = cast.Speaker(Denise);
 
         Assert.NotNull(self);
-        Assert.Equal("Vlad bio", self.Value.Bio);
-        Assert.Equal("You are Vlad.", self.Value.SystemPrompt);
+        Assert.Equal("Denise bio", self.Value.Bio);
+        Assert.Equal("You are Denise.", self.Value.SystemPrompt);
         Assert.Equal(0.8, self.Value.Chattiness);
     }
 
     [Fact]
-    public void Speaker_NullWhenUserEffectiveOrAbsent()
+    public void Speaker_NullWhenUserDrivenOrAbsent()
     {
-        var cast = Cast(new[] { Vlad, Denise }, new() { [Denise] = DriverKind.User });
+        var cast = Cast(new[] { Vlad, Denise });
 
         Assert.Null(cast.Speaker(Vlad));
-        Assert.Null(cast.Speaker(Denise));
         Assert.Null(cast.Speaker(Tim));
         Assert.Null(cast.EffectiveOf(Tim));
+        Assert.Equal(DriverKind.User, cast.EffectiveOf(Vlad));
     }
 
     [Fact]
-    public void Views_PresentOnly_WithEffectiveDriver()
+    public void Views_PresentOnly_WithDefaultDriver()
     {
-        var cast = Cast(new[] { Vlad, Denise }, new() { [Vlad] = DriverKind.LLM });
+        var cast = Cast(new[] { Vlad, Denise });
 
         var views = cast.Views().ToDictionary(v => v.Id, v => v.Driver);
 
         Assert.Equal(2, views.Count);
-        Assert.Equal(DriverKind.LLM, views[Vlad]);
+        Assert.Equal(DriverKind.User, views[Vlad]);
         Assert.Equal(DriverKind.LLM, views[Denise]);
     }
 
@@ -71,7 +71,7 @@ public class RoomCastTest
     [Fact]
     public void IsDirect_ByKind_NotHeadCount()
     {
-        Assert.False(Cast(new[] { Vlad, Denise }, kind: ChatGroupKinds.Room).IsDirect);
+        Assert.False(Cast(new[] { Vlad, Denise }, kind: ChatGroupKinds.Group).IsDirect);
         Assert.True(Cast(new[] { Vlad, Denise }, kind: ChatGroupKinds.Direct).IsDirect);
         Assert.False(Cast(new[] { Vlad, Denise }).IsDirect);
     }

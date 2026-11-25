@@ -1,0 +1,58 @@
+@layer ui {
+    .ui-field-row {
+        --ui-field-label-width: 9em;
+        display: grid;
+        grid-template-columns: var(--ui-field-label-width) minmax(0, 1fr);
+        gap: var(--ui-space-2) var(--ui-space-4);
+        align-items: baseline;
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-field-row[data-label-width="compact"] {
+        --ui-field-label-width: 5.5em;
+    }
+
+    .ui-field-row[data-label-width="auto"] {
+        --ui-field-label-width: auto;
+    }
+
+    .ui-field-row[data-layout="stacked"] {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ui-field-row-label {
+        padding-block: var(--ui-space-2);
+        overflow-wrap: anywhere;
+    }
+
+    .ui-field-row[data-layout="stacked"] .ui-field-row-label {
+        padding-block: 0;
+    }
+
+    .ui-field-row-required {
+        margin-inline-start: var(--ui-space-1);
+        color: var(--ui-text-muted);
+    }
+
+    .ui-field-row-control {
+        display: grid;
+        gap: var(--ui-space-2);
+        justify-items: start;
+        min-width: 0;
+    }
+
+    .ui-field-row-control > :is(.ui-textbox, .ui-textarea, .ui-combobox) {
+        justify-self: stretch;
+    }
+
+    .ui-field-row-hint {
+        color: var(--ui-text-muted);
+    }
+
+    .ui-field-row-error {
+        color: var(--ui-text-error);
+    }
+}

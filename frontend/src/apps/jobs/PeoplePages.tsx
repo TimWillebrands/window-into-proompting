@@ -1,3 +1,12 @@
+import {
+    ComboBox,
+    CommandButton,
+    ListView,
+    RadioButton,
+    RadioGroup,
+    Stack,
+    TextBox,
+} from '@partytown/ui';
 import { Suspense, useState } from 'react';
 import {
     useDeleteWorldsPartyIdJobsParticipantId,
@@ -9,7 +18,16 @@ import type { JobSummary } from '../../api/model';
 import { WORLD_ID } from '../../lib/world';
 import { type Employment, jobLine, shiftLabel } from './jobs-lib';
 import { BookForm, SessionList } from './PracticesPage';
-import { Card, Field, Jump, PageHead, Refusal } from './parts';
+import {
+    Actions,
+    Card,
+    Field,
+    Fields,
+    Jump,
+    Page,
+    PageHead,
+    Refusal,
+} from './parts';
 import { SkillsPanel } from './SkillsPanel';
 import { WantsPanel } from './WantsPanel';
 import { useRefreshWork, useWork } from './work-context';
@@ -20,49 +38,37 @@ export function PeoplePage() {
     return (
         <>
             <PageHead
-                icon="👥"
+                icon="users"
                 title="Everyone"
                 sub={`${working} of ${people.length} in work. Pick someone to see or change it.`}
             />
-            <div className="wk-page">
-                <table className="wk-table">
-                    <thead>
-                        <tr>
-                            <th>Who</th>
-                            <th>Does</th>
-                            <th>When</th>
-                            <th>Today</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {people.map((p) => {
-                            const work = workOf(p);
-                            return (
-                                <tr
-                                    key={p.participantId}
-                                    onClick={() =>
-                                        go({
-                                            page: 'person',
-                                            id: p.participantId,
-                                        })
-                                    }
-                                >
-                                    <td className="wk-tight">{p.name}</td>
-                                    <td>
-                                        <JobCell person={p} work={work} />
-                                    </td>
-                                    <td>
-                                        {p.days ? `${p.days} ${p.hours}` : ''}
-                                    </td>
-                                    <td className="wk-tight">
-                                        {shiftLabel(p)}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            <Page>
+                <ListView
+                    label="Everyone"
+                    activateOn="single"
+                    onActivate={(id) => go({ page: 'person', id })}
+                    columns={[
+                        { key: 'who', header: 'Who', width: 'max-content' },
+                        {
+                            key: 'does',
+                            header: 'Does',
+                            width: 'minmax(160px, 2fr)',
+                            wrap: true,
+                        },
+                        { key: 'when', header: 'When' },
+                        { key: 'today', header: 'Today', width: 'max-content' },
+                    ]}
+                    items={people.map((p) => ({
+                        id: p.participantId,
+                        label: p.name,
+                        cells: {
+                            does: <JobCell person={p} work={workOf(p)} />,
+                            when: p.days ? `${p.days} ${p.hours}` : '',
+                            today: shiftLabel(p),
+                        },
+                    }))}
+                />
+            </Page>
         </>
     );
 }
@@ -91,14 +97,14 @@ export function PersonPage({ person }: { person: JobSummary }) {
     return (
         <>
             <PageHead
-                icon="🧑"
+                icon="user"
                 title={person.name}
                 sub={[jobLine(person, work), where].filter(Boolean).join(' · ')}
                 chip={shiftLabel(person) || undefined}
             />
-            <div className="wk-page">
+            <Page>
                 {work.kind === 'company' ? (
-                    <p className="wk-note">
+                    <p>
                         Works at{' '}
                         <Jump
                             onClick={() =>
@@ -140,7 +146,7 @@ export function PersonPage({ person }: { person: JobSummary }) {
                         name={person.name}
                     />
                 </Suspense>
-            </div>
+            </Page>
         </>
     );
 }
@@ -228,31 +234,36 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
 
     return (
         <Card title="Work">
-            <form
+            <Stack
+                as="form"
+                gap="md"
                 onSubmit={(e) => {
                     e.preventDefault();
                     save();
                 }}
             >
-                <div className="wk-modes">
+                <RadioGroup
+                    name={`work-${person.participantId}`}
+                    aria-label="Kind of work"
+                    orientation="horizontal"
+                    value={mode}
+                    onValueChange={(value) => setMode(value as Mode)}
+                >
                     {modes.map(([value, label]) => (
-                        <button
+                        <RadioButton
                             key={value}
-                            type="button"
-                            className="xp-bare wk-mode"
-                            aria-pressed={mode === value}
+                            value={value}
                             disabled={
                                 value === 'company' && companies.length === 0
                             }
-                            onClick={() => setMode(value)}
                         >
                             {label}
-                        </button>
+                        </RadioButton>
                     ))}
-                </div>
-                <div className="wk-fields">
+                </RadioGroup>
+                <Fields>
                     <Field label="Title" grow>
-                        <input
+                        <TextBox
                             value={title}
                             placeholder={
                                 mode === 'practice'
@@ -266,7 +277,7 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
                     </Field>
                     {mode === 'company' ? (
                         <Field label="Company" grow>
-                            <select
+                            <ComboBox
                                 value={companyId}
                                 onChange={(e) =>
                                     setCompanyId(e.currentTarget.value)
@@ -278,11 +289,11 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
                                         {c.name}
                                     </option>
                                 ))}
-                            </select>
+                            </ComboBox>
                         </Field>
                     ) : (
                         <Field label="Workplace" grow>
-                            <input
+                            <TextBox
                                 value={workplace}
                                 placeholder="the Café, the office in Zuid"
                                 onChange={(e) =>
@@ -292,24 +303,24 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
                         </Field>
                     )}
                     <Field label="Days">
-                        <input
-                            className="wk-short"
+                        <TextBox
+                            className="w-[96px]"
                             value={days}
                             onChange={(e) => setDays(e.currentTarget.value)}
                         />
                     </Field>
                     <Field label="Hours">
-                        <input
-                            className="wk-short"
+                        <TextBox
+                            className="w-[96px]"
                             value={hours}
                             onChange={(e) => setHours(e.currentTarget.value)}
                         />
                     </Field>
-                </div>
+                </Fields>
                 {mode === 'practice' ? (
-                    <div className="wk-fields">
+                    <Fields>
                         <Field label="For" grow>
-                            <input
+                            <TextBox
                                 value={field}
                                 placeholder="careers in logistics"
                                 onChange={(e) =>
@@ -318,7 +329,7 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
                             />
                         </Field>
                         <Field label="How they work" grow>
-                            <input
+                            <TextBox
                                 value={approach}
                                 placeholder="blunt, practical, sets homework"
                                 onChange={(e) =>
@@ -327,26 +338,30 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
                             />
                         </Field>
                         <Field label="Fee">
-                            <input
-                                className="wk-tiny"
+                            <TextBox
+                                className="w-[56px]"
                                 value={fee}
                                 onChange={(e) => setFee(e.currentTarget.value)}
                             />
                         </Field>
-                    </div>
+                    </Fields>
                 ) : null}
-                <div className="wk-actions">
-                    <button type="submit" disabled={!ready || pending}>
+                <Actions>
+                    <CommandButton
+                        type="submit"
+                        isDefault
+                        disabled={!ready || pending}
+                    >
                         Save
-                    </button>
-                    <button
-                        type="button"
+                    </CommandButton>
+                    <CommandButton
+                        tone="caution"
                         disabled={!person.title || pending}
                         onClick={() => clear.mutate({ partyId, participantId })}
                     >
                         No job
-                    </button>
-                </div>
+                    </CommandButton>
+                </Actions>
                 <Refusal
                     error={
                         saveJob.error ??
@@ -355,7 +370,7 @@ function WorkForm({ person, work }: { person: JobSummary; work: Employment }) {
                         setUp.error
                     }
                 />
-            </form>
+            </Stack>
         </Card>
     );
 }

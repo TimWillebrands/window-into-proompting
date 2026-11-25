@@ -1,0 +1,84 @@
+@layer ui {
+    .ui-expander {
+        display: grid;
+        gap: var(--ui-space-1);
+        min-width: 0;
+        margin: 0;
+        color: var(--ui-text);
+        font-family: var(--ui-font-ui);
+        font-size: var(--ui-text-chrome);
+        line-height: var(--ui-leading-chrome);
+    }
+
+    .ui-expander-heading {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-space-3);
+        min-width: 0;
+        margin: 0;
+        font: inherit;
+    }
+
+    .ui-expander-toggle {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: var(--ui-space-2);
+        min-height: 22px;
+        margin: 0;
+        padding: var(--ui-space-1) var(--ui-space-2);
+        border: 0;
+        border-radius: var(--ui-radius-control);
+        background: none;
+        color: var(--ui-group-title);
+        font: inherit;
+        font-weight: 700;
+        text-align: start;
+        cursor: default;
+    }
+
+    .ui-expander-toggle:hover,
+    .ui-expander-toggle[data-ui-preview~="hover"] {
+        color: var(--ui-link-hover);
+    }
+
+    .ui-expander-arrow {
+        width: 0;
+        height: 0;
+        border-block: 4px solid transparent;
+        border-inline-start: 5px solid currentColor;
+        transition: rotate var(--ui-dur-quick) var(--ui-ease-out);
+    }
+
+    .ui-expander[data-open] .ui-expander-arrow {
+        rotate: 90deg;
+    }
+
+    .ui-expander-count {
+        font-weight: 400;
+    }
+
+    .ui-expander-rule {
+        flex: 1;
+        min-width: var(--ui-space-6);
+        height: 1px;
+        background: linear-gradient(
+            90deg,
+            color-mix(in oklab, var(--ui-group-title) 55%, transparent),
+            transparent
+        );
+    }
+
+    .ui-expander-body {
+        display: grid;
+        gap: var(--ui-space-1);
+        min-width: 0;
+    }
+}
+
+@layer ui {
+    .ui-expander-toggle[data-ui-preview~="focus"] {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: 2px;
+    }
+}

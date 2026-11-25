@@ -1,0 +1,438 @@
+@layer ui {
+    .ui-window[data-ui-skin="msn"] {
+        --ui-msn-outline: #6f93cf;
+        --ui-msn-outline-inactive: #a3b7d6;
+        --ui-msn-band: linear-gradient(180deg, #fdfeff 0%, #e6eefb 100%);
+        --ui-msn-band-edge: #c2d3ee;
+        --ui-msn-body: linear-gradient(180deg, #f7faff 0%, #e9f0fb 100%);
+        --ui-msn-caption: linear-gradient(
+            180deg,
+            #e4effe 0%,
+            #b6d0f5 45%,
+            #8db3ec 50%,
+            #a9c7f2 100%
+        );
+        --ui-msn-caption-ink: #17407f;
+        --ui-msn-caption-edge: rgb(255 255 255 / 0.85);
+        --ui-msn-close: linear-gradient(
+            180deg,
+            #fbd3c8 0%,
+            #ec8f78 45%,
+            #dc5d42 50%,
+            #e98a72 100%
+        );
+        --ui-msn-close-ink: #ffffff;
+        --ui-msn-gloss: rgb(255 255 255 / 0.5);
+        --ui-msn-swoosh: rgb(255 255 255 / 0.32);
+        --ui-msn-picture: linear-gradient(180deg, #ffffff 0%, #dbe8fb 100%);
+        --ui-msn-send: linear-gradient(
+            180deg,
+            #ffffff 0%,
+            #e9f2fe 44%,
+            #cfe0f9 52%,
+            #e2edfc 100%
+        );
+        --ui-msn-send-hover: linear-gradient(
+            180deg,
+            #ffffff 0%,
+            #f0f7ff 44%,
+            #d9e9ff 52%,
+            #ecf5ff 100%
+        );
+        --ui-msn-shadow: rgb(16 48 110 / 0.3);
+
+        --ui-radius-window: 12px;
+        --ui-frame-width: 4px;
+
+        --ui-p-face: #edf3fc;
+        --ui-p-face-lite: #f8fbff;
+        --ui-p-face-edge: #a7bfe3;
+        --ui-p-content: #ffffff;
+        --ui-p-ink: #14213a;
+        --ui-p-select: #2e66c4;
+        --ui-p-chrome-1: #dbe7f8;
+        --ui-p-chrome-2: #8db2e8;
+        --ui-p-chrome-3: #3c78d2;
+        --ui-p-chrome-4: #2a5fb5;
+        --ui-p-chrome-5: #173f80;
+        --ui-p-chrome-ink: #ffffff;
+
+        --ui-field: #ffffff;
+        --ui-field-edge: #8aa7d8;
+        --ui-text-muted: #4f6386;
+        --ui-text-disabled: #8796b0;
+        --ui-link: #1a4fb0;
+        --ui-link-hover: #0d3a8c;
+        --ui-select-text: #ffffff;
+        --ui-select-inactive: #dbe6f6;
+        --ui-focus: #2e66c4;
+        --ui-group-title: #1d4c9e;
+        --ui-control: linear-gradient(
+            180deg,
+            #ffffff 0%,
+            #edf4fe 48%,
+            #dae8fb 52%,
+            #e8f1fd 100%
+        );
+        --ui-control-hover: linear-gradient(
+            180deg,
+            #ffffff 0%,
+            #f2f8ff 48%,
+            #e1eeff 52%,
+            #eef6ff 100%
+        );
+        --ui-control-active: linear-gradient(180deg, #c6d9f4 0%, #dce8f9 100%);
+        --ui-control-edge: #6f93cf;
+        --ui-control-hot: #6aa3f0;
+        --ui-chrome-edge: #2a5fb5;
+        --ui-chrome-text-shadow: 0 1px 1px rgb(12 44 108 / 0.65);
+
+        --ui-frame: linear-gradient(
+            180deg,
+            #bcd3f3 0%,
+            #e4edfb 30%,
+            #f6f9fe 100%
+        );
+        --ui-frame-inactive: linear-gradient(
+            180deg,
+            #d4deec 0%,
+            #edf1f7 30%,
+            #f7f9fc 100%
+        );
+        --ui-frame-edge: #6f93cf;
+        --ui-frame-edge-inactive: #a3b7d6;
+        --ui-titlebar: linear-gradient(
+            180deg,
+            #8fbaf3 0%,
+            #5f97e6 46%,
+            #3b77d4 52%,
+            #3f7dd8 82%,
+            #5d95e3 100%
+        );
+        --ui-titlebar-inactive: linear-gradient(
+            180deg,
+            #d2deef 0%,
+            #bccce6 46%,
+            #aabfe0 52%,
+            #b3c6e4 100%
+        );
+
+        box-shadow:
+            0 0 0 1px var(--ui-msn-outline),
+            inset 0 1px 0 var(--ui-msn-gloss),
+            var(--ui-shadow-window);
+    }
+
+    .ui-window[data-ui-skin="msn"][data-inactive] {
+        --ui-titlebar-text: #23406f;
+        --ui-chrome-text-shadow: 0 1px 0 rgb(255 255 255 / 0.55);
+        --ui-msn-outline: var(--ui-msn-outline-inactive);
+        --ui-msn-swoosh: rgb(255 255 255 / 0.4);
+        box-shadow:
+            0 0 0 1px var(--ui-msn-outline),
+            inset 0 1px 0 var(--ui-msn-gloss),
+            var(--ui-shadow-window-inactive);
+    }
+
+    .ui-window[data-ui-skin="msn"] > .ui-window-titlebar {
+        overflow: clip;
+        padding-inline: var(--ui-space-4) var(--ui-space-4);
+        border-block-end: 1px solid var(--ui-chrome-deep);
+        box-shadow: inset 0 1px 0 var(--ui-msn-gloss);
+        font-size: var(--ui-text-title);
+        letter-spacing: 0.01em;
+    }
+
+    .ui-window[data-ui-skin="msn"][data-inactive] > .ui-window-titlebar {
+        border-block-end-color: var(--ui-msn-outline-inactive);
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-window-icon {
+        filter: drop-shadow(0 1px 1px var(--ui-msn-shadow));
+    }
+
+    .ui-window[data-ui-skin="msn"][data-inactive] .ui-window-icon {
+        filter: saturate(0.55) opacity(0.85);
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-window-skin-region[data-region="gloss"] {
+        inset: 0 0 48%;
+        border-radius: inherit;
+        background: linear-gradient(
+            180deg,
+            var(--ui-msn-gloss) 0%,
+            rgb(255 255 255 / 0.08) 100%
+        );
+    }
+
+    .ui-window[data-ui-skin="msn"]
+        .ui-window-skin-region[data-region="swoosh"] {
+        top: -150%;
+        right: 18%;
+        width: 62%;
+        height: 220%;
+        border: 0 solid transparent;
+        border-block-end: 3px solid var(--ui-msn-swoosh);
+        border-radius: 50%;
+        rotate: -4deg;
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-window-captions {
+        gap: var(--ui-space-2);
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-window-caption {
+        width: 22px;
+        height: 21px;
+        border: 1px solid var(--ui-msn-caption-edge);
+        border-radius: var(--ui-radius-control-max);
+        background: var(--ui-msn-caption);
+        box-shadow:
+            0 1px 1px var(--ui-msn-shadow),
+            inset 0 1px 0 var(--ui-msn-gloss);
+        color: var(--ui-msn-caption-ink);
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-window-caption[data-caption="close"] {
+        border-color: var(--ui-msn-caption-edge);
+        background: var(--ui-msn-close);
+        color: var(--ui-msn-close-ink);
+    }
+
+    .ui-window[data-ui-skin="msn"]
+        .ui-window-caption[data-caption="close"]::before {
+        inset-inline-end: -2px;
+    }
+
+    .ui-window[data-ui-skin="msn"]
+        .ui-window-caption:is(:hover, [data-ui-preview~="hover"]) {
+        filter: brightness(1.08) saturate(1.15);
+        box-shadow:
+            0 0 6px var(--ui-control-hot),
+            inset 0 1px 0 var(--ui-msn-gloss);
+    }
+
+    .ui-window[data-ui-skin="msn"]
+        .ui-window-caption:is(:active, [data-ui-preview~="active"]) {
+        filter: brightness(0.88);
+        box-shadow: inset 0 1px 2px var(--ui-msn-shadow);
+    }
+
+    .ui-window[data-ui-skin="msn"][data-maximised]
+        .ui-window-caption[data-caption="close"] {
+        border-radius: var(--ui-radius-control-max);
+    }
+
+    .ui-window[data-ui-skin="msn"][data-maximised] {
+        box-shadow: none;
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-window-body {
+        border: 1px solid var(--ui-msn-band-edge);
+        background: var(--ui-msn-body);
+    }
+
+    .ui-window[data-ui-skin="msn"][data-maximised] .ui-window-body {
+        border: 0;
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-window-layout-band {
+        border-block-start-color: var(--ui-face-lite);
+        border-block-end-color: var(--ui-msn-band-edge);
+        background: var(--ui-msn-band);
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-window-layout-footer {
+        border-block-start-color: var(--ui-msn-band-edge);
+        background: transparent;
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-statusbar {
+        border-block-start-color: var(--ui-msn-band-edge);
+        background: var(--ui-msn-band);
+    }
+
+    .ui-window[data-ui-skin="msn"]
+        :is(.ui-sunken-field, .ui-pane[data-surface="sunken"]) {
+        border-radius: var(--ui-radius-control-max);
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-user-picture-frame {
+        border-color: var(--ui-msn-outline);
+        border-radius: var(--ui-radius-pane);
+        background: var(--ui-msn-picture);
+        box-shadow:
+            0 1px 3px var(--ui-msn-shadow),
+            inset 0 1px 0 var(--ui-msn-gloss);
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-user-picture-image {
+        border-radius: var(--ui-radius-control-max);
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-expander-toggle {
+        font-size: var(--ui-text-chrome);
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-expander-rule {
+        display: none;
+    }
+
+    .ui-window[data-ui-skin="msn"] .ui-command-button[data-size="large"] {
+        --ui-cb-face: var(--ui-msn-send);
+        --ui-cb-face-hover: var(--ui-msn-send-hover);
+        min-width: 72px;
+        border-radius: var(--ui-radius-control-max);
+        font-size: var(--ui-text-reading);
+        font-weight: 700;
+    }
+
+    [data-ui-scheme="noir"] .ui-window[data-ui-skin="msn"] {
+        --ui-msn-outline: #0a1222;
+        --ui-msn-outline-inactive: #1b2333;
+        --ui-msn-band: linear-gradient(180deg, #26344d 0%, #1d283c 100%);
+        --ui-msn-band-edge: #33456a;
+        --ui-msn-body: linear-gradient(180deg, #1f2a3e 0%, #182134 100%);
+        --ui-msn-caption: linear-gradient(
+            180deg,
+            #5d7fb9 0%,
+            #3d5f9c 45%,
+            #2b4b86 50%,
+            #375893 100%
+        );
+        --ui-msn-caption-ink: #ffffff;
+        --ui-msn-caption-edge: rgb(255 255 255 / 0.35);
+        --ui-msn-close: linear-gradient(
+            180deg,
+            #d98a78 0%,
+            #c2543d 45%,
+            #a83e2a 50%,
+            #bd5a44 100%
+        );
+        --ui-msn-gloss: rgb(255 255 255 / 0.22);
+        --ui-msn-swoosh: rgb(255 255 255 / 0.14);
+        --ui-msn-picture: linear-gradient(180deg, #2c3b57 0%, #1c273b 100%);
+        --ui-msn-send: linear-gradient(
+            180deg,
+            #4b6aa2 0%,
+            #355489 44%,
+            #284577 52%,
+            #314f83 100%
+        );
+        --ui-msn-send-hover: linear-gradient(
+            180deg,
+            #5878b0 0%,
+            #3f5f96 44%,
+            #305085 52%,
+            #3a5a90 100%
+        );
+        --ui-msn-shadow: rgb(0 0 0 / 0.55);
+
+        --ui-p-face: #1c2638;
+        --ui-p-face-lite: #243149;
+        --ui-p-face-edge: #3b4d6e;
+        --ui-p-content: #141c2b;
+        --ui-p-ink: #e7eef9;
+        --ui-p-select: #3a6fcf;
+        --ui-p-chrome-1: #2a3a58;
+        --ui-p-chrome-2: #4d6fa8;
+        --ui-p-chrome-3: #24477f;
+        --ui-p-chrome-4: #1a3563;
+        --ui-p-chrome-5: #0c1a35;
+
+        --ui-field: #141c2b;
+        --ui-field-edge: #4a6290;
+        --ui-text-muted: #a3b4d1;
+        --ui-text-disabled: #6f7e98;
+        --ui-link: #93baf6;
+        --ui-link-hover: #b8d2fa;
+        --ui-select-inactive: #2a3850;
+        --ui-focus: #82acf0;
+        --ui-group-title: #93baf6;
+        --ui-control: linear-gradient(
+            180deg,
+            #3a4d70 0%,
+            #2f405f 48%,
+            #283752 52%,
+            #2f3f5d 100%
+        );
+        --ui-control-hover: linear-gradient(
+            180deg,
+            #45597e 0%,
+            #384a6b 48%,
+            #30415f 52%,
+            #384968 100%
+        );
+        --ui-control-active: linear-gradient(180deg, #1d283b 0%, #263450 100%);
+        --ui-control-edge: #5873a3;
+        --ui-control-hot: #6ea0ee;
+        --ui-chrome-edge: #0c1a35;
+        --ui-chrome-text-shadow: 0 1px 1px rgb(0 0 0 / 0.7);
+
+        --ui-frame: linear-gradient(
+            180deg,
+            #2b4168 0%,
+            #1c283d 30%,
+            #161f30 100%
+        );
+        --ui-frame-inactive: linear-gradient(
+            180deg,
+            #2a3343 0%,
+            #1d2433 30%,
+            #181e2b 100%
+        );
+        --ui-frame-edge: #0a1222;
+        --ui-frame-edge-inactive: #1b2333;
+        --ui-titlebar: linear-gradient(
+            180deg,
+            #5579b8 0%,
+            #34599a 46%,
+            #213f7a 52%,
+            #1d396d 82%,
+            #2b4a82 100%
+        );
+        --ui-titlebar-inactive: linear-gradient(
+            180deg,
+            #3e4758 0%,
+            #313a4b 46%,
+            #282f3e 52%,
+            #2c3444 100%
+        );
+    }
+
+    [data-ui-scheme="noir"] .ui-window[data-ui-skin="msn"][data-inactive] {
+        --ui-msn-outline: var(--ui-msn-outline-inactive);
+        --ui-titlebar-text: #c3cee0;
+        --ui-chrome-text-shadow: 0 1px 1px rgb(0 0 0 / 0.6);
+    }
+
+    @media (prefers-contrast: more) {
+        :root .ui-window[data-ui-skin="msn"] {
+            --ui-face-edge: var(--ui-text);
+            --ui-field-edge: var(--ui-text);
+            --ui-control-edge: var(--ui-text);
+            --ui-frame-edge: var(--ui-text);
+            --ui-frame-edge-inactive: var(--ui-text);
+            --ui-chrome-edge: var(--ui-text);
+            --ui-text-muted: var(--ui-text);
+            --ui-msn-band-edge: var(--ui-text);
+            --ui-msn-outline: var(--ui-text);
+            --ui-msn-outline-inactive: var(--ui-text);
+            --ui-msn-swoosh: transparent;
+        }
+    }
+
+    [data-ui-contrast="more"] .ui-window[data-ui-skin="msn"] {
+        --ui-face-edge: var(--ui-text);
+        --ui-field-edge: var(--ui-text);
+        --ui-control-edge: var(--ui-text);
+        --ui-frame-edge: var(--ui-text);
+        --ui-frame-edge-inactive: var(--ui-text);
+        --ui-chrome-edge: var(--ui-text);
+        --ui-text-muted: var(--ui-text);
+        --ui-msn-band-edge: var(--ui-text);
+        --ui-msn-outline: var(--ui-text);
+        --ui-msn-outline-inactive: var(--ui-text);
+        --ui-msn-swoosh: transparent;
+    }
+}
