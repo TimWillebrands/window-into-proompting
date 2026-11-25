@@ -19,6 +19,9 @@ ssh:
   keys:
     - ~/.ssh/hetzner_ed25519
 
+# Serve last release's chunks too, for tabs opened before a deploy.
+asset_path: /app/dist/client/assets
+
 registry:
   server: localhost:5555
 

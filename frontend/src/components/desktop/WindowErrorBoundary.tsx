@@ -93,7 +93,21 @@ interface FallbackProps {
     onClose?: () => void;
 }
 
+// Chunk gone after a deploy; lazy() caches the failure, so only reload helps.
+const STALE_CHUNK =
+    /dynamically imported module|Importing a module script failed|Unable to preload CSS/i;
+
+export function isStaleChunkError(error: Error): boolean {
+    return STALE_CHUNK.test(error.message);
+}
+
 function summarize(error: Error): { headline: string; status?: number } {
+    if (isStaleChunkError(error)) {
+        return {
+            headline:
+                'Proompting was updated since you opened it. Reload to get the new version.',
+        };
+    }
     if (error instanceof ProblemDetailsError) {
         const status =
             typeof error.status === 'number'
@@ -124,6 +138,7 @@ function ErrorFallback({
     const { headline, status } = summarize(error);
     const isServer = status !== undefined && status >= 500;
     const needsSignIn = status === 401;
+    const stale = isStaleChunkError(error);
     const heading = needsSignIn
         ? 'Sign in to see this'
         : windowTitle
@@ -181,9 +196,15 @@ function ErrorFallback({
                     <CommandButton
                         isDefault
                         type="button"
-                        onClick={needsSignIn ? redirectToSignIn : onRetry}
+                        onClick={
+                            needsSignIn
+                                ? redirectToSignIn
+                                : stale
+                                  ? () => window.location.reload()
+                                  : onRetry
+                        }
                     >
-                        {needsSignIn ? 'Sign in' : 'Retry'}
+                        {needsSignIn ? 'Sign in' : stale ? 'Reload' : 'Retry'}
                     </CommandButton>
                     {onClose && (
                         <CommandButton onClick={onClose}>Close</CommandButton>
