@@ -207,7 +207,7 @@ public class ExchangeRoundsTest
     {
         var pipeline = new ResponsePipeline(
             new Mock<IGrainFactory>().Object, new Mock<IMemoryRepository>().Object,
-            NullLoggerFactory.Instance, NullLogger<ResponsePipeline>.Instance);
+            NullLoggerFactory.Instance, NullLogger<ResponsePipeline>.Instance, new BackendTest.Infrastructure.MenuJudge(() => null));
         return pipeline.HandleAsync(
             new Persona(Alice, "Alice", "You are Alice.", bio: null), Guid.NewGuid(), trigger,
             chatGroup.Object, new InFlightStore(), new CancellationToken(canceled: true));

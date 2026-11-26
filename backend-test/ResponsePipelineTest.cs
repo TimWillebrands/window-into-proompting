@@ -7,6 +7,7 @@ using PartyTown.Model;
 using PartyTown.Services.Memory;
 using PartyTown.Services.ResponsePipeline;
 using PartyTown.Services.Streaming;
+using PartyTown.Services.SystemOne;
 
 namespace BackendTest;
 
@@ -36,7 +37,7 @@ public class ResponsePipelineTest
         Mock<IMemoryRepository> MemoryRepo,
         List<TurnOutcome> Outcomes);
 
-    private static Fixture BuildFixture(PartyTown.World.Reflex.ReflexVerdict? verdict = null)
+    private static Fixture BuildFixture(PartyTown.World.Reflex.ReflexVerdict? verdict = null, ISystemOneJudge? judge = null)
     {
         var store = new InFlightStore();
         var partyId = Guid.NewGuid();
@@ -112,6 +113,7 @@ public class ResponsePipelineTest
             memoryRepo.Object,
             NullLoggerFactory.Instance,
             NullLogger<ResponsePipeline>.Instance,
+            judge ?? new BackendTest.Infrastructure.MenuJudge(() => null),
             reflex: reflex,
             backoff: SpeakingBackoff.None);
 
@@ -441,6 +443,129 @@ public class ResponsePipelineTest
         Assert.Contains("\"reason\":\"I have thoughts\"", capturedAppraisal);
         Assert.Contains("\"instruction\":\"Bring it.\"", capturedAppraisal);
         Assert.Contains("\"stop\":false", capturedAppraisal);
+    }
+
+    private sealed class GravityJudge(double? gravity, bool fails = false) : ISystemOneJudge
+    {
+        public List<(string State, IReadOnlyDictionary<string, SystemOneQuestion> Questions)> Asked { get; } = new();
+
+        public Task<SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, SystemOneQuestion> questions, CancellationToken ct)
+        {
+            lock (Asked) Asked.Add((state, questions));
+            if (fails) throw new HttpRequestException("judge down");
+            var answers = new SystemOneAnswers();
+            if (gravity is { } g) answers.Nouls[Gravity.Key] = g;
+            return Task.FromResult(answers);
+        }
+    }
+
+    private static List<LlmGenerationJob> WireCapturing(Mock<ILlmRouterGrain> router, params string[] perCallContent)
+    {
+        var jobs = new List<LlmGenerationJob>();
+        var call = 0;
+        router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                var content = perCallContent[Math.Min(Interlocked.Increment(ref call) - 1, perCallContent.Length - 1)];
+                var ep = new Mock<ILlmEndpointGrain>();
+                ep.Setup(e => e.GetAttributionAsync()).ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "test-model" });
+                ep.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
+                    .Returns<LlmGenerationJob, CancellationToken>((job, ct) =>
+                    {
+                        lock (jobs) jobs.Add(job);
+                        return StreamChunks(new[] { content }, ct);
+                    });
+                return ep.Object;
+            });
+        return jobs;
+    }
+
+    private static string Guidance(LlmGenerationJob speaking) => speaking.Messages.Last(m => m.Role == "system").Content ?? string.Empty;
+
+    private static readonly string[] OldCues =
+    {
+        UtteranceRhythm.Cue(UtteranceRhythm.Length.Short),
+        UtteranceRhythm.Cue(UtteranceRhythm.Length.Medium),
+        UtteranceRhythm.Cue(UtteranceRhythm.Length.Long),
+    };
+
+    [Fact]
+    public async Task HandleAsync_TheWeighedGravityReachesTheSpeakingCall()
+    {
+        var judge = new GravityJudge(1.0);
+        var fx = BuildFixture(judge: judge);
+        var jobs = WireCapturing(fx.Router,
+            """{"gutReaction":"that's a big one","memoryToReference":null,"wouldSay":"Tell her honestly how the year went.","respond":true}""",
+            "Honestly? Mixed.");
+        var triggering = Msg(Guid.NewGuid(), "how do you feel about your life lately?", senderType: "assistant");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { triggering });
+
+        await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), triggering, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        Assert.IsType<TurnOutcome.Spoke>(Assert.Single(fx.Outcomes));
+        Assert.Contains(UtteranceRhythm.Cue(UtteranceRhythm.Length.Full), Guidance(jobs.Last()));
+        var (state, questions) = Assert.Single(judge.Asked);
+        Assert.Equal(Gravity.Question(PersonaName).Instructions, Assert.IsType<NoulQuestion>(questions[Gravity.Key]).Instructions);
+        Assert.Contains("how do you feel about your life lately?", state);
+        Assert.Contains("Tell her honestly how the year went.", state);
+        Assert.DoesNotContain("put this off", state);
+    }
+
+    [Fact]
+    public async Task InitiateAsync_TheyOpenIt_WhereAReplyAnswers()
+    {
+        var fx = BuildFixture();
+        var old = Msg(Guid.NewGuid(), "zondag kom ik misschien even langs", senderType: "assistant");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { old });
+
+        var opening = WireCapturing(fx.Router, "zondag nog steeds?");
+        await fx.Pipeline.InitiateAsync(MakePersona(), Guid.NewGuid(), fx.ChatGroup.Object, fx.Store, "Ask whether Sunday still stands.", null, CancellationToken.None);
+        var replying = WireCapturing(fx.Router,
+            """{"gutReaction":"sure","memoryToReference":null,"wouldSay":"Say yes.","respond":true}""",
+            "yes");
+        await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), Msg(Guid.NewGuid(), "anyone up for chess"), fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        Assert.Contains(SpeakingSession.Opening(false), Guidance(opening.Last()));
+        Assert.Contains("Now write only what", Guidance(opening.Last()));
+        Assert.DoesNotContain("Nobody just", Guidance(replying.Last()));
+        Assert.Contains("Now reply with only what", Guidance(replying.Last()));
+    }
+
+    [Fact]
+    public async Task HandleAsync_TheJudgeFails_TodaysDrawStands()
+    {
+        var fx = BuildFixture(judge: new GravityJudge(null, fails: true));
+        var jobs = WireCapturing(fx.Router,
+            """{"gutReaction":"sure","memoryToReference":null,"wouldSay":"Say yes.","respond":true}""",
+            "yes");
+        var triggering = Msg(Guid.NewGuid(), "anyone up for chess");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { triggering });
+
+        await fx.Pipeline.HandleAsync(MakePersona(), Guid.NewGuid(), triggering, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        Assert.Equal("yes", Assert.IsType<TurnOutcome.Spoke>(Assert.Single(fx.Outcomes)).Content);
+        Assert.Contains(OldCues, cue => Guidance(jobs.Last()).Contains(cue));
+    }
+
+    [Fact]
+    public async Task AnswerAsync_TheJudgeHearsTheyPutItOffToAnswerProperly()
+    {
+        var judge = new GravityJudge(0.0);
+        var fx = BuildFixture(judge: judge);
+        var jobs = WireCapturing(fx.Router,
+            """{"gutReaction":"owe her this","memoryToReference":null,"wouldSay":"Answer it properly.","respond":true}""",
+            "ok so.");
+        var line = Msg(Guid.NewGuid(), "how do you feel about your job?", senderType: "assistant");
+        fx.ChatGroup.Setup(g => g.GetMessagesUntilAsync(It.IsAny<int>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new List<ChatMessage> { line });
+
+        await fx.Pipeline.AnswerAsync(MakePersona(), Guid.NewGuid(), line, fx.ChatGroup.Object, fx.Store, CancellationToken.None);
+
+        Assert.Contains($"{PersonaName} put this off earlier to answer it properly.", Assert.Single(judge.Asked).State);
+        Assert.Contains(OldCues, cue => Guidance(jobs.Last()).Contains(cue));
     }
 
     [Fact]

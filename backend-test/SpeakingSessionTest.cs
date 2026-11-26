@@ -424,6 +424,41 @@ public class SpeakingSessionTest
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GenerateResponseOnlyAsync_ALineTheyStart_IsNotAnswerToTheLastMessage(bool inPerson)
+    {
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Mara");
+        var sanne = new ParticipantView(Guid.NewGuid(), "Sanne", DriverKind.User);
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new[] { AsView(persona), sanne });
+        var history = new[] { new ChatMessage { MessageId = 1, SenderId = sanne.Id, SenderType = "user", Content = "zondag kom ik misschien even langs" } };
+
+        await session.GenerateResponseOnlyAsync(persona, history, (_, _, _) => Task.CompletedTask, CancellationToken.None,
+            turnInstruction: "Ask Sanne whether she still wants to come by on Sunday.", inPerson: inPerson, opening: true);
+
+        var guidance = getJob()!.Messages[^1].Content;
+        Assert.StartsWith(SpeakingSession.Opening(inPerson), guidance);
+        Assert.EndsWith(SpeakingSession.OnlyTheLine("Mara", inPerson, opening: true), guidance);
+        Assert.Contains("Now write only what Mara", guidance);
+        Assert.DoesNotContain("reply", guidance);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_AReply_StaysAsItWas()
+    {
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Mara");
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
+
+        await session.GenerateResponseOnlyAsync(persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None);
+
+        var guidance = getJob()!.Messages[^1].Content;
+        Assert.DoesNotContain("Nobody just", guidance);
+        Assert.EndsWith("Now reply with only what Mara sends, word for word: no plan, no notes on length, language or wording, no summary of what others said.", guidance);
+    }
+
+    [Theory]
     [InlineData("[ERROR: Can't parse response]", "")]
     [InlineData("Lena asks in Dutch whether I've eaten. Reply in English, short, under 12 words, avoid stale words and \"boat, foam, ferry, real\". I'm tired, cold toast earlier, so admit that lightly.\n\nnothing but cold toast, and that was a crime too",
         "nothing but cold toast, and that was a crime too")]

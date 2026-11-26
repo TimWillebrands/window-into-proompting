@@ -7,6 +7,7 @@ using PartyTown.Model;
 using PartyTown.Services.Memory;
 using PartyTown.Services.Papertrail;
 using PartyTown.Services.Streaming;
+using PartyTown.Services.SystemOne;
 using PartyTown.World;
 using PartyTown.World.Self;
 
@@ -17,6 +18,7 @@ public sealed class ResponsePipeline(
     IMemoryRepository memoryRepository,
     ILoggerFactory loggerFactory,
     ILogger<ResponsePipeline> logger,
+    ISystemOneJudge judge,
     World.Self.FollowThrough? followThrough = null,
     World.Work.Responsibilities? responsibilities = null,
     World.Reflex.ReflexGate? reflex = null,
@@ -288,7 +290,7 @@ public sealed class ResponsePipeline(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
                 decision.Shortcut ? null : decision.Instruction, decision.Shortcut ? null : decision.Reason,
                 pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt,
-                roomCast.Kind == ChatGroupKinds.Place);
+                roomCast.Kind == ChatGroupKinds.Place, triggeringMessage, answer);
 
             var appraisalJson = JsonSerializer.Serialize(new
             {
@@ -538,15 +540,22 @@ public sealed class ResponsePipeline(
         string personaName,
         InFlightGeneration inFlight,
         CancellationToken ct,
-        bool inPerson = false)
+        bool inPerson = false,
+        ChatMessage? answering = null,
+        bool owed = false)
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
+        var livedSheet = LivedSheets.Lived(self.Id, self.SystemPrompt);
+        var weighing = Gravity.WeighAsync(judge.For(self.Id), self.Name,
+            Gravity.State(self.Name, Gravity.Bio(self, livedSheet), self.Id, fullParticipants, history, answering, turnInstruction, owed, inPerson),
+            logger, ct);
         var presence = await PresenceAsync(chatGroupGrain, self, fullParticipants, history);
-        if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived)
+        if (livedSheet is { } lived)
             self = self with { Bio = null, SystemPrompt = lived };
         var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
         var held = ChatAttention.Window(history, await ReadFromAsync(chatGroupGrain, chatGroupId, self.Id)).Held;
+        var gravity = await weighing;
 
         Task TrackingOnEvent(string eventType, string data, bool done)
         {
@@ -575,7 +584,11 @@ public sealed class ResponsePipeline(
                     gutReaction,
                     presence,
                     avoidWords,
-                    inPerson);
+                    inPerson,
+                    gravity,
+                    opening: answering is null);
+                logger.LogInformation("Persona {PersonaName} speaks with gravity {Gravity} and drew a {Length} line for message {MessageId}",
+                    personaName, gravity is { } g ? g.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "unweighed", result.Length, messageId);
                 break;
             }
             catch (OperationCanceledException)

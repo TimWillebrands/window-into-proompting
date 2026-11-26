@@ -63,7 +63,7 @@ Paths are from the repo root. Find symbols by name, since line numbers drift.
   - recall: `SalienceMath.Refractory`, `backend/World/Self/StaleRecall.cs`, `RecallVariety.cs`
   - options: Life's recent-app count, `Settling`, `Shifts.Damping`, `BoardApp.ThreadFatigue`
   - attention: `ReflexMath.Habit` / `Surprise`
-  - speech: `backend/World/Self/VoiceWear.cs`, `UtteranceRhythm.cs`, `SpeechCleanup.cs`
+  - speech: `backend/World/Self/VoiceWear.cs`, `UtteranceRhythm.cs` (length drawn from the other's line, its odds shifted by Gravity, `Gravity.cs`, ADR 0070), `SpeechCleanup.cs`
   - room: `ConversationThermostat.cs`
 - **State**:
   - `SelfMath` in `backend/World/Self/PersonaSelfGrain.cs` (battery, valence, availability, threads)

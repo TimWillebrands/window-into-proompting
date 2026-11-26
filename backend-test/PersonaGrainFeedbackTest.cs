@@ -100,7 +100,8 @@ public class PersonaGrainFeedbackTest : TestKitBase
             Silo.GrainFactory,
             memoryRepo.Object,
             NullLoggerFactory.Instance,
-            NullLogger<ResponsePipeline>.Instance));
+            NullLogger<ResponsePipeline>.Instance,
+            new BackendTest.Infrastructure.MenuJudge(() => null)));
 
         var grain = await Silo.CreateGrainAsync<PersonaGrain>(_personaId);
         await grain.SetPersona(PersonaName, $"You are {PersonaName}.", null);

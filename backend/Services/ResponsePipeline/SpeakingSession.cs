@@ -21,7 +21,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         string? gutReaction = null,
         string? presence = null,
         IReadOnlyList<string>? avoidWords = null,
-        bool inPerson = false)
+        bool inPerson = false,
+        double? gravity = null,
+        bool opening = false)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         var nameById = allParticipants.ToDictionary(p => p.Id, p => p.Name);
@@ -47,6 +49,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         }));
 
         var guidanceParts = new List<string>();
+        if (opening)
+            guidanceParts.Add(Opening(inPerson));
         if (!string.IsNullOrWhiteSpace(gutReaction))
             guidanceParts.Add($"How this moment hits you: {gutReaction.Trim()}");
         if (!string.IsNullOrWhiteSpace(turnInstruction))
@@ -63,8 +67,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         if (avoidWords is { Count: > 0 })
             guidanceParts.Add($"Leave these words out this time, they've gone stale here: {string.Join(", ", avoidWords.Take(8))}.");
         var lastOtherName = lastOther is null ? null : nameById.GetValueOrDefault(lastOther.SenderId);
-        guidanceParts.Add(UtteranceRhythm.Cue(UtteranceRhythm.Pick(UtteranceRhythm.Words(lastOther?.Content), Random.Shared.NextDouble())));
-        guidanceParts.Add(OnlyTheLine(persona.Name, inPerson));
+        var length = UtteranceRhythm.Pick(UtteranceRhythm.Words(lastOther?.Content), Random.Shared.NextDouble(), gravity);
+        guidanceParts.Add(UtteranceRhythm.Cue(length));
+        guidanceParts.Add(OnlyTheLine(persona.Name, inPerson, opening));
         if (guidanceParts.Count > 0)
         {
             messages.Add(new LlmChatMessage
@@ -78,6 +83,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         using var generateSpan = Tracing.Persona.StartActivity("persona.generate", ActivityKind.Internal);
         generateSpan?.SetTag("persona.id", persona.Id);
         generateSpan?.SetTag("persona.name", persona.Name);
+        generateSpan?.SetTag("speech.gravity", gravity);
+        generateSpan?.SetTag("speech.length", length.ToString());
 
         var result = await new LlmCall(router, persona: persona.Id).StreamAsync(
             new LlmGenerationJob { Messages = messages }, LlmTiers.Voice, cancellationToken,
@@ -93,14 +100,19 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
                 SpeechCleanup.DropEcho(SpeechCleanup.Clean(result.Content, persona.Name), lastOther?.Content),
                 lastOtherName),
             Reasoning = result.Reasoning,
-            Metadata = result.Attribution
+            Metadata = result.Attribution,
+            Length = length,
         };
     }
 
-    public static string OnlyTheLine(string name, bool inPerson)
+    public static string Opening(bool inPerson) => inPerson
+        ? "Nobody just spoke to you. You're the one bringing this up now, so open it yourself: don't answer what they said last."
+        : "Nobody just wrote to you. You're the one bringing this up now, so open it yourself: don't answer their last message.";
+
+    public static string OnlyTheLine(string name, bool inPerson, bool opening = false)
     {
         var first = name.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? name;
-        return $"Now reply with only what {first} {(inPerson ? "says out loud" : "sends")}, word for word: no plan, no notes on length, language or wording, no summary of what others said.";
+        return $"Now {(opening ? "write" : "reply with")} only what {first} {(inPerson ? "says out loud" : "sends")}, word for word: no plan, no notes on length, language or wording, no summary of what others said.";
     }
 
     private static string ComposeIdentity(SelfView self)
@@ -180,4 +192,5 @@ public sealed record class SpeakingResult
     public string? Message { get; init; }
     public string? Reasoning { get; init; }
     public ChatMessageMetadata? Metadata { get; init; }
+    public UtteranceRhythm.Length Length { get; init; }
 }

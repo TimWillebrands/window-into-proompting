@@ -102,6 +102,10 @@ _Avoid_: appraisal, thinking, evaluation, pre-generation.
 The second phase of the **Response pipeline**, conditional on the **Decision phase** choosing to respond. The Persona drafts the actual chat message — shaped by the gut reaction and the **Recollection** carried forward from the Decision phase. Output is the visible reply.
 _Avoid_: generation, response, output, reply-phase.
 
+**Gravity**:
+How much a moment asks of the **Persona** it reaches: a passing remark asks a line; a real question, bad news, or something they mean to get across properly asks more. Weighed by System One right before every **Speaking phase** (replies, owed answers and **Life**'s lines alike), from facts only: who they are, who they're talking with, the last lines, the line they're answering, what they mean to get across, and whether they put it off to answer it properly. It shifts the odds of the length drawn for the line, never sets it: the dice still roll, and no answer leaves the old draw as it was. The judge never says a line asks nothing (light moments come out at about 0.2 to 0.28), so gravity is measured from that floor, `Light`, up; a moment at or below it keeps the old draw exactly, and only what it asks beyond that makes a real answer likelier. Relevance is relational (Vervaeke), and it is Grice's maxim of quantity: say as much as the moment requires, not more. See [ADR 0070](docs/adr/0070-gravity.md).
+_Avoid_: importance, seriousness, depth score, length.
+
 > Note: the code spelling `Generation` (e.g. `GenerationParticipant`, `_ctsByGeneration`, `CancelGenerationAsync`, log/tracing tags) predates the **Response pipeline** vocabulary. The umbrella namespace is now `Services/ResponsePipeline/`, the per-beat session is `SpeakingSession`/`SpeakingResult`, and the in-flight phase enum is `InFlightPhase.Speaking`. Treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Remaining `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
 
 **Stop-signal race**:
@@ -125,11 +129,11 @@ The one faculty behind every "what matters right now?" judgement a **Persona** m
 - **Capture** (days, forward) — which present moments are worth remembering at all?
 - **Initiative** (minutes, stimulus-free) — with nothing asking anything of me, what is worth doing? See § World.
 - **Reflex** (seconds, stimulus-driven) — something just reached me: did I notice, what do I do about it, and when?
+- **Taking stock** (hours, backward, over their own deeds) — what does what I've been doing add up to, and is my way of going at it working?
 
 _Avoid_: relevance scoring, importance ranking, attention.
 
 **Reflex**:
-- **Taking stock** (hours, backward, over their own deeds) — what does what I've been doing add up to, and is my way of going at it working?
 The instance of **Relevance Realization** between a stimulus and a response. Initiative's twin: Initiative asks what's worth doing with nothing going on, Reflex asks what to do about what just happened. It comes before the **Decision phase** and may answer for it. See [ADR 0031](docs/adr/0031-reflex-stimulus-driven-attention.md).
 _Avoid_: trigger, event handler, reaction.
 
@@ -169,10 +173,6 @@ _Avoid_: room quality, comfort score, ambience.
 How a **Place** has come to sit with *this* **Persona** over time, kept on their side as a warmth that good and bad times there move (an **Arena fit**, a **Take**, a meal, a talk in its room), saturating and fading over about ten days. Unlike **Arena fit** (one arrival) it accumulates; unlike **Role** (counted visits) it says how it went. Said where they are, it shapes which places pull and how long staying holds them. See [ADR 0065](docs/adr/0065-places-become-yours.md).
 _Avoid_: attachment score, place rating, loyalty.
 
-**Haunt**:
-A **Place** a **Persona**'s **Belonging** is strong for: "one of your places". A run-down body is pulled back to it; a well one is only reminded, and offered somewhere it hasn't been in a while. Their own **Home** is never one.
-_Avoid_: favourite, regular spot, third place.
-
 **Grip**:
 How far what a **Persona** has been doing lately is getting them somewhere. Weighed in **Initiative**'s own System One call, beside **Lack** and **Arena fit**, and asked as its loss (they keep doing the same thing and it isn't getting them anywhere), because that wording separates best on the judge. Little grip is what makes **Taking stock** likely; it has no baseline, so a Persona who is always stuck still feels it. Grounded in error dynamics: affect tracks the rate at which things are working out (Kiverstein, Miller & Rietveld 2019, "The feeling of grip"). See [ADR 0069](docs/adr/0069-taking-stock.md).
 _Avoid_: progress score, success rate, frustration.
@@ -184,6 +184,10 @@ _Avoid_: reflection, self-evaluation, review, journaling (that's the Diary).
 **Upshot**:
 The one line a **Persona** comes away from **Taking stock** with: what they see now and what they'll stop doing, never a plan or a time. Planned upshots named acts the world doesn't have, set new times to break, and steered one option for hours; they break the frame, and what comes instead is picked from the menu's **Affordances** on the next turn. On their mind for eight hours in every prompt that speaks as them, and kept as their own memory. Only the upshot is kept, never the notes: a memory that only describes a habit feeds it.
 _Avoid_: summary, conclusion, takeaway.
+
+**Haunt**:
+A **Place** a **Persona**'s **Belonging** is strong for: "one of your places". A run-down body is pulled back to it; a well one is only reminded, and offered somewhere it hasn't been in a while. Their own **Home** is never one.
+_Avoid_: favourite, regular spot, third place.
 
 **Recall**:
 Surfacing past knowing into a **Persona**'s present beat — the backward-facing instance of **Relevance Realization**, ranked by **Salience**. The **Decision phase** receives what surfaces and carries at most one **Recollection** into the **Speaking phase**.
