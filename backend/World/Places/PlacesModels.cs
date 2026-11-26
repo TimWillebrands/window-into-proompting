@@ -40,6 +40,7 @@ public sealed class Place
     [Id(34)] public string? Fare { get; set; }
     [Id(35)] public string? FareFor { get; set; }
     [Id(36)] public List<ShelterSlot> ShelterSlots { get; set; } = new();
+    [Id(37)] public bool PowerLost { get; set; }
 }
 
 public static class PlaceAccess

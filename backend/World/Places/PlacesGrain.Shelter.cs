@@ -36,7 +36,7 @@ public sealed partial class PlacesGrain
         ShelterRules.Take(slot, who, whoName, now);
         await SaveAsync();
         await PublishPlaceAsync(place);
-        _ = ClockSignalsAsync(place, slot, "shelter-claimed",
+        _ = ClockSignalsAsync(place, slot.Id, "shelter-claimed",
             $"{whoName} takes the {slot.Name} slot at {place.Name}", who, whoName, now);
         return true;
     }
@@ -53,7 +53,7 @@ public sealed partial class PlacesGrain
         await SaveAsync();
         await PublishPlaceAsync(place);
         var byLine = by is null ? "closing time" : $"{byName ?? "someone"} frees";
-        _ = ClockSignalsAsync(place, slot, "shelter-freed",
+        _ = ClockSignalsAsync(place, slot.Id, "shelter-freed",
             $"the {slot.Name} slot at {place.Name} is freed ({byLine}; was held by {whoName ?? "someone"})", who, whoName, now);
         return true;
     }
@@ -70,14 +70,14 @@ public sealed partial class PlacesGrain
             var who = slot.HeldBy;
             var whoName = slot.HeldByName;
             ShelterRules.Release(slot, null, null, now);
-            _ = ClockSignalsAsync(place, slot, "shelter-freed",
+            _ = ClockSignalsAsync(place, slot.Id, "shelter-freed",
                 $"the {slot.Name} slot at {place.Name} is freed (hold expired; was held by {whoName ?? "someone"})", who, whoName, now);
         }
         await SaveAsync();
         foreach (var place in changed) await PublishPlaceAsync(place);
     }
 
-    private async Task ClockSignalsAsync(Place place, ShelterSlot slot, string action, string summary, Guid? who, string? whoName, long now)
+    private async Task ClockSignalsAsync(Place place, Guid context, string action, string summary, Guid? who, string? whoName, long now)
     {
         try
         {
@@ -93,7 +93,7 @@ public sealed partial class PlacesGrain
                 TargetId = place.Id,
             });
         }
-        catch (Exception ex) { logger.LogDebug(ex, "Shelter record failed for {Slot}", slot.Id); }
+        catch (Exception ex) { logger.LogDebug(ex, "Signal record failed for {Context}", context); }
         try
         {
             var desks = place.Staff.Concat(place.Hosts()).Distinct().ToList();
@@ -103,6 +103,6 @@ public sealed partial class PlacesGrain
                 await clock.NotifyAsync(desks);
             }
         }
-        catch (Exception ex) { logger.LogDebug(ex, "Shelter notify failed for {Slot}", slot.Id); }
+        catch (Exception ex) { logger.LogDebug(ex, "Signal notify failed for {Context}", context); }
     }
 }

@@ -1303,6 +1303,10 @@ public interface IPlacesGrain : IGrainWithGuidKey
 
     [Alias("ReleaseShelterSlotAsync")] Task<bool> ReleaseShelterSlotAsync(Guid placeId, Guid slotId, Guid? by, string? byName);
 
+    [Alias("LosePowerAsync")] Task<bool> LosePowerAsync(Guid placeId);
+
+    [Alias("RestorePowerAsync")] Task<bool> RestorePowerAsync(Guid placeId);
+
     [Alias("CreatePlaceAsync")] Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, PlaceDraft draft);
 
     [Alias("RemovePlaceAsync")] Task<bool> RemovePlaceAsync(Guid placeId);
