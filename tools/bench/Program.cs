@@ -31,6 +31,14 @@ if (command is not "doctor")
     }
 }
 
+var anthropicModel = BenchRouting.AnthropicModel();
+var anthropicKey = BenchRouting.AnthropicKey();
+if (anthropicModel is not null && anthropicKey is null)
+{
+    Console.Error.WriteLine($"{BenchRouting.ModelVariable}={anthropicModel} needs CLAUDE_API_KEY or ANTHROPIC_API_KEY in the environment.");
+    return 1;
+}
+
 var wantsMemory = command is "doctor" || (probe?.RequiresMemory ?? false);
 PostgreSqlContainer? postgres = null;
 string? memoryConnectionString = null;
@@ -114,9 +122,13 @@ try
 {
     var grains = host.Services.GetRequiredService<IGrainFactory>();
 
+    if (anthropicModel is not null)
+        await BenchRouting.UseAnthropicAsync(grains, anthropicModel, anthropicKey!);
+    var routing = await BenchRouting.DescribeAsync(grains);
+
     if (command is "doctor")
     {
-        await Doctor.RunAsync(grains, memoryStatus);
+        await Doctor.RunAsync(grains, memoryStatus, routing);
         return 0;
     }
 
@@ -127,7 +139,7 @@ try
     LlmCallRecorder.Reset();
     var probeTimeoutMin = int.TryParse(
         Environment.GetEnvironmentVariable("BENCH_PROBE_TIMEOUT_MIN"), out var m) && m > 0 ? m : 15;
-    Console.Error.WriteLine($"probe deadline: {probeTimeoutMin} min (BENCH_PROBE_TIMEOUT_MIN to override)");
+    Console.Error.WriteLine($"bench: {probe.Name} routes {routing}; deadline {probeTimeoutMin} min (BENCH_PROBE_TIMEOUT_MIN to override)");
     using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(probeTimeoutMin));
     var bench = new Bench(grains, loggerFactory, memory, artifact, cts.Token);
     var exit = 0;
@@ -137,7 +149,7 @@ try
     }
     catch (OperationCanceledException)
     {
-        Console.Error.WriteLine("Probe timed out (5 min).");
+        Console.Error.WriteLine($"Probe timed out ({probeTimeoutMin} min).");
         exit = 2;
     }
     catch (Exception ex)

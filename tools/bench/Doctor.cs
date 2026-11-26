@@ -4,13 +4,17 @@ namespace PartyTown.Bench;
 
 public static class Doctor
 {
-    public static async Task RunAsync(IGrainFactory grains, string memoryStatus)
+    public static async Task RunAsync(IGrainFactory grains, string memoryStatus, string routing)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         Console.WriteLine("\n=== bench doctor ===\n");
 
         Console.WriteLine($"memory: {memoryStatus}\n");
+        Console.WriteLine($"routes: {routing}");
+        Console.WriteLine(BenchRouting.AnthropicModel() is { } anthropic
+            ? $"  ({BenchRouting.ModelVariable}={anthropic}: General, CharacterVoice and CharacterThoughts go to Anthropic only)\n"
+            : $"  (set {BenchRouting.ModelVariable} to route them to one Anthropic model)\n");
 
         var config = grains.GetGrain<ILlmProviderConfigGrain>(0);
         List<LlmProviderEntry> providers;
