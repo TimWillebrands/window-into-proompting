@@ -58,6 +58,25 @@ public sealed partial class PlacesGrain
         return true;
     }
 
+    private async Task SweepExpiredShelterHoldsAsync(long now)
+    {
+        var expired = state.State.Places
+            .SelectMany(p => p.ShelterSlots.Where(s => ShelterRules.HoldExpired(s, now)).Select(s => (Place: p, Slot: s)))
+            .ToList();
+        if (expired.Count == 0) return;
+        var changed = expired.Select(e => e.Place).Distinct().ToList();
+        foreach (var (place, slot) in expired)
+        {
+            var who = slot.HeldBy;
+            var whoName = slot.HeldByName;
+            ShelterRules.Release(slot, null, null, now);
+            _ = ClockSignalsAsync(place, slot, "shelter-freed",
+                $"the {slot.Name} slot at {place.Name} is freed (hold expired; was held by {whoName ?? "someone"})", who, whoName, now);
+        }
+        await SaveAsync();
+        foreach (var place in changed) await PublishPlaceAsync(place);
+    }
+
     private async Task ClockSignalsAsync(Place place, ShelterSlot slot, string action, string summary, Guid? who, string? whoName, long now)
     {
         try

@@ -79,6 +79,41 @@ public partial class PlacesTest
     }
 
     [Fact]
+    public async Task ShelterSlot_HoldExpires_AndFreesTheSlotForTheNextApplicant()
+    {
+        var (partyId, denise, pieter) = await _fx.CreateWorldAsync();
+        var places = _fx.Places(partyId);
+        var clock = _fx.GrainFactory.GetGrain<IWorldClockGrain>(partyId);
+        var lobby = (await places.GetSnapshotAsync()).Places.Single(p => p.Name == "the Lobby");
+        var added = await places.AddShelterSlotAsync(lobby.Id, "walk-in", true);
+        Assert.NotNull(added);
+        var slot = added;
+
+        await places.MoveAsync(denise, lobby.Id, "sofas");
+        await places.MoveAsync(pieter, lobby.Id, "sofas");
+        _fx.Time.Advance(TimeSpan.FromMinutes(2));
+        await places.GetSnapshotAsync();
+
+        Assert.True(await places.TakeShelterSlotAsync(lobby.Id, slot.Id, denise, "Denise"));
+        Assert.Equal(ShelterStates.Held, ShelterRules.StateOf(Assert.Single(await places.GetShelterSlotsAsync(lobby.Id))));
+
+        _fx.Time.Advance(TimeSpan.FromMilliseconds(ShelterRules.HoldWindowMs + TimeSpan.FromMinutes(5).TotalMilliseconds));
+        await places.WorkAtAsync(pieter, lobby.Id);
+
+        var expired = Assert.Single(await places.GetShelterSlotsAsync(lobby.Id));
+        Assert.Equal(ShelterStates.Freed, ShelterRules.StateOf(expired));
+        Assert.Null(expired.HeldBy);
+        var freedLine = Assert.Single(await WaitForActivitiesAsync(clock, "shelter-freed"), a => a.Summary.Contains("hold expired"));
+        Assert.Contains("was held by Denise", freedLine.Summary);
+
+        Assert.True(await places.TakeShelterSlotAsync(lobby.Id, slot.Id, pieter, "Pieter"));
+        var held = Assert.Single(await places.GetShelterSlotsAsync(lobby.Id));
+        Assert.Equal(("held", pieter), (ShelterRules.StateOf(held), held.HeldBy));
+        Assert.False(await places.TakeShelterSlotAsync(lobby.Id, slot.Id, denise, "Denise"));
+        Assert.False(await places.ReleaseShelterSlotAsync(lobby.Id, slot.Id, denise, "Denise"));
+    }
+
+    [Fact]
     public void ShelterRules_SlotGates_AndReleaseIsHoldersOrClosing()
     {
         var slot = new ShelterSlot { Name = "joop", Open = true };

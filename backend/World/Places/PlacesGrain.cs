@@ -1010,6 +1010,7 @@ public sealed partial class PlacesGrain(
             b.ActivityUntil = null;
         }
         foreach (var b in state.State.Bodies.Values.Where(b => b.PoseUntil <= now)) EndPose(b);
+        await SweepExpiredShelterHoldsAsync(now);
         await GoneQuietAsync(now);
         var mishapDue = state.State.NextMishapAt;
         MaybeMishap(now);

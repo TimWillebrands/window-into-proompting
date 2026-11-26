@@ -26,6 +26,11 @@ public static class ShelterStates
 
 public static class ShelterRules
 {
+    public const long HoldWindowMs = 4 * 60L * 60L * 1000L;
+
+    public static bool HoldExpired(ShelterSlot slot, long now)
+        => slot.HeldBy is { } && slot.HeldAt is { } at && now - at >= HoldWindowMs;
+
     public static string StateOf(ShelterSlot slot)
         => slot.HeldBy is { } ? ShelterStates.Held
         : slot.FreedAt is null ? ShelterStates.Empty
