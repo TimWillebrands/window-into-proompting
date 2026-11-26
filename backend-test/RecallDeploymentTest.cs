@@ -21,88 +21,88 @@ public class RecallDeploymentTest
             Arm: arm);
 
     [Fact]
-    public void ModelPick_Wins_EvenWhenFloorWouldChooseDifferently()
+    public void JudgesPick_Wins_EvenWhenFloorWouldChooseDifferently()
     {
         var low = Memory(salience: 0.4, snippet: "low");
         var high = Memory(salience: 0.9, snippet: "high");
         var recalled = new[] { high, low };
 
-        var (memory, auto) = RecallDeployment.ResolvePick(modelPick: 2, responding: true, recalled);
+        var (memory, auto) = RecallDeployment.ResolvePick(new Gravity.Weighed(null, 2, true), recalled);
 
         Assert.Same(low, memory);
         Assert.False(auto);
     }
 
     [Fact]
-    public void NullPick_Responding_DeploysQualifyingMemory()
+    public void NoViewFromTheJudge_DeploysQualifyingMemory()
     {
         var recalled = new[] { Memory(salience: 0.8) };
 
-        var (memory, auto) = RecallDeployment.ResolvePick(modelPick: null, responding: true, recalled);
+        var (memory, auto) = RecallDeployment.ResolvePick(Gravity.Weighed.Unweighed, recalled);
 
         Assert.Same(recalled[0], memory);
         Assert.True(auto);
     }
 
     [Fact]
-    public void NullPick_NotResponding_DeploysNothing()
+    public void JudgeSawNoneOnTheirMind_DeploysNothing_EvenOverTheFloor()
     {
         var recalled = new[] { Memory(salience: 0.9) };
 
-        var (memory, auto) = RecallDeployment.ResolvePick(modelPick: null, responding: false, recalled);
+        var (memory, auto) = RecallDeployment.ResolvePick(new Gravity.Weighed(0.3, null, true), recalled);
 
         Assert.Null(memory);
         Assert.False(auto);
     }
 
     [Fact]
-    public void NullPick_BelowFloor_DeploysNothing()
+    public void NoView_BelowFloor_DeploysNothing()
     {
         var recalled = new[] { Memory(salience: 0.69) };
 
-        var (memory, _) = RecallDeployment.ResolvePick(modelPick: null, responding: true, recalled);
+        var (memory, _) = RecallDeployment.ResolvePick(Gravity.Weighed.Unweighed, recalled);
 
         Assert.Null(memory);
     }
 
     [Fact]
-    public void NullPick_RecentArm_DeploysNothing()
+    public void NoView_RecentArm_DeploysNothing()
     {
         var recalled = new[] { Memory(salience: 0.9, arm: RecallArm.Recent) };
 
-        var (memory, _) = RecallDeployment.ResolvePick(modelPick: null, responding: true, recalled);
+        var (memory, _) = RecallDeployment.ResolvePick(Gravity.Weighed.Unweighed, recalled);
 
         Assert.Null(memory);
     }
 
     [Fact]
-    public void NullPick_AlreadyDeployedOnce_NeverRefires()
+    public void NoView_AlreadyDeployedOnce_NeverRefires()
     {
         var recalled = new[] { Memory(salience: 0.9, recallCount: 1) };
 
-        var (memory, _) = RecallDeployment.ResolvePick(modelPick: null, responding: true, recalled);
+        var (memory, _) = RecallDeployment.ResolvePick(Gravity.Weighed.Unweighed, recalled);
 
         Assert.Null(memory);
     }
 
     [Fact]
-    public void NullPick_PicksFirstQualifier_ListIsSalienceRanked()
+    public void NoView_PicksFirstQualifier_ListIsSalienceRanked()
     {
         var spent = Memory(salience: 0.95, recallCount: 2, snippet: "spent");
         var fresh = Memory(salience: 0.8, snippet: "fresh");
         var recalled = new[] { spent, fresh };
 
-        var (memory, auto) = RecallDeployment.ResolvePick(modelPick: null, responding: true, recalled);
+        var (memory, auto) = RecallDeployment.ResolvePick(Gravity.Weighed.Unweighed, recalled);
 
         Assert.Same(fresh, memory);
         Assert.True(auto);
     }
 
     [Fact]
-    public void NullPick_EmptyRecall_DeploysNothing()
+    public void NoView_EmptyRecall_DeploysNothing()
     {
         var (memory, auto) = RecallDeployment.ResolvePick(
-            modelPick: null, responding: true, Array.Empty<RecalledMemory>());
+            Gravity.Weighed.Unweighed, Array.Empty<RecalledMemory>());
 
         Assert.Null(memory);
         Assert.False(auto);

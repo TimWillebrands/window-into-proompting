@@ -8,8 +8,6 @@ namespace PartyTown.Services.ResponsePipeline;
 
 public sealed class PersonaEmoteService(ILlmRouterGrain router, ILogger logger)
 {
-    public const string DecisionPhaseFallback = "*starts to speak, then doesn't*";
-
     public const string GenerationFailureFallback = "*falls silent*";
 
     private const int MaxEmoteChars = 160;
@@ -29,7 +27,7 @@ public sealed class PersonaEmoteService(ILlmRouterGrain router, ILogger logger)
         if (string.IsNullOrWhiteSpace(partialDraft))
         {
             span?.SetTag("emote.fallback", "no-draft");
-            return DecisionPhaseFallback;
+            return GenerationFailureFallback;
         }
 
         var messages = new List<LlmChatMessage>

@@ -58,7 +58,7 @@ public static class GravityProbes
         return Enum.GetValues<UtteranceRhythm.Length>().ToDictionary(l => l.ToString(), l => Math.Round(drawn.Count(d => d == l) / (double)Rolls, 3));
     }
 
-    [Probe("Gravity (ADR 0070): eight DM scenes (small talk, the production question to Denise, bad news, a practical question, a real disagreement, a substantive and a light Life intent, the owed answer). Per scene the real Decision phase (DMs shortcut), the gravity noul from the real judge as the pipeline asks it, with latency (8 samples for the five that ask for a real answer, 4 for the light ones); length shares over 200 simulated rolls with and without gravity; one Speaking-phase reply per sample on the weighed draw with that sample's gravity, with drawn length and word counts. Needs OPENROUTER_API_KEY.")]
+    [Probe("Gravity (ADR 0070): eight DM scenes (small talk, the production question to Denise, bad news, a practical question, a real disagreement, a substantive and a light Life intent, the owed answer). Per scene the gravity noul from the real judge as the pipeline asks it, with latency (8 samples for the five that ask for a real answer, 4 for the light ones); length shares over 200 simulated rolls with and without gravity; one Speaking-phase reply per sample on the weighed draw with that sample's gravity, with drawn length and word counts. Needs OPENROUTER_API_KEY.")]
     public static async Task Gravity_Replies(Bench bench)
     {
         var key = Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");
@@ -76,7 +76,6 @@ public static class GravityProbes
         await Task.WhenAll(Scenes().Select(async s =>
         {
             var (self, present, history, answering, lastWords) = Stage(s);
-            var decisions = new List<object>();
             var gravities = new List<double>();
             var latencies = new List<double>();
             var states = new List<string>();
@@ -84,18 +83,7 @@ public static class GravityProbes
 
             for (var i = 0; i < (s.Real ? RealSamples : Samples); i++)
             {
-                string? instruction = s.Intent, gut = s.Feeling;
-                if (s.Kind != Turn.Initiate)
-                {
-                    var decision = await Within(bench, tally, $"{s.Key} decision", async c => (ShouldRespondResult?)await new PersonaDecisionService(bench.Router, bench.Logger("PersonaDecisionService"))
-                        .ShouldRespondAsync(self, history, present, UrgeMath.CountExchangeRounds(history), null, c, isDirect: true, presence: s.Presence));
-                    if (decision is not null)
-                    {
-                        decisions.Add(new { decision.Respond, decision.Shortcut, decision.Instruction, decision.Reason });
-                        instruction = decision.Shortcut ? null : decision.Instruction;
-                        gut = decision.Shortcut ? null : decision.Reason;
-                    }
-                }
+                string? instruction = s.Kind == Turn.Initiate ? s.Intent : null, gut = s.Kind == Turn.Initiate ? s.Feeling : null;
 
                 var state = Gravity.State(self.Name, Gravity.Bio(self, null), self.Id, present, history, answering, instruction, s.Kind == Turn.Owed, inPerson: false);
                 states.Add(state);
@@ -144,7 +132,6 @@ public static class GravityProbes
                     history = s.Lines.Select(l => $"{(l.Mine ? self.Name : s.Other.Name)}: {l.Text}").ToList(),
                     s.Intent,
                     s.Feeling,
-                    decisions,
                     state = states.FirstOrDefault(),
                     replies,
                 });
@@ -220,7 +207,7 @@ public static class GravityProbes
         ("matters to say properly", false, n => $"What {n} says next matters enough that they would take the time to say it properly."),
     };
 
-    [Probe("Gravity wording (ADR 0070): the eight Gravity_Replies scenes as the pipeline states them (DMs shortcut, so no intent but Life's), five wordings of the noul, 4 samples each through the real judge; mean gravity per scene and wording (a loss wording is turned round) and the gap between the lightest real scene and the heaviest light one. Needs OPENROUTER_API_KEY.")]
+    [Probe("Gravity wording (ADR 0070): the eight Gravity_Replies scenes as the pipeline states them (a reply carries no intent, only Life's lines do), five wordings of the noul, 4 samples each through the real judge; mean gravity per scene and wording (a loss wording is turned round) and the gap between the lightest real scene and the heaviest light one. Needs OPENROUTER_API_KEY.")]
     public static async Task Gravity_Wording(Bench bench)
     {
         var key = Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");

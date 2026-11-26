@@ -17,9 +17,7 @@ public sealed class PersonaSalienceService(ISystemOneJudge judge, ILogger logger
 
     public async Task<SalienceScore> ScoreAsync(
         SelfView self,
-        string inFlightGutReaction,
-        string inFlightWouldSay,
-        string inFlightGeneratedSoFar,
+        InFlightSnapshot inFlight,
         ChatMessage newMessage,
         string newMessageSenderName,
         CancellationToken ct)
@@ -31,8 +29,7 @@ public sealed class PersonaSalienceService(ISystemOneJudge judge, ILogger logger
 
         try
         {
-            var state = State(self.Name, inFlightGutReaction, inFlightWouldSay, inFlightGeneratedSoFar,
-                newMessage.Content ?? string.Empty, newMessageSenderName);
+            var state = State(self.Name, inFlight, newMessage.Content ?? string.Empty, newMessageSenderName);
             var answers = await judge.For(self.Id).AskAsync(state, new Dictionary<string, SystemOneQuestion>
             {
                 ["interrupt"] = new NoulQuestion(
@@ -60,22 +57,19 @@ public sealed class PersonaSalienceService(ISystemOneJudge judge, ILogger logger
         }
     }
 
-    private static string State(
-        string personaName,
-        string gutReaction,
-        string wouldSay,
-        string generatedSoFar,
-        string newMessageContent,
-        string newMessageSender) => $"""
-# In-flight utterance from {personaName}
-Gut reaction: {Trim(gutReaction)}
-Planned message: {Trim(wouldSay)}
-Generated so far: {Trim(generatedSoFar)}
-
-# New message just arrived
-From: {newMessageSender}
-Content: {Trim(newMessageContent)}
-""";
+    internal static string State(string personaName, InFlightSnapshot inFlight, string newMessageContent, string newMessageSender)
+    {
+        var lines = new List<string> { $"# In-flight utterance from {personaName}" };
+        if (!string.IsNullOrWhiteSpace(inFlight.ReplyingTo)) lines.Add($"Replying to: {inFlight.ReplyingTo.Trim()}");
+        if (!string.IsNullOrWhiteSpace(inFlight.Intent)) lines.Add($"What {personaName} means to get across: {inFlight.Intent.Trim()}");
+        if (!string.IsNullOrWhiteSpace(inFlight.Feeling)) lines.Add($"How it sits with {personaName}: {inFlight.Feeling.Trim()}");
+        lines.Add($"Generated so far: {Trim(inFlight.GeneratedText)}");
+        lines.Add(string.Empty);
+        lines.Add("# New message just arrived");
+        lines.Add($"From: {newMessageSender}");
+        lines.Add($"Content: {Trim(newMessageContent)}");
+        return string.Join("\n", lines);
+    }
 
     private static string Trim(string s) =>
         string.IsNullOrWhiteSpace(s) ? "(empty)" : s.Trim();

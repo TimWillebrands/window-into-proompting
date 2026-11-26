@@ -42,7 +42,6 @@ public sealed record class MessageStreamEvent
 {
     public const string PersonaEvaluatingResponse = "attend";
     public const string PersonaDeclinedResponse = "declined";
-    public const string PersonaEvaluationStreaming = "appraisal";
     public const string PersonaEvaluationComplete = "appraisalComplete";
     public const string GenerationError = "error";
     public const string GenerationRetry = "retry";

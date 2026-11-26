@@ -93,9 +93,38 @@ public static class ReflexWeighing
         lines.Add(Relation(p, s));
         if (s.Between.Count > 0) lines.Add($"On {s.Name}'s mind about them: {string.Join(" ", s.Between.Select(b => WorldStream.Clip(b, 140)))}");
         if (p.Context is { Count: > 0 } context) lines.Add($"Just before this:\n{string.Join("\n", context)}");
+        lines.AddRange(Room(p, s.Name));
         lines.Add($"What just happened: {Event(p, s.Name)}");
+        if (p.Named && p.Kind is PerceptKind.Line or PerceptKind.Speech) lines.Add($"{First(p.FromName)} mentions {s.Name} by name.");
         return string.Join("\n", lines);
     }
+
+    public const int TradedFrom = 2;
+    public const int RecentFrom = 3;
+
+    public static IEnumerable<string> Room(Percept p, string name)
+    {
+        if (p.Traded >= TradedFrom && p.Traders is { Count: > 0 } traders)
+            yield return traders.Count == 1
+                ? $"{traders[0]} has written the last {p.Traded} lines here, with nobody else in between."
+                : $"{Names(traders)} have traded the last {p.Traded} lines here, with nobody else in between.";
+        if (p.Recent >= RecentFrom)
+            yield return p.Own switch
+            {
+                0 => $"None of the last {p.Recent} lines here were {name}'s.",
+                1 => $"1 of the last {p.Recent} lines here was {name}'s.",
+                _ => $"{p.Own} of the last {p.Recent} lines here were {name}'s.",
+            };
+        if (!string.IsNullOrWhiteSpace(p.Thermostat))
+            yield return $"How the conversation is going: {p.Thermostat.Trim()}";
+    }
+
+    private static string Names(IReadOnlyList<string> names) => names.Count switch
+    {
+        1 => names[0],
+        2 => $"{names[0]} and {names[1]}",
+        _ => $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}",
+    };
 
     private static string Occupied(double load) => load switch
     {

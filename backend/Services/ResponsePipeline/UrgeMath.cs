@@ -23,14 +23,8 @@ public static class UrgeMath
         var latest = history[^1];
         var content = latest.Content ?? "";
 
-        if (!string.IsNullOrWhiteSpace(self.Name))
-        {
-            var mentionRegex = new Regex(
-                $@"\b{Regex.Escape(self.Name)}\b",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-            if (mentionRegex.IsMatch(content))
-                mentionScore = 1.0;
-        }
+        if (Names(self.Name, content))
+            mentionScore = 1.0;
 
         if (directlyAddressed)
             mentionScore = 1.0;
@@ -47,6 +41,18 @@ public static class UrgeMath
 
         var total = Math.Min(1.0, mentionScore + questionScore + silenceStreakScore + coldOpenScore);
         return new ResponseUrge(total, mentionScore, questionScore, silenceStreakScore, coldOpenScore, chaosScore);
+    }
+
+    public const int FirstNameFrom = 3;
+
+    public static bool Names(string? name, string? content)
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(content)) return false;
+        var first = name.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+        var pattern = first.Length >= FirstNameFrom && first != name
+            ? $@"\b(?:{Regex.Escape(name)}|{Regex.Escape(first)})\b"
+            : $@"\b{Regex.Escape(name)}\b";
+        return Regex.IsMatch(content, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     public static readonly TimeSpan ExchangeWindow = World.Self.ChatAttention.SessionGap;
@@ -123,3 +129,11 @@ public static class UrgeMath
         return net < -0.4;
     }
 }
+
+public readonly record struct ResponseUrge(
+    double Total,
+    double MentionScore,
+    double QuestionScore,
+    double SilenceStreakScore,
+    double ColdOpenScore,
+    double ChaosScore);

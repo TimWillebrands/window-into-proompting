@@ -35,9 +35,34 @@ public class PersonaSalienceServiceTest
         return answers;
     }
 
+    private static InFlightSnapshot InFlight(string feeling = "", string intent = "", string replyingTo = "Mira: is the old API any good?", string generated = "I think it's actua")
+        => new(InFlightPhase.Speaking, feeling, intent, replyingTo, generated, generated.Length / 4, false, string.Empty, string.Empty);
+
     private static Task<SalienceScore> ScoreAsync(PersonaSalienceService service) => service.ScoreAsync(
-        MakeSelf(), "I was about to defend it.", "Defend it.", "I think it's actua",
-        NewMessage("forget that, it's been deprecated"), "Mira", CancellationToken.None);
+        MakeSelf(), InFlight(), NewMessage("forget that, it's been deprecated"), "Mira", CancellationToken.None);
+
+    [Fact]
+    public void State_AReplyWithNoPlan_ShowsWhatItAnswers_NotEmptyPlans()
+    {
+        var state = PersonaSalienceService.State("Vlad", InFlight(), "forget that, it's been deprecated", "Mira");
+
+        Assert.Contains("Replying to: Mira: is the old API any good?", state);
+        Assert.Contains("Generated so far: I think it's actua", state);
+        Assert.DoesNotContain("means to get across", state);
+        Assert.DoesNotContain("How it sits", state);
+        Assert.DoesNotContain("Gut reaction", state);
+        Assert.DoesNotContain("Planned message", state);
+    }
+
+    [Fact]
+    public void State_ALifeLine_KeepsItsIntentAndFeeling()
+    {
+        var state = PersonaSalienceService.State("Vlad", InFlight("restless", "ask Mira about Sunday", replyingTo: ""), "hi", "Mira");
+
+        Assert.Contains("What Vlad means to get across: ask Mira about Sunday", state);
+        Assert.Contains("How it sits with Vlad: restless", state);
+        Assert.DoesNotContain("Replying to", state);
+    }
 
     [Fact]
     public async Task Answer_GivesValueAndMostLikelyKind()

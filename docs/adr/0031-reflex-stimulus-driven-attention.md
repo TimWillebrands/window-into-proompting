@@ -23,6 +23,8 @@ Add **Reflex**, a stimulus-driven instance of Relevance Realization at the secon
 | Timing | Online chronemics, heavy-tailed response times (Barabási) | Reading takes time, near nothing face to face. A newer line in the same chat takes over the read, so a burst gets one reply. Put-off times are lognormal. |
 | Later | Prospective memory (Einstein, McDaniel), interruption at breakpoints (Iqbal, Bailey), Zeigarnik | An Intention comes back when due, waits for a breakpoint if busy, stays in their prompts until settled, and speaking in that chat settles it. |
 
+> Amended by [ADR 0071](0071-rooms-weigh-once.md): torn no longer sends a line to a Decision phase (there is none); it lets the voice pass. Focus yields to a conversation the thermostat reads as winding down, and Reflex's state carries the room's pressure as facts.
+
 Reflex only runs in a running World with an enabled judge and no scenario. A paused World, a scenario Room or a dead judge leaves the old path exactly as it was. So does a judge past its 1.2 s budget: Reflex fails towards replying.
 
 > Amended by [ADR 0044](0044-system-one-required.md): the judge is required, so only a paused World or a scenario Room leaves the old path.
@@ -45,6 +47,8 @@ Two rules from earlier ADRs stay as they were: a sleeping Body only wakes for a 
 - Settled with nothing said and nobody's turn still open, the Room asks the listener who wanted it most (highest urge, then Chattiness) to answer it with decline off. That turn skips the pre-gate and Reflex. The Decision phase still runs for the gut reaction and the memory, but its "no" no longer stands. In a DM this means: no decline on a human's line.
 - A line is handed out once. The bookkeeping lives on the Room's activation, not in its journal, so a restart can drop a rerun but never doubles one. A failed turn (a stop pressed, a provider down) stops it: the rerun answers declines, it doesn't retry failures.
 - The rerun is a turn like any other, so the stop-signal race applies: a newer line can cut it off, and that line is owed in its own right.
+
+> Amended by [ADR 0071](0071-rooms-weigh-once.md): there is no cold-open floor; a human's line goes through Reflex like any other and this settling is what guarantees an answer. The rerun goes straight to the voice, with no pass on offer.
 
 ## The code does not lean on what System One can see
 

@@ -221,7 +221,7 @@ public class OwedAnswersWorldTest(OwedAnswersWorldTest.Fixture fx) : IClassFixtu
     }
 
     [Fact]
-    public async Task Dm_TheDecisionPhaseDeclinesAHuman_TheyAreAskedToAnswerAnyway()
+    public async Task Dm_TheirTurnOnAHumansLineIsDeclined_TheyAreAskedToAnswerAnyway()
     {
         var (party, human, anne, _, _) = await WorldAsync();
         var dm = await Grains.GetGrain<IPartyGrain>(party).GetOrCreateDirectChatAsync(human, anne);
@@ -277,6 +277,29 @@ public class OwedAnswersWorldTest(OwedAnswersWorldTest.Fixture fx) : IClassFixtu
         await room.EndTurnAsync(cut, new TurnOutcome.Failed("cancelled"));
 
         await NeverAsync(() => Answers(talk).Any());
+    }
+
+    [Fact]
+    public async Task AHoldOnOneLine_DoesntSettleTheNext_EveryoneLetsThatGo_ItIsAnswered()
+    {
+        var (party, human, anne, bas, _) = await WorldAsync();
+        var talk = await LobbyTalkAsync(party, (human, null), (anne, null), (bas, null));
+        var room = Grains.GetGrain<IChatGroupGrain>(talk);
+
+        var first = await room.SendNewMessageAsync(human, "Anne, can you look at my poster?", null, null);
+        await HeardByAsync(talk, first.MessageId, 2);
+        await room.RecordSkippedTurnAsync(anne, "Anne", first.MessageId, 1, "reflex: holding: still meaning to get back to them");
+        await DeclineAsync(room, bas, first.MessageId, 0.5);
+
+        var second = await room.SendNewMessageAsync(human, "anyone know when the market closes?", null, null);
+        await HeardByAsync(talk, second.MessageId, 2);
+        await room.RecordSkippedTurnAsync(anne, "Anne", second.MessageId, 0.4, "reflex: listen");
+        await DeclineAsync(room, bas, second.MessageId, 0.7);
+
+        await TestWait.UntilAsync(() => Task.FromResult(Answers(talk).Any()), TimeSpan.FromSeconds(5));
+        var answer = Assert.Single(Answers(talk));
+        Assert.Equal(second.MessageId, answer.MessageId);
+        Assert.Equal(bas, answer.PersonaId);
     }
 
     [Fact]

@@ -23,7 +23,7 @@ public static class RecallScenarioProbes
     private const int LifeChangeMessageId = 5;
     private const int AgreeToMeetMessageId = 8;
 
-    [Probe("Scripted-control recall loop (real AGE + live session): Scene 1 is a fully-authored phone call (both sides) — greetings, Denise announces she's quitting to open 'Rise & Grind', they agree to meet at the 'Blue Mug' Thursday; both salient beats are captured. Scene 2 is that coffeeshop in the SAME Party — Vlad waits, Denise walks in naming nothing specific, and ONLY Vlad's single turn runs the real recall→decide→speak path. Cheapest variant; isolates the callback. Read scene2.vlad.recalled (did it travel, via which arm), the decision prompt's '# What you remember', and whether Vlad's line surfaces a memory-only specific. For full by-model comparison use Recall_LifeChangeAcrossScenes_Full.", RequiresMemory = true)]
+    [Probe("Scripted-control recall loop (real AGE + live session): Scene 1 is a fully-authored phone call (both sides) — greetings, Denise announces she's quitting to open 'Rise & Grind', they agree to meet at the 'Blue Mug' Thursday; both salient beats are captured. Scene 2 is that coffeeshop in the SAME Party — Vlad waits, Denise walks in naming nothing specific, and ONLY Vlad's single turn runs the real recall, System One memory pick and speak path (the pick needs OPENROUTER_API_KEY; without it the salience floor decides). Cheapest variant; isolates the callback. Read scene2.vlad.recalled (did it travel, via which arm), scene2.vlad.weighed (which memory the judge sampled), and whether Vlad's line surfaces a memory-only specific. For full by-model comparison use Recall_LifeChangeAcrossScenes_Full.", RequiresMemory = true)]
     public static async Task Recall_LifeChangeAcrossScenes(Bench bench)
     {
         var ct = bench.Cancellation;
@@ -57,7 +57,7 @@ public static class RecallScenarioProbes
         ("anyway i can't do this justice down a phone line, so don't even argue — let's grab a coffee thursday. there's a little place on Almond Street, the Blue Mug. meet me there.", true),
     };
 
-    [Probe("FULL live recall loop (real AGE + live session), minimal orchestration: only Denise's lines are pushed — Vlad's EVERY turn in BOTH scenes is model-generated through the real recall→decide→speak path, so swapping the model moves the whole exchange's quality (the by-model comparison instrument). Scene 1: Denise greets, announces quitting to open 'Rise & Grind', proposes the 'Blue Mug' Thursday (her two salient lines are captured); Vlad answers each live. Scene 2: same Party coffeeshop, Denise walks in naming nothing specific; Vlad recalls + answers. Read scene.transcript (Denise scripted / Vlad live) and especially Vlad's Scene-2 line: does he call back the bakery name / career leap / Thursday plan from memory ALONE? Denise's lines are user-type statements (no name, no '?') so the decision LLM runs every beat.", RequiresMemory = true)]
+    [Probe("FULL live recall loop (real AGE + live session), minimal orchestration: only Denise's lines are pushed — Vlad's EVERY turn in BOTH scenes is model-generated through the real recall, memory pick and speak path, so swapping the model moves the whole exchange's quality (the by-model comparison instrument). Scene 1: Denise greets, announces quitting to open 'Rise & Grind', proposes the 'Blue Mug' Thursday (her two salient lines are captured); Vlad answers each live. Scene 2: same Party coffeeshop, Denise walks in naming nothing specific; Vlad recalls + answers. Read scene.transcript (Denise scripted / Vlad live) and especially Vlad's Scene-2 line: does he call back the bakery name / career leap / Thursday plan from memory ALONE? The memory pick needs OPENROUTER_API_KEY; without it the salience floor decides.", RequiresMemory = true)]
     public static async Task Recall_LifeChangeAcrossScenes_Full(Bench bench)
     {
         var ct = bench.Cancellation;
@@ -153,38 +153,23 @@ public static class RecallScenarioProbes
         CancellationToken ct)
     {
         var self = BenchCast.Vlad;
-        var decisionService = new PersonaDecisionService(bench.Router, bench.Logger("PersonaDecisionService"));
+        var snippets = recalled.Select(r => r.Snippet).ToList();
+        var answering = history.LastOrDefault(m => m.SenderId != self.Id);
+        var state = Gravity.State(self.Name, Gravity.Bio(self, null), self.Id, Present, history, answering, null, false, false);
+        var weighed = await Gravity.WeighAsync(Judge(), self.Name, state, snippets, bench.Logger("RecallScenarioProbes"), ct);
 
-        var decision = await decisionService.ShouldRespondAsync(
-            self,
-            history,
-            Present,
-            totalAiRoundsInGroup: 0,
-            onEvent: (_, _, _) => Task.CompletedTask,
-            cancellationToken: ct,
-            recollections: recalled.Select(r => r.Snippet).ToList(),
-            presence: Setting(scenario));
-
-        var (picked, autoDeployed) = RecallDeployment.ResolvePick(
-            decision.MemoryToReference, decision.Respond, recalled);
-        bench.Observe($"{label}.decision", new
+        var (picked, autoDeployed) = RecallDeployment.ResolvePick(weighed, recalled);
+        bench.Observe($"{label}.weighed", new
         {
-            decision.Respond,
-            gutReaction = decision.Reason,
-            wouldSay = decision.Instruction,
-            memoryToReference = decision.MemoryToReference,
+            weighed.Gravity,
+            judgesMemory = weighed.Memory,
+            judgeHadAView = weighed.RecallWeighed,
             pickedSnippet = picked?.Snippet,
-            pickedBy = picked is null ? null : autoDeployed ? "salience-floor" : "model",
+            pickedBy = picked is null ? null : autoDeployed ? "salience-floor" : "judge",
         });
 
         if (picked is not null && picked.EdgeId != Guid.Empty)
             await bench.Memory.StrengthenRecollectionAsync(picked.EdgeId, ct);
-
-        if (!decision.Respond)
-        {
-            bench.Observe($"{label}.speaking", "(declined — no utterance generated)");
-            return null;
-        }
 
         var session = new SpeakingSession(bench.Router, Present);
         var result = await session.GenerateResponseOnlyAsync(
@@ -192,10 +177,9 @@ public static class RecallScenarioProbes
             history,
             onEvent: (_, _, _) => Task.CompletedTask,
             cancellationToken: ct,
-            turnInstruction: decision.Instruction,
             memoryToReference: picked?.Snippet,
-            gutReaction: decision.Reason,
-            presence: Setting(scenario));
+            presence: Setting(scenario),
+            gravity: weighed.Gravity);
 
         bench.Observe($"{label}.speaking", new
         {
@@ -212,6 +196,20 @@ public static class RecallScenarioProbes
             SenderId = self.Id,
             ChatGroupId = room,
         };
+    }
+
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+
+    private static PartyTown.Services.SystemOne.ISystemOneJudge Judge()
+        => Environment.GetEnvironmentVariable("OPENROUTER_API_KEY") is { Length: > 0 } key
+            ? new PartyTown.Services.SystemOne.HttpSystemOneJudge(Http, "openrouter-jev", PartyTown.Services.SystemOne.HttpSystemOneJudge.OpenRouterUrl, key,
+                PartyTown.Services.SystemOne.HttpSystemOneJudge.OpenRouterModel, Microsoft.Extensions.Logging.Abstractions.NullLogger<PartyTown.Services.SystemOne.HttpSystemOneJudge>.Instance)
+            : new NoView();
+
+    private sealed class NoView : PartyTown.Services.SystemOne.ISystemOneJudge
+    {
+        public Task<PartyTown.Services.SystemOne.SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion> questions, CancellationToken ct)
+            => Task.FromResult(new PartyTown.Services.SystemOne.SystemOneAnswers());
     }
 
     private static async Task<IReadOnlyList<RecalledMemory>> RecallForVladAsync(
@@ -237,7 +235,7 @@ public static class RecallScenarioProbes
             bench.Observe("WARNING",
                 "Vlad recalled nothing in Scene 2 — either capture wrote no Recollections (no live "
                 + "session / extractor declined) or the cross-Room recall didn't travel. The "
-                + "decision below has nothing to call back; the loop is broken.");
+                + "turn below has nothing to call back; the loop is broken.");
     }
 
     private static async Task CaptureAsync(
@@ -283,8 +281,8 @@ public static class RecallScenarioProbes
 
     private static void ObserveJudgeHint(Bench bench) => bench.Observe("judge",
         "Did the right memories surface for Vlad (life change + the plan to meet), via the relevant "
-        + "arm (Event ABOUT Denise, who's present) not just recency? Did the decision pick one "
-        + "(memoryToReference)? Most of all: does Vlad's final line call back a specific the prompt "
+        + "arm (Event ABOUT Denise, who's present) not just recency? Did the judge sample one "
+        + "(weighed.judgesMemory)? Most of all: does Vlad's final line call back a specific the prompt "
         + "never gave him — the bakery name 'Rise & Grind', 'you actually quit', or 'the Thursday we "
         + "set up'? Specifics from memory = the loop closed; a generic greeting = recall surfaced but "
         + "didn't land. In the _Full probe, also read every Vlad turn for in-character voice quality "

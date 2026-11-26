@@ -139,6 +139,83 @@ public class ReflexWorldTest(ReflexWorldTest.Fixture fx) : IClassFixture<ReflexW
     }
 
     [Fact]
+    public async Task MidConversation_ThatIsWindingDown_IsWeighedAfterAll()
+    {
+        var (party, denise, hana) = await WorldAsync();
+        var room = Guid.NewGuid();
+        ScriptedJudge.Pick(ReflexOptions.Leave);
+        await Reflex(party, denise).NoteSpokeAsync(room);
+        var asked = ScriptedJudge.Asked;
+
+        var verdict = await Reflex(party, denise).PerceiveAsync(Dm(hana, room) with { WindingDown = true, Thermostat = "This conversation is winding down." });
+
+        Assert.False(verdict.Proceed);
+        Assert.Equal(asked + 1, ScriptedJudge.Asked);
+    }
+
+    [Fact]
+    public async Task MidConversation_AHumansLine_HoldsThemEvenWhenWindingDown()
+    {
+        var (party, denise, hana) = await WorldAsync(hanaHuman: true);
+        var room = Guid.NewGuid();
+        ScriptedJudge.Pick(ReflexOptions.Brief);
+        await Reflex(party, denise).NoteSpokeAsync(room);
+        var asked = ScriptedJudge.Asked;
+
+        var verdict = await Reflex(party, denise).PerceiveAsync(Dm(hana, room, human: true, text: "haha ok, thanks!") with { WindingDown = true, Thermostat = "This conversation is winding down." });
+
+        Assert.True(verdict.Proceed);
+        Assert.Equal("mid-conversation", verdict.Note);
+        Assert.Equal(asked, ScriptedJudge.Asked);
+    }
+
+    private static Percept Said(PerceptKind kind, Guid from, string name, Guid room, string text, bool named = false)
+        => new(kind, from, name, false, text, room, Named: named);
+
+    [Theory]
+    [InlineData(PerceptKind.Line)]
+    [InlineData(PerceptKind.Speech)]
+    public async Task AHeldIntention_DoesntSwallowSomeoneElsesLine(PerceptKind kind)
+    {
+        var (party, denise, hana) = await WorldAsync();
+        var bob = Guid.NewGuid();
+        var room = Guid.NewGuid();
+        ScriptedJudge.Pick(ReflexOptions.Soon);
+        await Reflex(party, denise).PerceiveAsync(Said(PerceptKind.Line, hana, "Hana", room, "Denise, can you look at my poster?", named: true));
+        var held = Assert.Single(await Reflex(party, denise).GetIntentionsAsync());
+        var expected = kind == PerceptKind.Line ? ReflexOptions.Leave : ReflexOptions.Listen;
+        ScriptedJudge.Pick(expected);
+        var asked = ScriptedJudge.Asked;
+
+        var verdict = await Reflex(party, denise).PerceiveAsync(Said(kind, bob, "Bob", room, "Denise, anyone know when the market closes?", named: true));
+
+        Assert.Equal(asked + 1, ScriptedJudge.Asked);
+        Assert.Equal(expected, verdict.Note);
+        Assert.DoesNotContain(ReflexVerdict.Holding, verdict.Note);
+        var still = Assert.Single(await Reflex(party, denise).GetIntentionsAsync());
+        Assert.Equal(hana, still.FromId);
+        Assert.Equal(held.Gist, still.Gist);
+        Assert.Null(still.Latest);
+    }
+
+    [Fact]
+    public async Task AHeldIntention_StillHoldsTheNextLineFromTheSamePerson()
+    {
+        var (party, denise, hana) = await WorldAsync();
+        var room = Guid.NewGuid();
+        ScriptedJudge.Pick(ReflexOptions.Soon);
+        await Reflex(party, denise).PerceiveAsync(Said(PerceptKind.Line, hana, "Hana", room, "Denise, can you look at my poster?", named: true));
+        var asked = ScriptedJudge.Asked;
+
+        var verdict = await Reflex(party, denise).PerceiveAsync(Said(PerceptKind.Line, hana, "Hana", room, "the blue one"));
+
+        Assert.False(verdict.Proceed);
+        Assert.StartsWith(ReflexVerdict.Holding, verdict.Note);
+        Assert.Equal(asked, ScriptedJudge.Asked);
+        Assert.Equal("the blue one", Assert.Single(await Reflex(party, denise).GetIntentionsAsync()).Latest);
+    }
+
+    [Fact]
     public async Task TalkingElsewhere_RaisesLoad_SoRoomChatterGoesUnnoticed()
     {
         var (party, denise, hana) = await WorldAsync();

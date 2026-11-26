@@ -1,11 +1,14 @@
+using Orleans.Concurrency;
 using PartyTown.Grains;
 using PartyTown.Services.SystemOne;
 
 namespace PartyTown.World.Self;
 
-public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<ConversationThermostatGrain> logger)
+public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<ConversationThermostatGrain> logger, TimeProvider? time = null)
     : Grain, IConversationThermostatGrain
 {
+    public static readonly TimeSpan ReadLasts = ChatAttention.SessionGap;
+
     private const int Lines = 10;
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(8);
 
@@ -14,6 +17,10 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
     private string? _cue;
     private bool _windingDown;
     private ThermostatRead _read = ThermostatRead.None;
+    private long _readLineAt;
+
+    public Task<ThermostatRead> PeekAsync()
+        => Task.FromResult(Thermostat.Fresh(_read, _readLineAt, (time ?? TimeProvider.System).GetUtcNow(), ReadLasts));
 
     public async Task<bool> IsWindingDownAsync()
     {
@@ -34,14 +41,29 @@ public sealed class ConversationThermostatGrain(ISystemOneJudge judge, ILogger<C
             .Where(m => !string.IsNullOrWhiteSpace(m.Content) && m.Kind is null)
             .TakeLast(Lines)
             .ToList();
-        if (recent.Count < 4) return null;
+        if (recent.Count < 4)
+        {
+            Forget();
+            return null;
+        }
         var last = recent[^1].MessageId;
         if (last == _lastMessageId) return _cue;
+        _readLineAt = recent[^1].SendAt ?? 0;
 
         var partyId = await room.GetPartyIdAsync();
         var names = (await GrainFactory.GetGrain<IPartyGrain>(partyId).GetCastAsync()).ToDictionary(c => c.Id, c => c.Name);
         await ReadAsync(recent.Select(m => $"{names.GetValueOrDefault(m.SenderId, "Someone")}: {WorldStream.Clip(m.Content, 300)}"), last);
         return _cue;
+    }
+
+    private void Forget()
+    {
+        _lastMessageId = -1;
+        _heavyStreak = 0;
+        _cue = null;
+        _windingDown = false;
+        _read = ThermostatRead.None;
+        _readLineAt = 0;
     }
 
     public async Task<ThermostatRead> GetThreadReadAsync(Guid partyId)
@@ -100,6 +122,9 @@ public static class Thermostat
 
     public static int NextStreak(int streak, double heavy) => heavy >= HeavyThreshold ? streak + 1 : 0;
 
+    public static ThermostatRead Fresh(ThermostatRead read, long newestLineAt, DateTimeOffset now, TimeSpan lasts)
+        => newestLineAt > 0 && now.ToUnixTimeMilliseconds() - newestLineAt <= lasts.TotalMilliseconds ? read : ThermostatRead.None;
+
     public static bool RunItsCourse(ThermostatRead read) => read.Fizzling >= FizzlingThreshold || read.Reconfirming >= ReconfirmingThreshold;
 
     public static string? Cue(int heavyStreak, double circling, double fizzling = 0, double reconfirming = 0)
@@ -123,6 +148,7 @@ public interface IConversationThermostatGrain : IGrainWithGuidKey
 {
     [Alias("GetCueAsync")] Task<string?> GetCueAsync();
     [Alias("GetReadAsync")] Task<ThermostatRead> GetReadAsync();
+    [AlwaysInterleave, Alias("PeekAsync")] Task<ThermostatRead> PeekAsync();
     [Alias("IsWindingDownAsync")] Task<bool> IsWindingDownAsync();
     [Alias("GetThreadReadAsync")] Task<ThermostatRead> GetThreadReadAsync(Guid partyId);
 }

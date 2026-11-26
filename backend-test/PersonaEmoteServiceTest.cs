@@ -45,7 +45,7 @@ public class PersonaEmoteServiceTest
     }
 
     [Fact]
-    public async Task GenerateAbandonmentEmoteAsync_EmptyDraft_ReturnsDecisionPhaseFallbackWithoutLlmCall()
+    public async Task GenerateAbandonmentEmoteAsync_EmptyDraft_FallsSilentWithoutLlmCall()
     {
         var router = new Mock<ILlmRouterGrain>(MockBehavior.Strict);
 
@@ -57,7 +57,7 @@ public class PersonaEmoteServiceTest
             interruptingSenderName: "Mira",
             CancellationToken.None);
 
-        Assert.Equal(PersonaEmoteService.DecisionPhaseFallback, result);
+        Assert.Equal(PersonaEmoteService.GenerationFailureFallback, result);
         router.VerifyNoOtherCalls();
     }
 

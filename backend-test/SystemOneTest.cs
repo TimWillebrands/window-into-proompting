@@ -68,4 +68,23 @@ public class SystemOneTest
         Assert.True(cold > 0.98);
         Assert.Null(answers.SampleChoice("missing"));
     }
+
+    [Fact]
+    public void SampleChoice_AnOptionWeighedAtZero_IsNeverDrawn()
+    {
+        var answers = new SystemOneAnswers();
+        answers.Choices["act"] = new Dictionary<string, double> { ["soon"] = 0.001, ["leave"] = 0 };
+
+        for (var i = 0; i < 2000; i++)
+            Assert.Equal("soon", answers.SampleChoice("act", 0.8, new Random(i)));
+    }
+
+    [Fact]
+    public void SampleChoice_AllZero_StillDraws()
+    {
+        var answers = new SystemOneAnswers();
+        answers.Choices["act"] = new Dictionary<string, double> { ["a"] = 0, ["b"] = 0 };
+
+        Assert.NotNull(answers.SampleChoice("act"));
+    }
 }

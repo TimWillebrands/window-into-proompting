@@ -153,4 +153,101 @@ public class GravityTest
     [Fact]
     public void Question_IsAboutThisPersona()
         => Assert.Equal("What Justin Ruysch is about to say needs more than a line or two.", Gravity.Question("Justin Ruysch").Instructions);
+
+    private sealed class ScriptedJudge(Func<IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion>, PartyTown.Services.SystemOne.SystemOneAnswers> answer)
+        : PartyTown.Services.SystemOne.ISystemOneJudge
+    {
+        public List<IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion>> Asked { get; } = new();
+
+        public Task<PartyTown.Services.SystemOne.SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion> questions, CancellationToken ct)
+        {
+            Asked.Add(questions);
+            return Task.FromResult(answer(questions));
+        }
+    }
+
+    private static PartyTown.Services.SystemOne.SystemOneAnswers Answers(double gravity, Dictionary<string, double>? recall = null)
+    {
+        var answers = new PartyTown.Services.SystemOne.SystemOneAnswers();
+        answers.Nouls[Gravity.Key] = gravity;
+        if (recall is not null) answers.Choices[Gravity.RecallKey] = recall;
+        return answers;
+    }
+
+    private static readonly string[] Memories = { "Mara's sister's landlord wants her out over the dog.", "You lent Denise your umbrella." };
+
+    [Fact]
+    public void Recall_OffersEveryMemoryAndNone()
+    {
+        var question = Gravity.Recall("Pieter", Memories);
+
+        Assert.Equal("Which of these memories, if any, is on Pieter's mind in this moment?", question.Instructions);
+        Assert.Equal(new[] { Gravity.Nothing, "1", "2" }, question.Options.Keys.ToArray());
+        Assert.Equal(Memories[1], question.Options["2"]);
+    }
+
+    [Fact]
+    public async Task WeighAsync_AsksTheMemoryInTheSameCall_AndSamplesIt()
+    {
+        var judge = new ScriptedJudge(_ => Answers(0.4, new Dictionary<string, double> { [Gravity.Nothing] = 0.5, ["1"] = 0.5, ["2"] = 0 }));
+        var picks = new List<int?>();
+        for (var i = 0; i < 200; i++)
+            picks.Add((await Gravity.WeighAsync(judge, "Pieter", "state", Memories, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None, new Random(i))).Memory);
+
+        Assert.All(judge.Asked, q => Assert.True(q.ContainsKey(Gravity.Key) && q.ContainsKey(Gravity.RecallKey)));
+        Assert.Contains(1, picks);
+        Assert.Contains(null, picks);
+        Assert.DoesNotContain(2, picks);
+    }
+
+    [Fact]
+    public async Task WeighAsync_NoneOnTheirMind_IsAView()
+    {
+        var judge = new ScriptedJudge(_ => Answers(0.3, new Dictionary<string, double> { [Gravity.Nothing] = 1, ["1"] = 0, ["2"] = 0 }));
+
+        var weighed = await Gravity.WeighAsync(judge, "Pieter", "state", Memories, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None);
+
+        Assert.Equal(new Gravity.Weighed(0.3, null, true), weighed);
+    }
+
+    [Fact]
+    public async Task WeighAsync_NoDistribution_IsNoView_ButGravityStands()
+    {
+        var judge = new ScriptedJudge(_ => Answers(0.6));
+
+        var weighed = await Gravity.WeighAsync(judge, "Pieter", "state", Memories, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None);
+
+        Assert.Equal(new Gravity.Weighed(0.6, null, false), weighed);
+    }
+
+    [Fact]
+    public async Task WeighAsync_NothingRecalled_AsksGravityAlone()
+    {
+        var judge = new ScriptedJudge(_ => Answers(0.2));
+
+        var weighed = await Gravity.WeighAsync(judge, "Pieter", "state", Array.Empty<string>(), Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None);
+
+        Assert.False(Assert.Single(judge.Asked).ContainsKey(Gravity.RecallKey));
+        Assert.Equal(new Gravity.Weighed(0.2, null, false), weighed);
+    }
+
+    [Fact]
+    public async Task WeighAsync_JudgeFails_IsNoViewOnEither()
+    {
+        var judge = new ScriptedJudge(_ => throw new HttpRequestException("down"));
+
+        Assert.Equal(Gravity.Weighed.Unweighed, await Gravity.WeighAsync(judge, "Pieter", "state", Memories, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task WeighAsync_TheJudgesFaintTail_IsNeverDrawn()
+    {
+        var judge = new ScriptedJudge(_ => Answers(0.3, new Dictionary<string, double> { [Gravity.Nothing] = 0.9, ["1"] = Gravity.RecallFloor - 0.01, ["2"] = Gravity.RecallFloor + 0.01 }));
+        var picks = new List<int?>();
+        for (var i = 0; i < 2000; i++)
+            picks.Add((await Gravity.WeighAsync(judge, "Pieter", "state", Memories, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None, new Random(i))).Memory);
+
+        Assert.DoesNotContain(1, picks);
+        Assert.Contains(2, picks);
+    }
 }

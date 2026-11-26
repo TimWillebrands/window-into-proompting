@@ -40,8 +40,11 @@ public sealed class PersonaReflexGrain(
         if (!(await Clock.GetStatusAsync()).Running) return ReflexVerdict.Through;
 
         if (p.RoomId is { } room && InExchange(room, ms))
-            return ReflexVerdict.Reply(Lag(p, 0), false, "mid-conversation");
-        if (p.RoomId is { } heldRoom && state.State.Intentions.FirstOrDefault(i => i.RoomId == heldRoom) is { } held)
+        {
+            if (!ReflexMath.FocusYields(p)) return ReflexVerdict.Reply(Lag(p, 0), false, "mid-conversation");
+            logger.LogInformation("Reflex {Key}: the conversation in {Room} is winding down and no longer holds them", this.GetPrimaryKeyString(), room);
+        }
+        if (p.RoomId is { } heldRoom && state.State.Intentions.FirstOrDefault(i => i.RoomId == heldRoom && i.FromId == p.FromId) is { } held)
         {
             Intentions.Renew(held, WorldStream.Clip(p.Text, 160), ms);
             await SaveAsync();
@@ -225,7 +228,7 @@ public sealed class PersonaReflexGrain(
     {
         if (p.RoomId is not { } room) return;
         var off = ReflexMath.PutOff(sense.Load, p.FromHuman, Random.Shared.NextDouble(), Random.Shared.NextDouble());
-        state.State.Intentions.RemoveAll(i => i.RoomId == room);
+        state.State.Intentions.RemoveAll(i => i.RoomId == room && i.FromId == p.FromId);
         state.State.Intentions.Add(new Intention
         {
             RoomId = room, FromId = p.FromId, FromName = p.FromName, Gist = WorldStream.Clip(p.Text, 160),
@@ -249,7 +252,7 @@ public sealed class PersonaReflexGrain(
         }
         finally
         {
-            if (state.State.Intentions.FirstOrDefault(i => i.RoomId == p.RoomId && i.Acking) is { } held)
+            if (state.State.Intentions.FirstOrDefault(i => i.RoomId == p.RoomId && i.FromId == p.FromId && i.Acking) is { } held)
             {
                 held.Acking = false;
                 await SaveAsync();

@@ -2,6 +2,8 @@
 
 When a new message arrives mid-generation, the in-flight Persona runs a **stop-signal race** (decide-phase → always cancel; generation past PNR → can't cancel; generation pre-PNR → score salience via LFM2 → cancel if `cancelScore > 0.5`). On cancel-pre-PNR, the half-formed reply is **discarded** and replaced with a freshly-generated, in-character abandonment line (`ChatMessage.Kind = "emote"`, rendered as an italic action), rather than dropping the message, surfacing a `[cancelled]` placeholder, or letting the stale reply complete.
 
+> Amended by [ADR 0071](0071-rooms-weigh-once.md): there is no Decision phase any more. The cheap phase a newer line always cancels is everything before the voice starts (recall, presence, the Gravity call), and during the voice the race weighs the line being answered and the text so far.
+
 ## Why this and not the obvious alternatives
 
 - **Why not silently drop?** The Room would lose a beat — the Persona was visibly typing/streaming, then nothing. Breaks the conversational rhythm and makes interruptions feel like bugs.

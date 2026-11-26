@@ -76,4 +76,14 @@ public class UrgeMathTest
 
         Assert.Equal(0.4, urge.SilenceStreakScore);
     }
+
+    [Theory]
+    [InlineData("Pieter Voss", "Pieter, jij bent toch jurist?", true)]
+    [InlineData("Pieter Voss", "vraag het pieter voss maar", true)]
+    [InlineData("Pieter Voss", "Pietertje is jarig", false)]
+    [InlineData("Al Pacino", "al die mensen", false)]
+    [InlineData("Al Pacino", "Al Pacino, hi", true)]
+    [InlineData("Mara", "hoi Mara!", true)]
+    public void Names_ByFullOrFirstName(string name, string content, bool named)
+        => Assert.Equal(named, UrgeMath.Names(name, content));
 }

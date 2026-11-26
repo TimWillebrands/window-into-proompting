@@ -92,28 +92,30 @@ How committed the Persona is to a reply once they've started forming one. Low = 
 
 ### Response pipeline
 
-The two-phase process a **Persona** runs when a new message arrives in a **Conversation**: a **Decision phase** that judges whether and how to engage, then (conditionally) a **Speaking phase** that drafts the visible message. The two phases run as separate LLM calls so the persona reacts in-character before committing to airtime, and so the decision can be skipped when it's clearly not warranted. The pipeline as a whole is what's torn down by a stop-signal race (see ADR 0001) or by `CancelGenerationAsync`.
+What a **Persona** runs when a new message arrives in a **Conversation**: the **Urge** pre-gate (a cost filter), **Reflex** (did it reach them, and do they answer, and when), one System One call right before speaking (**Gravity** and which memory is on their mind), then the **Speaking phase**, which voices the reply and may pass. One weighing, one voice: System One weighs, the LLM voices and may decline (ADR 0019). The pipeline as a whole is what's torn down by a stop-signal race (see ADR 0001) or by `CancelGenerationAsync`. See [ADR 0071](docs/adr/0071-rooms-weigh-once.md).
 
-**Decision phase**:
-The first phase of the **Response pipeline**. The Persona considers what's been said, forms a **gut reaction** in-character, decides whether they have something worth saying, and — if so — picks which past **Recollection** (if any) is on their mind. Output is consulted, never displayed directly: it shapes the **Speaking phase**.
-_Avoid_: appraisal, thinking, evaluation, pre-generation.
+> Retired: the **Decision phase**, a second LLM call between Reflex and the voice that decided again whether to speak, picked a memory and wrote the line (`wouldSay`). Its jobs now live here: whether to speak is **Reflex**'s, with the room's pressure as facts in its state; which memory surfaces is sampled by System One in the **Gravity** call; the gut reaction and the planned line are gone for replies (Life's lines keep their thought and intent); a **Repair hint** is a line in the Speaking phase; being torn or a conversation winding down only lets the voice **Pass**. See [ADR 0071](docs/adr/0071-rooms-weigh-once.md).
 
 **Speaking phase**:
-The second phase of the **Response pipeline**, conditional on the **Decision phase** choosing to respond. The Persona drafts the actual chat message — shaped by the gut reaction and the **Recollection** carried forward from the Decision phase. Output is the visible reply.
+The one LLM call of the **Response pipeline**. The Persona writes the actual message from the conversation itself, with the **Recollection** System One put on their mind, if any, and, for **Life**'s lines, what they mean to get across. Output is the visible reply, or a **Pass**.
 _Avoid_: generation, response, output, reply-phase.
 
+**Pass**:
+The voice letting a line go by after all, by writing only `(pass)`. It is the whole line or nothing: stage directions aside, the line must be exactly the bracketed mark; "Pass." or "(passed)" are lines, and a `(pass)` among other words is stripped and the rest said. Offered on a group or Place line that didn't name them, on any line **Reflex** was torn about, and when the conversation is winding down; never on an owed answer, or to a human who wrote to them directly or named them. A pass ends the turn as declined and counts as one for an owed answer. The mark never reaches the room. On the bench the voice almost never takes it: it is a safety valve, and **Reflex** does the weighing.
+_Avoid_: skip, decline (the turn's outcome), silence.
+
 **Gravity**:
-How much a moment asks of the **Persona** it reaches: a passing remark asks a line; a real question, bad news, or something they mean to get across properly asks more. Weighed by System One right before every **Speaking phase** (replies, owed answers and **Life**'s lines alike), from facts only: who they are, who they're talking with, the last lines, the line they're answering, what they mean to get across, and whether they put it off to answer it properly. It shifts the odds of the length drawn for the line, never sets it: the dice still roll, and no answer leaves the old draw as it was. The judge never says a line asks nothing (light moments come out at about 0.2 to 0.28), so gravity is measured from that floor, `Light`, up; a moment at or below it keeps the old draw exactly, and only what it asks beyond that makes a real answer likelier. Relevance is relational (Vervaeke), and it is Grice's maxim of quantity: say as much as the moment requires, not more. See [ADR 0070](docs/adr/0070-gravity.md).
+How much a moment asks of the **Persona** it reaches: a passing remark asks a line; a real question, bad news, or something they mean to get across properly asks more. Weighed by System One right before every **Speaking phase** (replies, owed answers and **Life**'s lines alike), from facts only: who they are, who they're talking with, the last lines, the line they're answering, what they mean to get across, and whether they put it off to answer it properly. It shifts the odds of the length drawn for the line, never sets it: the dice still roll, and no answer leaves the old draw as it was. The judge never says a line asks nothing (light moments come out at about 0.2 to 0.28), so gravity is measured from that floor, `Light`, up; a moment at or below it keeps the old draw exactly, and only what it asks beyond that makes a real answer likelier. Relevance is relational (Vervaeke), and it is Grice's maxim of quantity: say as much as the moment requires, not more. See [ADR 0070](docs/adr/0070-gravity.md) The same call asks which of the recalled memories, if any, is on their mind (see **Recall**, [ADR 0071](docs/adr/0071-rooms-weigh-once.md)).
 _Avoid_: importance, seriousness, depth score, length.
 
-> Note: the code spelling `Generation` (e.g. `GenerationParticipant`, `_ctsByGeneration`, `CancelGenerationAsync`, log/tracing tags) predates the **Response pipeline** vocabulary. The umbrella namespace is now `Services/ResponsePipeline/`, the per-beat session is `SpeakingSession`/`SpeakingResult`, and the in-flight phase enum is `InFlightPhase.Speaking`. Treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Remaining `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
+> Note: the code spelling `Generation` (e.g. `GenerationParticipant`, `_ctsByGeneration`, `CancelGenerationAsync`, log/tracing tags) predates the **Response pipeline** vocabulary. The umbrella namespace is now `Services/ResponsePipeline/`, the per-beat session is `SpeakingSession`/`SpeakingResult`, and the in-flight phases are `InFlightPhase.Weighing` and `InFlightPhase.Speaking`. Treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Remaining `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
 
 **Stop-signal race**:
-When a new message arrives in a **Conversation** while a **Persona** has an in-flight **Response pipeline**, the persona evaluates whether the new message warrants interrupting their own draft. Outcomes: cancel the **Decision phase** (cheap, no public artifact yet), cancel the **Speaking phase** before the point-of-no-return (the in-flight draft is discarded and replaced with an emote about being interrupted), or commit and acknowledge the missed message on the next turn via a **Repair hint**. Per-persona; one race evaluation per in-flight pipeline per new message. See ADR 0001.
+When a new message arrives in a **Conversation** while a **Persona** has an in-flight **Response pipeline**, the persona evaluates whether the new message warrants interrupting their own draft. Outcomes: cancel a turn whose voice hasn't started yet (cheap, no public artifact yet: recall, presence and the **Gravity** call), cancel the **Speaking phase** before the point-of-no-return (the in-flight draft is discarded and replaced with an emote about being interrupted; System One weighs the line being answered and the text so far against the new message), or commit and acknowledge the missed message on the next turn via a **Repair hint**. Per-persona; one race evaluation per in-flight pipeline per new message. See ADR 0001.
 _Avoid_: interruption, preemption, barge-in.
 
 **Repair hint**:
-A one-shot Levelt-style speech-repair cue stashed by the **Stop-signal race** when a **Persona** committed past the point-of-no-return (or chose to continue) while a relevant message arrived. Consumed by the next **Decision phase** for that **Conversation** and cleared regardless of outcome — surfaces the missed message to the persona so they can acknowledge it naturally. In-memory only.
+A one-shot Levelt-style speech-repair cue stashed by the **Stop-signal race** when a **Persona** committed past the point-of-no-return (or chose to continue) while a relevant message arrived. Consumed within ten minutes by the next reply's **Speaking phase** in that **Conversation**, as one line of guidance ("Just before you spoke, … said: …; pick it up if that's natural"), and cleared regardless of outcome. In-memory only.
 _Avoid_: catch-up, backlog, missed-message-marker.
 
 > Note: the code spelling `Generation` (the `Services/Generation/` namespace, `GenerationSession`, `GenerationResult`, `GenerationParticipant`, `InFlightPhase.Generation`, `_ctsByGeneration`, `CancelGenerationAsync`, etc.) predates the **Response pipeline** vocabulary — treat **Response pipeline** (umbrella) and **Speaking phase** (per-phase) as canonical in new code, comments, issues, and docs. Existing `Generation*` spellings can be renamed opportunistically (`Pipeline*` for umbrella scope, `Speaking*` for phase scope).
@@ -124,7 +126,7 @@ _Avoid_: catch-up, backlog, missed-message-marker.
 The one faculty behind every "what matters right now?" judgement a **Persona** makes (term from John Vervaeke — deeper background is outside this glossary). Relevance is never computed from a fixed rule; it is realized by balancing opposing pulls (recent ⇄ relevant, speak ⇄ hold back, finish ⇄ interrupt). Seven instances of it run in this project, at their own timescales:
 
 - **Interruption** (milliseconds) — is the new message worth abandoning my in-flight reply? Scored as **Salience** during the **Stop-signal race**.
-- **Urge** (seconds) — is this beat worth speaking into? Feeds the **Decision phase**.
+- **Urge** (seconds) — is this beat worth speaking into? A cheap pre-gate before **Reflex**.
 - **Recall** (days, backward) — which past moments belong in this beat?
 - **Capture** (days, forward) — which present moments are worth remembering at all?
 - **Initiative** (minutes, stimulus-free) — with nothing asking anything of me, what is worth doing? See § World.
@@ -134,7 +136,7 @@ The one faculty behind every "what matters right now?" judgement a **Persona** m
 _Avoid_: relevance scoring, importance ranking, attention.
 
 **Reflex**:
-The instance of **Relevance Realization** between a stimulus and a response. Initiative's twin: Initiative asks what's worth doing with nothing going on, Reflex asks what to do about what just happened. It comes before the **Decision phase** and may answer for it. See [ADR 0031](docs/adr/0031-reflex-stimulus-driven-attention.md).
+The instance of **Relevance Realization** between a stimulus and a response. Initiative's twin: Initiative asks what's worth doing with nothing going on, Reflex asks what to do about what just happened. For a reply it is the weighing: whether to answer, now, later or not at all, with the room's pressure as facts in its state (lines traded with nobody else in between, their own share of the talk, being named, the thermostat's read). A human's line goes through it like any other. See [ADR 0031](docs/adr/0031-reflex-stimulus-driven-attention.md) and [ADR 0071](docs/adr/0071-rooms-weigh-once.md).
 _Avoid_: trigger, event handler, reaction.
 
 **Percept**:
@@ -146,11 +148,11 @@ How much of a **Persona** is spoken for right now, seen from the channel somethi
 _Avoid_: busyness, availability (that's one input to it).
 
 **Focus**:
-The one conversation a **Persona** is in the middle of. Its next line needs no **Reflex**; anything else competes with it.
+The one conversation a **Persona** is in the middle of. Its next line needs no **Reflex**, unless the conversation is winding down and the line is another Persona's: then it no longer holds them, and Reflex weighs it. A human's line keeps them. Anything else competes with it.
 _Avoid_: active room, current chat.
 
 **Intention**:
-Something a **Persona** put off and means to get back to. It comes back at a breakpoint, stays on their mind until settled, and speaking in that chat settles it. One owed to a human gets a quick line at once and happens by a deadline; any other can slip their mind. Not the "intent" of a **Life** turn, which is what they're about to say.
+Something a **Persona** put off and means to get back to, owed to one person. It comes back at a breakpoint, stays on their mind until settled, and speaking in that chat settles it. It holds that person's next lines in the chat; anyone else's are weighed as usual. One owed to a human gets a quick line at once and happens by a deadline; any other can slip their mind. Not the "intent" of a **Life** turn, which is what they're about to say.
 _Avoid_: reminder, task, pending reply.
 
 **Salience**:
@@ -158,7 +160,7 @@ How strongly something *pulls* on a **Persona**'s attention right now — an att
 _Avoid_: activation, importance, relevance score, weight.
 
 **Urge**:
-The inner pressure a **Persona** feels to act — a push from within, where **Salience** is pull from without. Today the only urge is the urge to speak: built up by being named, open questions, long silence, and the Persona's own **Chattiness**, consulted by the **Decision phase**.
+The inner pressure a **Persona** feels to act — a push from within, where **Salience** is pull from without. Today the only urge is the urge to speak: built up by being named (by full or first name), open questions, long silence, and the Persona's own **Chattiness**. It gates what reaches **Reflex** and says who is keenest when an owed line needs an answer.
 _Avoid_: drive, motivation, impulse (see **Impulsivity**, a different thing).
 
 **Lack**:
@@ -190,7 +192,7 @@ A **Place** a **Persona**'s **Belonging** is strong for: "one of your places". A
 _Avoid_: favourite, regular spot, third place.
 
 **Recall**:
-Surfacing past knowing into a **Persona**'s present beat — the backward-facing instance of **Relevance Realization**, ranked by **Salience**. The **Decision phase** receives what surfaces and carries at most one **Recollection** into the **Speaking phase**.
+Surfacing past knowing into a **Persona**'s present beat — the backward-facing instance of **Relevance Realization**, ranked by **Salience**. For a reply, System One samples which of what surfaces, if any, is on their mind, in the **Gravity** call; that one **Recollection** goes into the **Speaking phase** and is strengthened. "None" is an answer; only with no view from the judge does the salience floor decide.
 _Avoid_: retrieval, query, lookup, RAG.
 
 **Capture**:

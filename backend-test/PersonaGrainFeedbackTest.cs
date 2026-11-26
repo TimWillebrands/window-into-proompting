@@ -21,14 +21,6 @@ public class PersonaGrainFeedbackTest : TestKitBase
     [Fact]
     public async Task CancelGenerationAsync_CancelsInFlightSpeaking()
     {
-        var decisionJson = """{"gutReaction":"on it","memoryToReference":null,"wouldSay":"writing...","respond":true}""";
-
-        var decisionEp = new Mock<ILlmEndpointGrain>();
-        decisionEp.Setup(e => e.GetAttributionAsync())
-            .ReturnsAsync(new ChatMessageMetadata { Provider = "test", ModelName = "decider" });
-        decisionEp.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
-            .Returns<LlmGenerationJob, CancellationToken>((_, ct) => SingleChunk(decisionJson, ct));
-
         var startedSpeaking = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var speakingEp = new Mock<ILlmEndpointGrain>();
         speakingEp.Setup(e => e.GetAttributionAsync())
@@ -36,10 +28,9 @@ public class PersonaGrainFeedbackTest : TestKitBase
         speakingEp.Setup(e => e.GenerateAsync(It.IsAny<LlmGenerationJob>(), It.IsAny<CancellationToken>()))
             .Returns<LlmGenerationJob, CancellationToken>((_, ct) => SignalThenHang(startedSpeaking, ct));
 
-        var routeCall = 0;
         var router = Silo.AddProbe<ILlmRouterGrain>(0L);
         router.Setup(r => r.RouteAsync(It.IsAny<JobComplexity>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => Interlocked.Increment(ref routeCall) == 1 ? decisionEp.Object : speakingEp.Object);
+            .ReturnsAsync(speakingEp.Object);
 
         var personaRoot = Silo.AddProbe<IPersonaRootGrain>(Guid.Empty);
         personaRoot.Setup(g => g.GetAll()).ReturnsAsync(new Persona[]
@@ -117,15 +108,6 @@ public class PersonaGrainFeedbackTest : TestKitBase
         await cancelTask.WaitAsync(TimeSpan.FromSeconds(15));
 
         Assert.Equal("cancelled", Assert.IsType<TurnOutcome.Failed>(Assert.Single(outcomes)).Error);
-    }
-
-    private static async IAsyncEnumerable<LlmGenerationEvent> SingleChunk(
-        string data,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        await Task.Yield();
-        yield return new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, data);
     }
 
     private static async IAsyncEnumerable<LlmGenerationEvent> SignalThenHang(

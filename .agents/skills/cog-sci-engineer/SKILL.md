@@ -50,10 +50,10 @@ Paths are from the repo root. Find symbols by name, since line numbers drift.
 | Instance | Code | Rule today |
 | --- | --- | --- |
 | Interruption | `backend/Services/ResponsePipeline/RaceTrigger.cs`, `PersonaSalienceService` | System One noul vs `CancelThreshold`, before `PnrTokens` |
-| Urge | `backend/Services/ResponsePipeline/UrgeMath.cs`, `PersonaDecisionService` | cheap math pre-filter, then a "Room:" nudge for the Decision phase |
-| Reflex | `backend/World/Reflex/ReflexMath.cs`, `ReflexWeighing`, `PersonaReflexGrain` | notice filter, System One choice × trait bias, sampled; torn → System Two |
+| Urge | `backend/Services/ResponsePipeline/UrgeMath.cs` | cheap math pre-filter before Reflex; named by full or first name |
+| Reflex | `backend/World/Reflex/ReflexMath.cs`, `ReflexWeighing`, `PersonaReflexGrain`, `ResponsePipeline.PerceptOf` | notice filter, System One choice × trait bias, sampled; the room's pressure and the thermostat as facts in the state; torn → the voice may pass; Focus yields when winding down |
 | Initiative | `backend/World/PersonaLifeGrain.cs` (`Pull`, `ChoiceTemperature`), `backend/World/Apps/*`, `backend/World/Self/Hooks.cs` | integer pulls prune the menu, System One samples, voicing may decline |
-| Recall | `backend/World/Self/PersonaRecall.cs` (every beat), `backend/Services/Memory/SalienceMath.cs`, `RecallRanking.cs` | weight × decay + use bonus × refractory, two arms, 3-day horizon, then the recall dampers |
+| Recall | `backend/World/Self/PersonaRecall.cs` (every beat), `backend/Services/Memory/SalienceMath.cs`, `RecallRanking.cs`, `Gravity.Recall` | weight × decay + use bonus × refractory, two arms, 3-day horizon, then the recall dampers; for a reply System One samples which one is on their mind (or none) in the Gravity call |
 | Capture | `backend/Services/Memory/MemoryExtractor.cs`, `backend/World/LullCaptureGrain.cs` | System One gate, then LLM extraction |
 | Taking stock | `backend/World/Self/TakingStock.cs` (`Grip`, `TakingStock`), `PersonaLifeGrain` | (1 − Grip)² × ripe², Grip asked as its loss in Initiative's call, nothing waiting on the menu; free-text look back over deeds and what is on offer; its Upshot (what they see, what they stop, no plan) kept |
 | Who acts next | `backend/World/ClockPolicy.cs`, `WorldClockGrain.cs` | weighted by Chattiness, idle time, notifications, availability |
@@ -77,12 +77,12 @@ Paths are from the repo root. Find symbols by name, since line numbers drift.
   - `backend/World/Desires/`
   - `backend/World/Relations/`
 - **Bench**: `tools/bench/Probes/`:
-  - `DecisionProbes`, `ReflexProbes`, `RecallScenarioProbes`, `StanceProbes`
+  - `RoomSpeechProbes`, `ReflexProbes`, `RecallScenarioProbes`, `StanceProbes`, `GravityProbes`
   - `BoardProbes`, `PlacesProbes`, `WorkProbes`, `BodyProbes`
 
 ## Building
 
-1. **One question, one place.** Find every path that answers the question you're changing (Room pipeline, Reflex, Life, Board, Places), and change it where they converge. Recall converges in `PersonaRecall`. A Room message runs weigh → voice: the Urge pre-filter (cost), Reflex (System One), then the Decision phase (System Two, may decline).
+1. **One question, one place.** Find every path that answers the question you're changing (Room pipeline, Reflex, Life, Board, Places), and change it where they converge. Recall converges in `PersonaRecall`. A Room message runs weigh → voice: the Urge pre-filter (cost), Reflex (System One, whether and when), the Gravity call (System One, how much and which memory), then the Speaking phase (System Two, may pass).
 2. **Tune before you add.** If a process exists but misbehaves, fix the general process; don't add a special path beside it.
 3. **Layer on an existing process.** Most behaviour is an input to one. For example, entering a room creates a Percept that Reflex weighs; it isn't a new trigger.
 4. **Facts go in the state, not in pulls.** If System One can read it from the state, a bias on top counts it twice (ADR 0031). Biases are only for what the state can't carry: numeric traits and norms.

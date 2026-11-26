@@ -100,7 +100,7 @@ public static partial class SpeechCleanup
     {
         if (string.IsNullOrEmpty(text)) return text ?? string.Empty;
         if (IsFailureMarker(text)) return string.Empty;
-        var s = DropPlanningNote(TemplateToken().Replace(text, " ").Trim());
+        var s = DropPlanningNote(Regex.Replace(Passing.StripToken(TemplateToken().Replace(text, " ")), @"[ \t]{2,}", " ").Trim());
         if (IsFailureMarker(s)) return string.Empty;
         if (s.StartsWith("private ", StringComparison.Ordinal) && text.Contains("<|channel|>")) s = s[8..].TrimStart();
         s = Regex.Replace(s, @"(^|\s)#[A-Za-z][\w-]*:\s*", "$1").Trim();

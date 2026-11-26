@@ -26,6 +26,7 @@ public sealed class ResponsePipeline(
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
     private const int MaxDirectAiRounds = 6;
+    private static readonly TimeSpan ThermostatBound = TimeSpan.FromMilliseconds(300);
 
     public async Task HandleAsync(
         Persona persona,
@@ -61,7 +62,7 @@ public sealed class ResponsePipeline(
             "Persona {PersonaName} notified of message {MessageId} in chat group {ChatGroupId}",
             persona.Name, triggeringMessage.MessageId, chatGroupId);
 
-        var preHistory = await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue, listener: persona.Id);
+        var preHistory = UpTo(await chatGroupGrain.GetMessagesUntilAsync(int.MaxValue, listener: persona.Id), triggeringMessage);
         var preRounds = await chatGroupGrain.CountTrailingAssistantMessagesAsync();
 
         var isDirect = roomCast.IsDirect;
@@ -89,11 +90,11 @@ public sealed class ResponsePipeline(
             return;
         }
 
-        var deliberate = false;
-        var coldOpen = preUrge.ColdOpenScore > 0 && !isDirect;
-        if (reflex is not null && !coldOpen)
+        var weighing = new Reply(Torn: false, Named: !isDirect && preUrge.MentionScore > 0, Note: null);
+        if (reflex is not null)
         {
-            var verdict = await reflex.PerceiveAsync(partyId, persona.Id, PerceptOf(triggeringMessage, roomCast, preHistory, preUrge, chatGroupId));
+            var thermostat = await ThermostatAsync(chatGroupId);
+            var verdict = await reflex.PerceiveAsync(partyId, persona.Id, PerceptOf(triggeringMessage, roomCast, persona.Id, preHistory, preUrge, chatGroupId, thermostat));
             turnSpan?.SetTag("reflex.proceed", verdict.Proceed);
             turnSpan?.SetTag("reflex.note", verdict.Note);
             if (!verdict.Proceed)
@@ -106,11 +107,25 @@ public sealed class ResponsePipeline(
                 await RecordSkipAsync(chatGroupGrain, persona, triggeringMessage, preUrge.Total, "reflex: read on to a newer line");
                 return;
             }
-            deliberate = verdict.Deliberate;
+            weighing = weighing with { Torn = verdict.Deliberate, Note = string.IsNullOrWhiteSpace(verdict.Note) ? null : $"reflex: {verdict.Note}" };
         }
 
         await TurnAsync(persona, chatGroupId, triggeringMessage, chatGroupGrain, store, partyId, roomCast, self, turnSpan,
-            preUrge.Total, deliberate, answer: false, ct);
+            preUrge.Total, weighing, answer: false, ct);
+    }
+
+    private sealed record Reply(bool Torn, bool Named, string? Note);
+
+    public const string OwedReason = "owed: nobody else had answered it";
+    public const string AsleepReason = "Asleep.";
+    public const string UnsayableReason = "Nothing sayable came out.";
+    private const string RaceReason = "Race-cancelled before speaking.";
+
+    internal static List<ChatMessage> UpTo(IReadOnlyList<ChatMessage> all, ChatMessage trigger)
+    {
+        var before = all.Where(m => m.MessageId < trigger.MessageId && !string.IsNullOrWhiteSpace(m.Content)).ToList();
+        before.Add(trigger);
+        return before;
     }
 
     public async Task AnswerAsync(
@@ -137,7 +152,7 @@ public sealed class ResponsePipeline(
             persona.Name, line.MessageId, chatGroupId);
 
         await TurnAsync(persona, chatGroupId, line, chatGroupGrain, store, partyId, roomCast, self, turnSpan,
-            urge: null, deliberate: false, answer: true, ct);
+            urge: null, new Reply(Torn: false, Named: false, Note: OwedReason), answer: true, ct);
     }
 
     private async Task TurnAsync(
@@ -151,12 +166,11 @@ public sealed class ResponsePipeline(
         SelfView self,
         Activity? turnSpan,
         double? urge,
-        bool deliberate,
+        Reply weighing,
         bool answer,
         CancellationToken ct)
     {
         var participantViews = roomCast.Views();
-        var isDirect = roomCast.IsDirect;
         var messageId = await chatGroupGrain.BeginTurnAsync(persona.Id, triggeringMessage.MessageId, urge);
         turnSpan?.SetTag("result.message_id", messageId);
 
@@ -165,12 +179,11 @@ public sealed class ResponsePipeline(
 
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, newCts.Token);
         var linkedCt = linkedCts.Token;
+        var reason = weighing.Note;
 
         try
         {
             var history = await chatGroupGrain.GetMessagesUntilAsync(messageId, listener: persona.Id);
-
-            var decisionParticipants = participantViews;
 
             await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
                 MessageStreamEvent.PersonaEvaluatingResponse, persona.Id.ToString(), false);
@@ -178,6 +191,13 @@ public sealed class ResponsePipeline(
             RepairHint? repairHint = store.ConsumeRepairHint(chatGroupId);
             if (repairHint is not null)
                 turnSpan?.SetTag("repair.missed_message_id", repairHint.Value.MissedMessageId);
+
+            if (await SleepsThroughAsync(chatGroupGrain, self, history, participantViews))
+            {
+                turnSpan?.SetTag("decision", "asleep");
+                await DeclineAsync(chatGroupGrain, chatGroupId, messageId, persona.Id, AsleepReason, recall: null);
+                return;
+            }
 
             var presentPersonaIds = participantViews.Select(p => p.Id).ToList();
             var beat = await PersonaRecall.ForBeatAsync(memoryRepository, grainFactory,
@@ -201,36 +221,32 @@ public sealed class ResponsePipeline(
             turnSpan?.SetTag("stance.line_count", stanceLines.Count);
             turnSpan?.SetTag("stance.ambivalence_count", ambivalenceCount);
 
-            var decision = await RunDecisionPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, history, decisionParticipants, isDirect,
-                recollections.Select(r => r.Snippet).ToList(), linkedCt,
-                repairHint, stanceLines, deliberate, roomCast.Kind == ChatGroupKinds.Place);
-            if (answer && !decision.Respond)
-            {
-                turnSpan?.SetTag("decision.declined_but_owed", true);
-                decision = Answering(decision);
-            }
+            var fromHuman = roomCast.EffectiveOf(triggeringMessage.SenderId) == DriverKind.User;
+            var mayPass = Passing.Allowed(answer, roomCast.IsDirect, weighing.Named, fromHuman, weighing.Torn, windingDown: false);
+            if (!mayPass && !Passing.Forbidden(answer, roomCast.IsDirect, weighing.Named, fromHuman))
+                mayPass = await WindingDownAsync(chatGroupId);
+            turnSpan?.SetTag("speech.may_pass", mayPass);
 
-            var (pickedMemory, autoDeployed) = RecallDeployment.ResolvePick(
-                decision.MemoryToReference, decision.Respond, recollections);
-            var pickedIndex = pickedMemory is null
-                ? (int?)null
-                : recollections.ToList().IndexOf(pickedMemory) + 1;
-            turnSpan?.SetTag("recall.picked_index", pickedIndex);
-            turnSpan?.SetTag("recall.auto_deployed", autoDeployed);
-            if (pickedMemory is not null)
-            {
-                logger.LogInformation(
-                    "Persona {PersonaName} {PickSource} memory #{Index} ({EdgeId}, salience {Salience:F3})",
-                    persona.Name, autoDeployed ? "auto-deployed (salience floor)" : "picked",
-                    pickedIndex, pickedMemory.EdgeId, pickedMemory.Salience);
-
-                if (pickedMemory.EdgeId != Guid.Empty)
+            var replyingTo = $"{participantViews.Where(p => p.Id == triggeringMessage.SenderId).Select(p => p.Name).FirstOrDefault() ?? "Someone"}: {WorldStream.Clip(triggeringMessage.Content, 300)}";
+            var spoken = await RunSpeakingPhaseAsync(
+                chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
+                null, null, recollections, stanceLines, persona.Name, inFlight, linkedCt,
+                async () =>
                 {
-                    _ = StrengthenPickedMemoryAsync(pickedMemory.EdgeId, persona.Name);
-                }
-            }
+                    await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
+                        MessageStreamEvent.PersonaEvaluationComplete,
+                        JsonSerializer.Serialize(new { personaId = persona.Id, instruction = (string?)null, reason, stop = false }, WebOptions),
+                        false);
+                    inFlight.MarkGenerationStarted(null, null, replyingTo);
+                },
+                roomCast.Kind == ChatGroupKinds.Place, triggeringMessage, answer, repairHint, mayPass);
+            var result = spoken.Result;
 
+            var pickedIndex = spoken.Memory is null
+                ? (int?)null
+                : recollections.ToList().IndexOf(spoken.Memory) + 1;
+            turnSpan?.SetTag("recall.picked_index", pickedIndex);
+            turnSpan?.SetTag("recall.auto_deployed", spoken.AutoDeployed);
             var recallLog = recollections.Count == 0 ? null : new RecallSummary
             {
                 Candidates = recollections.Select((r, i) => new RecallCandidateSummary
@@ -243,72 +259,35 @@ public sealed class ResponsePipeline(
                     Arm = ArmTag(r.Arm),
                 }).ToList(),
                 Picked = pickedIndex,
-                PickedId = pickedMemory?.EdgeId,
-                AutoDeployed = autoDeployed ? true : null,
+                PickedId = spoken.Memory?.EdgeId,
+                AutoDeployed = spoken.AutoDeployed ? true : null,
             };
 
-            if (!decision.Respond)
+            if (result.Passed)
             {
-                turnSpan?.SetTag("decision", "skip-llm");
-                turnSpan?.SetTag("decision.reason", decision.Reason);
-                logger.LogInformation(
-                    "Persona {PersonaName} decided NOT to respond: {Reason}", persona.Name, decision.Reason);
-                var declinedAppraisal = JsonSerializer.Serialize(new
-                {
-                    personaId = persona.Id,
-                    instruction = (string?)null,
-                    reason = decision.Reason,
-                    stop = true,
-                    recall = recallLog
-                }, WebOptions);
-                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(declinedAppraisal));
-                await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
-                    MessageStreamEvent.PersonaDeclinedResponse,
-                    JsonSerializer.Serialize(new { personaId = persona.Id, reason = decision.Reason }, WebOptions),
-                    true);
+                turnSpan?.SetTag("decision", "passed");
+                logger.LogInformation("Persona {PersonaName} let message {MessageId} go by", persona.Name, triggeringMessage.MessageId);
+                await DeclineAsync(chatGroupGrain, chatGroupId, messageId, persona.Id, Passing.Reason, recallLog, passed: true);
                 return;
             }
-
-            turnSpan?.SetTag("decision", "respond");
-            turnSpan?.SetTag("decision.reason", decision.Reason);
-            logger.LogInformation("Persona {PersonaName} decided to respond: {Reason}", persona.Name, decision.Reason);
-
-            await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
-                MessageStreamEvent.PersonaEvaluationComplete,
-                JsonSerializer.Serialize(new
-                {
-                    personaId = persona.Id,
-                    instruction = decision.Instruction,
-                    reason = decision.Reason,
-                    stop = false
-                }, WebOptions),
-                false);
-
-            inFlight.MarkGenerationStarted(decision.Reason, decision.Instruction);
-
-            var result = await RunSpeakingPhaseAsync(
-                chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
-                decision.Shortcut ? null : decision.Instruction, decision.Shortcut ? null : decision.Reason,
-                pickedMemory?.Snippet, stanceLines, persona.Name, inFlight, linkedCt,
-                roomCast.Kind == ChatGroupKinds.Place, triggeringMessage, answer);
-
-            var appraisalJson = JsonSerializer.Serialize(new
-            {
-                personaId = persona.Id,
-                instruction = decision.Instruction,
-                reason = decision.Reason,
-                stop = false,
-                recall = recallLog
-            }, WebOptions);
 
             if (string.IsNullOrWhiteSpace(result.Message))
             {
                 turnSpan?.SetTag("decision", "unsayable");
                 logger.LogWarning("Persona {PersonaName} produced no sayable line for message {MessageId}; declining", persona.Name, messageId);
-                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(appraisalJson));
+                await DeclineAsync(chatGroupGrain, chatGroupId, messageId, persona.Id, UnsayableReason, recallLog);
                 return;
             }
 
+            turnSpan?.SetTag("decision", "respond");
+            var appraisalJson = JsonSerializer.Serialize(new
+            {
+                personaId = persona.Id,
+                instruction = (string?)null,
+                reason,
+                stop = false,
+                recall = recallLog
+            }, WebOptions);
             await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Spoke(
                 result.Message ?? string.Empty, result.Reasoning, appraisalJson, result.Metadata));
             followThrough?.Consider(partyId, chatGroupId, persona.Id);
@@ -331,16 +310,18 @@ public sealed class ResponsePipeline(
                     "Persona {PersonaName} race-cancelled (msg {MessageId}, drafted {Chars} chars)",
                     persona.Name, messageId, snap.GeneratedText.Length);
 
+                var raceAppraisal = JsonSerializer.Serialize(new
+                {
+                    personaId = persona.Id,
+                    instruction = (string?)null,
+                    reason = reason ?? RaceReason,
+                    stop = false,
+                    raceCancelled = true
+                }, WebOptions);
+
                 if (string.IsNullOrWhiteSpace(snap.GeneratedText))
                 {
-                    await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(JsonSerializer.Serialize(new
-                    {
-                        personaId = persona.Id,
-                        instruction = (string?)null,
-                        reason = string.IsNullOrWhiteSpace(snap.GutReaction) ? "Race-cancelled before deciding." : snap.GutReaction,
-                        stop = false,
-                        raceCancelled = true
-                    }, WebOptions)));
+                    await EndDeclinedAsync(chatGroupGrain, chatGroupId, messageId, persona.Id, reason ?? RaceReason, raceAppraisal);
                     return;
                 }
 
@@ -363,18 +344,8 @@ public sealed class ResponsePipeline(
                     emote = PersonaEmoteService.GenerationFailureFallback;
                 }
 
-                var emoteAppraisal = JsonSerializer.Serialize(new
-                {
-                    personaId = persona.Id,
-                    instruction = (string?)null,
-                    reason = string.IsNullOrWhiteSpace(snap.GutReaction)
-                        ? "Race-cancelled before deciding."
-                        : snap.GutReaction,
-                    stop = false,
-                    raceCancelled = true
-                }, WebOptions);
-
-                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Interrupted(emote, emoteAppraisal));
+                await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Interrupted(emote, raceAppraisal));
+                await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, MessageStreamEvent.GenerationComplete, "interrupted", true);
             }
             else
             {
@@ -394,6 +365,31 @@ public sealed class ResponsePipeline(
         {
             store.Remove(chatGroupId, messageId);
         }
+    }
+
+    private static async Task DeclineAsync(
+        IChatGroupGrain chatGroupGrain, Guid chatGroupId, int messageId, Guid personaId, string reason, RecallSummary? recall, bool passed = false)
+    {
+        var appraisal = JsonSerializer.Serialize(new
+        {
+            personaId,
+            instruction = (string?)null,
+            reason,
+            stop = true,
+            passed = passed ? true : (bool?)null,
+            recall
+        }, WebOptions);
+        await EndDeclinedAsync(chatGroupGrain, chatGroupId, messageId, personaId, reason, appraisal);
+    }
+
+    private static async Task EndDeclinedAsync(
+        IChatGroupGrain chatGroupGrain, Guid chatGroupId, int messageId, Guid personaId, string reason, string appraisal)
+    {
+        await chatGroupGrain.EndTurnAsync(messageId, new TurnOutcome.Declined(appraisal));
+        await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
+            MessageStreamEvent.PersonaDeclinedResponse,
+            JsonSerializer.Serialize(new { personaId, reason }, WebOptions),
+            true);
     }
 
     public async Task<string?> InitiateAsync(
@@ -441,14 +437,17 @@ public sealed class ResponsePipeline(
             var beat = await PersonaRecall.ForBeatAsync(memoryRepository, grainFactory,
                 new BeatAnchors(persona.Id, partyId, presentIds, intent, await PlaceOfAsync(roomCast, partyId, chatGroupId)),
                 memoryLimit: 0, stanceLimit: 5, logger, linkedCt);
-            string? memory = null;
             IReadOnlyList<string> stanceLines = beat.Stances.Select(StanceBlock.FormatLine).ToList();
 
-            inFlight.MarkGenerationStarted(feeling, intent);
-            var result = await RunSpeakingPhaseAsync(
+            var result = (await RunSpeakingPhaseAsync(
                 chatGroupGrain, chatGroupId, messageId, self, participantViews, history,
-                intent, feeling, memory, stanceLines, persona.Name, inFlight, linkedCt,
-                roomCast.Kind == ChatGroupKinds.Place);
+                intent, feeling, Array.Empty<RecalledMemory>(), stanceLines, persona.Name, inFlight, linkedCt,
+                () =>
+                {
+                    inFlight.MarkGenerationStarted(feeling, intent);
+                    return Task.CompletedTask;
+                },
+                roomCast.Kind == ChatGroupKinds.Place)).Result;
 
             if (string.IsNullOrWhiteSpace(result.Message))
             {
@@ -481,9 +480,6 @@ public sealed class ResponsePipeline(
         }
     }
 
-    internal static ShouldRespondResult Answering(ShouldRespondResult decision)
-        => decision.Respond ? decision : decision with { Respond = true, Shortcut = decision.Reason.StartsWith("Fallback", StringComparison.Ordinal) };
-
     private async Task RecordSkipAsync(IChatGroupGrain chatGroupGrain, Persona persona, ChatMessage trigger, double urge, string reason)
     {
         try
@@ -496,17 +492,40 @@ public sealed class ResponsePipeline(
         }
     }
 
-    private static World.Reflex.Percept PerceptOf(ChatMessage m, RoomCast cast, IReadOnlyList<ChatMessage> history, ResponseUrge urge, Guid roomId)
+    public const int RecentLines = 8;
+
+    public static World.Reflex.Percept PerceptOf(
+        ChatMessage m, RoomCast cast, Guid selfId, IReadOnlyList<ChatMessage> history, ResponseUrge urge, Guid roomId, ThermostatRead? thermostat = null)
     {
         var views = cast.Views();
         string Name(Guid id) => views.Where(v => v.Id == id).Select(v => v.Name).FirstOrDefault() ?? "Someone";
         var kind = cast.IsDirect ? World.Reflex.PerceptKind.Direct
             : cast.Kind == ChatGroupKinds.Place ? World.Reflex.PerceptKind.Speech
             : World.Reflex.PerceptKind.Line;
-        var context = history.Where(h => h.MessageId != m.MessageId && !string.IsNullOrWhiteSpace(h.Content)).TakeLast(5)
+        var said = history.Where(h => !string.IsNullOrWhiteSpace(h.Content)).ToList();
+        var context = said.Where(h => h.MessageId != m.MessageId).TakeLast(5)
             .Select(h => $"{Name(h.SenderId)}: {WorldStream.Clip(h.Content, 160)}").ToList();
+        var traded = UrgeMath.CountExchangeRounds(said);
+        var traders = said.TakeLast(traded).Select(h => Name(h.SenderId)).Distinct().ToList();
+        var recent = said.TakeLast(RecentLines).ToList();
         return new World.Reflex.Percept(kind, m.SenderId, Name(m.SenderId), cast.EffectiveOf(m.SenderId) == DriverKind.User,
-            m.Content ?? string.Empty, roomId, Named: !cast.IsDirect && urge.MentionScore > 0, Context: context);
+            m.Content ?? string.Empty, roomId, Named: !cast.IsDirect && urge.MentionScore > 0, Context: context,
+            Traded: traded, Traders: traders, Own: recent.Count(h => h.SenderId == selfId), Recent: recent.Count,
+            Thermostat: thermostat is { } read ? Thermostat.Cue(read.HeavyStreak, read.Circling, read.Fizzling, read.Reconfirming) : null,
+            WindingDown: thermostat?.Stale == true);
+    }
+
+    private async Task<ThermostatRead?> ThermostatAsync(Guid chatGroupId)
+    {
+        try
+        {
+            return await grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupId).PeekAsync().WaitAsync(ThermostatBound);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Thermostat read unavailable for Reflex in {ChatGroupId}", chatGroupId);
+            return null;
+        }
     }
 
     private static string ArmTag(RecallArm arm)
@@ -526,7 +545,9 @@ public sealed class ResponsePipeline(
         }
     }
 
-    private async Task<SpeakingResult> RunSpeakingPhaseAsync(
+    private sealed record Spoken(SpeakingResult Result, RecalledMemory? Memory, bool AutoDeployed);
+
+    private async Task<Spoken> RunSpeakingPhaseAsync(
         IChatGroupGrain chatGroupGrain,
         Guid chatGroupId,
         int messageId,
@@ -534,35 +555,68 @@ public sealed class ResponsePipeline(
         IReadOnlyList<ParticipantView> fullParticipants,
         IReadOnlyList<ChatMessage> history,
         string? turnInstruction,
-        string? gutReaction,
-        string? memoryToReference,
+        string? feeling,
+        IReadOnlyList<RecalledMemory> recalled,
         IReadOnlyList<string> stances,
         string personaName,
         InFlightGeneration inFlight,
         CancellationToken ct,
+        Func<Task> voiceStarts,
         bool inPerson = false,
         ChatMessage? answering = null,
-        bool owed = false)
+        bool owed = false,
+        RepairHint? repair = null,
+        bool mayPass = false)
     {
         var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
         var session = new SpeakingSession(router, fullParticipants);
         var livedSheet = LivedSheets.Lived(self.Id, self.SystemPrompt);
         var weighing = Gravity.WeighAsync(judge.For(self.Id), self.Name,
             Gravity.State(self.Name, Gravity.Bio(self, livedSheet), self.Id, fullParticipants, history, answering, turnInstruction, owed, inPerson),
-            logger, ct);
+            recalled.Select(r => r.Snippet).ToList(), logger, ct);
         var presence = await PresenceAsync(chatGroupGrain, self, fullParticipants, history);
         if (livedSheet is { } lived)
             self = self with { Bio = null, SystemPrompt = lived };
         var avoidWords = await StaleWordsAsync(chatGroupGrain, self.Id);
         var held = ChatAttention.Window(history, await ReadFromAsync(chatGroupGrain, chatGroupId, self.Id)).Held;
-        var gravity = await weighing;
+        var weighed = await weighing;
+        var gravity = weighed.Gravity;
 
-        Task TrackingOnEvent(string eventType, string data, bool done)
+        var (memory, autoDeployed) = recalled.Count == 0 ? (null, false) : RecallDeployment.ResolvePick(weighed, recalled);
+        if (memory is not null)
         {
-            if (eventType == LlmGenerationEvent.ContentChunk && !string.IsNullOrEmpty(data))
-                inFlight.AppendChunk(data);
-            return NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done);
+            logger.LogInformation(
+                "Persona {PersonaName} {PickSource} memory #{Index} ({EdgeId}, salience {Salience:F3})",
+                personaName, autoDeployed ? "auto-deployed (salience floor)" : "has on their mind",
+                recalled.ToList().IndexOf(memory) + 1, memory.EdgeId, memory.Salience);
+            if (memory.EdgeId != Guid.Empty)
+                _ = StrengthenPickedMemoryAsync(memory.EdgeId, personaName);
         }
+        else if (recalled.Count > 0)
+        {
+            logger.LogInformation("Persona {PersonaName} has none of {Count} memories on their mind ({Source})",
+                personaName, recalled.Count, weighed.RecallWeighed ? "weighed" : "no view, nothing over the floor");
+        }
+
+        var gate = new Passing.Gate(chunk =>
+        {
+            inFlight.AppendChunk(chunk);
+            return NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, LlmGenerationEvent.ContentChunk, chunk, false);
+        });
+
+        async Task TrackingOnEvent(string eventType, string data, bool done)
+        {
+            if (eventType == LlmGenerationEvent.ContentChunk)
+            {
+                if (!string.IsNullOrEmpty(data)) await gate.ChunkAsync(data);
+                return;
+            }
+            if (eventType == MessageStreamEvent.GenerationComplete)
+                await gate.EndAsync();
+            await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done);
+        }
+
+        await voiceStarts();
 
         const int maxRetries = 2;
         SpeakingResult? result = null;
@@ -571,7 +625,10 @@ public sealed class ResponsePipeline(
             try
             {
                 if (attempt > 0)
+                {
                     inFlight.ResetGeneratedText();
+                    gate.Reset();
+                }
 
                 result = await session.GenerateResponseOnlyAsync(
                     self,
@@ -579,16 +636,29 @@ public sealed class ResponsePipeline(
                     onEvent: TrackingOnEvent,
                     ct,
                     turnInstruction,
-                    memoryToReference,
+                    memory?.Snippet,
                     stances,
-                    gutReaction,
+                    feeling,
                     presence,
                     avoidWords,
                     inPerson,
                     gravity,
-                    opening: answering is null);
-                logger.LogInformation("Persona {PersonaName} speaks with gravity {Gravity} and drew a {Length} line for message {MessageId}",
-                    personaName, gravity is { } g ? g.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "unweighed", result.Length, messageId);
+                    opening: answering is null,
+                    repair: repair,
+                    pass: mayPass ? Passing.Cue : null);
+                logger.LogInformation("Persona {PersonaName} speaks with gravity {Gravity} and drew a {Length} line for message {MessageId}{Passed}",
+                    personaName, gravity is { } g ? g.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "unweighed", result.Length, messageId,
+                    result.Passed ? " (passed)" : string.Empty);
+                if (result.Passed && !mayPass)
+                {
+                    logger.LogWarning("Persona {PersonaName} wrote a pass where none was offered (attempt {Attempt})", personaName, attempt + 1);
+                    result = result with { Passed = false, Message = null };
+                    if (attempt < maxRetries)
+                    {
+                        await RetryWaitAsync(chatGroupGrain, chatGroupId, messageId, attempt, ct);
+                        continue;
+                    }
+                }
                 break;
             }
             catch (OperationCanceledException)
@@ -598,17 +668,23 @@ public sealed class ResponsePipeline(
             catch (Exception ex) when (attempt < maxRetries)
             {
                 logger.LogWarning(ex, "Persona {PersonaName} generation attempt {Attempt} failed, retrying", personaName, attempt + 1);
-                var wait = (backoff ?? SpeakingBackoff.Default).After(attempt + 1);
-                await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
-                    MessageStreamEvent.GenerationRetry,
-                    JsonSerializer.Serialize(new { attempt = attempt + 1, nextAttemptInSeconds = (int)wait.TotalSeconds }, WebOptions),
-                    false);
-                await Task.Delay(wait, ct);
+                await RetryWaitAsync(chatGroupGrain, chatGroupId, messageId, attempt, ct);
             }
         }
 
-        _ = NoteSpokeAsync(chatGroupGrain, self, fullParticipants, history);
-        return result!;
+        if (result is { Passed: false } && !string.IsNullOrWhiteSpace(result.Message))
+            _ = NoteSpokeAsync(chatGroupGrain, self, fullParticipants, history);
+        return new Spoken(result!, memory, autoDeployed);
+    }
+
+    private async Task RetryWaitAsync(IChatGroupGrain chatGroupGrain, Guid chatGroupId, int messageId, int attempt, CancellationToken ct)
+    {
+        var wait = (backoff ?? SpeakingBackoff.Default).After(attempt + 1);
+        await NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId,
+            MessageStreamEvent.GenerationRetry,
+            JsonSerializer.Serialize(new { attempt = attempt + 1, nextAttemptInSeconds = (int)wait.TotalSeconds }, WebOptions),
+            false);
+        await Task.Delay(wait, ct);
     }
 
     private const int SkillWindow = 4;
@@ -690,10 +766,14 @@ public sealed class ResponsePipeline(
     }
 
 
-    private async Task<bool> WindingDownAsync(IChatGroupGrain chatGroupGrain)
+    private async Task<bool> WindingDownAsync(Guid chatGroupId)
     {
-        try { return await grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupGrain.GetPrimaryKey()).IsWindingDownAsync(); }
-        catch { return false; }
+        try { return await grainFactory.GetGrain<IConversationThermostatGrain>(chatGroupId).IsWindingDownAsync(); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Thermostat read failed for {ChatGroupId}", chatGroupId);
+            return false;
+        }
     }
 
     private async Task<int?> ReadFromAsync(IChatGroupGrain chatGroupGrain, Guid chatGroupId, Guid personaId)
@@ -727,48 +807,6 @@ public sealed class ResponsePipeline(
         {
             logger.LogDebug(ex, "Social battery update failed for {PersonaName}", self.Name);
         }
-    }
-
-    private async Task<ShouldRespondResult> RunDecisionPhaseAsync(
-        IChatGroupGrain chatGroupGrain,
-        Guid chatGroupId,
-        int messageId,
-        SelfView self,
-        IReadOnlyList<ChatMessage> history,
-        IReadOnlyList<ParticipantView> participants,
-        bool isDirect,
-        IReadOnlyList<string> recollections,
-        CancellationToken ct,
-        RepairHint? repairHint = null,
-        IReadOnlyList<string>? stances = null,
-        bool deliberate = false,
-        bool inPerson = false)
-    {
-        var router = grainFactory.GetGrain<ILlmRouterGrain>(0);
-        var decisionService = new PersonaDecisionService(router, loggerFactory.CreateLogger<PersonaDecisionService>());
-        var totalAiRounds = UrgeMath.CountExchangeRounds(history);
-        if (await SleepsThroughAsync(chatGroupGrain, self, history, participants))
-            return new ShouldRespondResult { Respond = false, Instruction = string.Empty, Reason = "Asleep." };
-        var presence = await PresenceAsync(chatGroupGrain, self, participants, history);
-        if (LivedSheets.Lived(self.Id, self.SystemPrompt) is { } lived && LivedSheets.Bio(lived) is { } livedBio)
-            self = self with { Bio = livedBio };
-        var windingDown = await WindingDownAsync(chatGroupGrain);
-
-        return await decisionService.ShouldRespondAsync(
-            self,
-            history,
-            participants,
-            totalAiRounds,
-            onEvent: (eventType, data, done) => NotifyStreamAsync(chatGroupGrain, chatGroupId, messageId, eventType, data, done),
-            cancellationToken: ct,
-            repairHint: repairHint,
-            recollections: recollections,
-            stances: stances,
-            isDirect: isDirect,
-            presence: presence,
-            windingDown: windingDown,
-            deliberate: deliberate,
-            inPerson: inPerson);
     }
 
     private static Task NotifyStreamAsync(

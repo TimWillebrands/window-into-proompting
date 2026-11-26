@@ -26,7 +26,13 @@ public sealed record Percept(
     [property: Id(10)] string? RoomName = null,
     [property: Id(11)] IReadOnlyList<string>? Context = null,
     [property: Id(12)] long? Deadline = null,
-    [property: Id(13)] string? FromAura = null);
+    [property: Id(13)] string? FromAura = null,
+    [property: Id(14)] int Traded = 0,
+    [property: Id(15)] IReadOnlyList<string>? Traders = null,
+    [property: Id(16)] int Own = 0,
+    [property: Id(17)] int Recent = 0,
+    [property: Id(18)] string? Thermostat = null,
+    [property: Id(19)] bool WindingDown = false);
 
 [GenerateSerializer, Alias("PartyTown.World.Reflex.ReflexVerdict")]
 public sealed record ReflexVerdict(

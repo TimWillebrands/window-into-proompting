@@ -89,7 +89,7 @@ public class RaceTriggerTest
         new(factory.Object, NullLoggerFactory.Instance, judge.Object);
 
     [Fact]
-    public async Task EvaluateAsync_DecisionPhase_AlwaysCancels()
+    public async Task EvaluateAsync_BeforeTheVoiceStarts_AlwaysCancels()
     {
         var store = new InFlightStore();
         var chatGroupId = Guid.NewGuid();
@@ -111,7 +111,7 @@ public class RaceTriggerTest
         Assert.True(snap.RaceCancelled);
         Assert.True(cts.IsCancellationRequested);
         Assert.Single(outcomes);
-        Assert.Equal("cancel-decision", outcomes[0].Item1);
+        Assert.Equal("cancel-before-speaking", outcomes[0].Item1);
         judge.Verify(
             j => j.AskAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, SystemOneQuestion>>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -124,7 +124,7 @@ public class RaceTriggerTest
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
         var gen = store.Register(chatGroupId, messageId: 7, cts);
-        gen.MarkGenerationStarted("gut", "would say");
+        gen.MarkGenerationStarted(null, null, "Mira: is it any good?");
         gen.AppendChunk(PastPnrText);
 
         var senderId = Guid.NewGuid();
@@ -157,7 +157,7 @@ public class RaceTriggerTest
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
         var gen = store.Register(chatGroupId, messageId: 7, cts);
-        gen.MarkGenerationStarted("planning to defend it", "I think it's actually good");
+        gen.MarkGenerationStarted(null, null, "Mira: the new build, is it any good?");
 
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
@@ -186,7 +186,7 @@ public class RaceTriggerTest
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
         var gen = store.Register(chatGroupId, messageId: 7, cts);
-        gen.MarkGenerationStarted("gut", "would say");
+        gen.MarkGenerationStarted(null, null, "Mira: is it any good?");
 
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();
@@ -215,7 +215,7 @@ public class RaceTriggerTest
         var chatGroupId = Guid.NewGuid();
         var cts = new CancellationTokenSource();
         var gen = store.Register(chatGroupId, messageId: 7, cts);
-        gen.MarkGenerationStarted("gut", "would say");
+        gen.MarkGenerationStarted(null, null, "Mira: is it any good?");
 
         var senderId = Guid.NewGuid();
         var outcomes = new List<(string, double?, double?)>();

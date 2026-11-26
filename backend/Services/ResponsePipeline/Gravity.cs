@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using PartyTown.Model;
 using PartyTown.Services.SystemOne;
@@ -70,19 +71,49 @@ public static class Gravity
         return sb.ToString();
     }
 
-    public static async Task<double?> WeighAsync(ISystemOneJudge judge, string name, string state, ILogger logger, CancellationToken ct)
+    public const string RecallKey = "recall";
+    public const string Nothing = "none";
+    public const double RecallTemperature = 0.8;
+    public const double RecallFloor = 0.05;
+    public const int MemoryClip = 240;
+
+    public static ChoiceQuestion Recall(string name, IReadOnlyList<string> memories)
+    {
+        var options = new Dictionary<string, string?> { [Nothing] = $"nothing from before: {name} is just in this conversation" };
+        for (var i = 0; i < memories.Count; i++)
+            options[(i + 1).ToString(CultureInfo.InvariantCulture)] = WorldStream.Clip(memories[i].Trim(), MemoryClip);
+        return new ChoiceQuestion($"Which of these memories, if any, is on {name}'s mind in this moment?", options);
+    }
+
+    public sealed record Weighed(double? Gravity, int? Memory, bool RecallWeighed)
+    {
+        public static readonly Weighed Unweighed = new(null, null, false);
+    }
+
+    public static async Task<Weighed> WeighAsync(
+        ISystemOneJudge judge, string name, string state, IReadOnlyList<string> memories, ILogger logger, CancellationToken ct, Random? random = null)
     {
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(Budget);
-            var answers = await judge.AskAsync(state, new Dictionary<string, SystemOneQuestion> { [Key] = Question(name) }, cts.Token);
-            return answers.Nouls.TryGetValue(Key, out var p) ? Math.Clamp(p, 0, 1) : null;
+            var questions = new Dictionary<string, SystemOneQuestion> { [Key] = Question(name) };
+            if (memories.Count > 0) questions[RecallKey] = Recall(name, memories);
+            var answers = await judge.AskAsync(state, questions, cts.Token);
+            double? gravity = answers.Nouls.TryGetValue(Key, out var p) ? Math.Clamp(p, 0, 1) : null;
+            if (memories.Count == 0 || !answers.Choices.TryGetValue(RecallKey, out var dist) || dist.Count == 0)
+                return new Weighed(gravity, null, false);
+            answers.Damp(RecallKey, option => dist[option] < RecallFloor ? 0 : 1);
+            var pick = answers.SampleChoice(RecallKey, RecallTemperature, random);
+            if (pick == Nothing) return new Weighed(gravity, null, true);
+            return int.TryParse(pick, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) && n >= 1 && n <= memories.Count
+                ? new Weighed(gravity, n, true)
+                : new Weighed(gravity, null, false);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogInformation("Gravity unweighed for {PersonaName}: {Error}", name, ex.Message);
-            return null;
+            return Weighed.Unweighed;
         }
     }
 }

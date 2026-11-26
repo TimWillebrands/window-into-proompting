@@ -120,4 +120,29 @@ public class InFlightStoreTest
 
         store.CancelAllAsync();
     }
+
+    [Fact]
+    public void RepairHint_ThatIsTooOld_IsDropped()
+    {
+        var time = new PlacesTest.ManualTime();
+        var store = new InFlightStore(time);
+        var room = Guid.NewGuid();
+        store.SetRepairHint(room, new RepairHint(7, "Mira", "wait"));
+        time.Advance(InFlightStore.RepairHintLasts + TimeSpan.FromSeconds(1));
+
+        Assert.Null(store.ConsumeRepairHint(room));
+    }
+
+    [Fact]
+    public void RepairHint_WithinItsTime_IsUsedOnce()
+    {
+        var time = new PlacesTest.ManualTime();
+        var store = new InFlightStore(time);
+        var room = Guid.NewGuid();
+        store.SetRepairHint(room, new RepairHint(7, "Mira", "wait"));
+        time.Advance(InFlightStore.RepairHintLasts - TimeSpan.FromSeconds(1));
+
+        Assert.Equal(7, store.ConsumeRepairHint(room)!.Value.MissedMessageId);
+        Assert.Null(store.ConsumeRepairHint(room));
+    }
 }

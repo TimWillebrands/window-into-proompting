@@ -298,7 +298,7 @@ public class SpeakingSessionTest
     }
 
     [Fact]
-    public async Task GenerateResponseOnlyAsync_WithGutReactionAndInstruction_RendersBothInGuidance()
+    public async Task GenerateResponseOnlyAsync_ALifeLinesFeelingAndIntent_RenderInGuidance()
     {
         var (endpoint, getJob) = CapturingEndpoint();
         var persona = MakeParticipant("Vlad");
@@ -307,7 +307,7 @@ public class SpeakingSessionTest
         await session.GenerateResponseOnlyAsync(
             persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None,
             turnInstruction: "Congrats on the bakery.",
-            gutReaction: "Fifteen years, gone like that — that's actually huge.");
+            feeling: "Fifteen years, gone like that — that's actually huge.");
 
         var guidance = getJob()!.Messages[^1];
         Assert.Equal("system", guidance.Role);
@@ -565,5 +565,60 @@ public class SpeakingSessionTest
         Assert.Contains("typing in a chat app", system);
         Assert.Contains("- Tim\n", system);
         Assert.DoesNotContain("(human)", system);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_APassOnOffer_IsTheLastWordOfTheGuidance()
+    {
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Vlad");
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
+
+        await session.GenerateResponseOnlyAsync(persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None, pass: Passing.Cue);
+
+        Assert.EndsWith(Passing.Cue, getJob()!.Messages[^1].Content);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_NoPassOnOffer_NoCue()
+    {
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Vlad");
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
+
+        await session.GenerateResponseOnlyAsync(persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None);
+
+        Assert.DoesNotContain("(pass)", getJob()!.Messages[^1].Content);
+    }
+
+    [Theory]
+    [InlineData("(Pass).", true, true, null)]
+    [InlineData("(pass)", false, true, null)]
+    [InlineData("pass", true, false, "pass")]
+    [InlineData("Sure (pass)", true, false, "Sure")]
+    [InlineData("Math (passed), physics was harder.", false, false, "Math (passed), physics was harder.")]
+    public async Task GenerateResponseOnlyAsync_OnlyTheWholeMarkIsAPass(string written, bool offered, bool passed, string? line)
+    {
+        var endpoint = EndpointWith(new[] { new LlmGenerationEvent(LlmGenerationEvent.ContentChunk, written) });
+        var persona = MakeParticipant("Vlad");
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
+
+        var result = await session.GenerateResponseOnlyAsync(persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None, pass: offered ? Passing.Cue : null);
+
+        Assert.Equal(passed, result.Passed);
+        Assert.Equal(line, result.Message);
+    }
+
+    [Fact]
+    public async Task GenerateResponseOnlyAsync_ARepairHint_SaysWhatTheyMissed()
+    {
+        var (endpoint, getJob) = CapturingEndpoint();
+        var persona = MakeParticipant("Vlad");
+        var session = new SpeakingSession(RouterFor(endpoint).Object, new ParticipantView[] { AsView(persona) });
+
+        await session.GenerateResponseOnlyAsync(persona, [], (_, _, _) => Task.CompletedTask, CancellationToken.None,
+            repair: new RepairHint(7, "Mira", "wait, it's cancelled"));
+
+        Assert.Contains("Just before you spoke, Mira said: \"wait, it's cancelled\". You hadn't seen it when you wrote your last line; pick it up if that's natural.", getJob()!.Messages[^1].Content);
     }
 }

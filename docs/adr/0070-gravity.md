@@ -73,6 +73,7 @@ much as the moment requires, and not more.
 ## Consequences
 
 - One more noul per spoken line, on the judge, concurrent with lookups the phase already makes.
+- Amended by [ADR 0071](0071-rooms-weigh-once.md): the same call now also asks which recalled memory is on their mind, and no reply carries an intent any more, so the next point no longer holds.
 - In a DM the Decision phase is almost always the shortcut (being written to directly is urge 1.0), so for DM replies
   the judge sees the line but no intent. Life's lines and Decision-phase turns in rooms carry one.
 - A real answer can still reach for something nobody gave them (a client's rough patch, a father's health last year),

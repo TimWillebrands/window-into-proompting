@@ -43,7 +43,8 @@ public sealed class SystemOneAnswers
     {
         if (!Choices.TryGetValue(key, out var probs) || probs.Count == 0) return null;
         var t = Math.Max(0.05, temperature);
-        var weights = probs.ToDictionary(kv => kv.Key, kv => Math.Pow(Math.Max(kv.Value, 1e-6), 1 / t));
+        var open = probs.Any(kv => kv.Value > 0) ? probs.Where(kv => kv.Value > 0) : probs;
+        var weights = open.ToDictionary(kv => kv.Key, kv => Math.Pow(Math.Max(kv.Value, 1e-6), 1 / t));
         var roll = (random ?? Random.Shared).NextDouble() * weights.Values.Sum();
         foreach (var (option, w) in weights)
         {

@@ -1,3 +1,5 @@
+using Moq;
+using Orleans.TestKit;
 using PartyTown.World.Self;
 
 namespace BackendTest;
@@ -24,6 +26,19 @@ public class ThermostatTest
 
 public class WindingDownTest
 {
+    private static readonly ThermostatRead Fizzling = new(0, 0, 0.9, 0, true);
+
+    [Fact]
+    public void Fresh_AReadOfTalkThatHasGoneQuiet_IsNoRead()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var line = now.AddMinutes(-5).ToUnixTimeMilliseconds();
+
+        Assert.Equal(Fizzling, Thermostat.Fresh(Fizzling, line, now, TimeSpan.FromMinutes(20)));
+        Assert.Equal(ThermostatRead.None, Thermostat.Fresh(Fizzling, line, now.AddMinutes(30), TimeSpan.FromMinutes(20)));
+        Assert.Equal(ThermostatRead.None, Thermostat.Fresh(Fizzling, 0, now, TimeSpan.FromMinutes(20)));
+    }
+
     [Fact]
     public void Fizzling_WinsOverHeavy_AndNeedsNoStreak()
     {
@@ -58,5 +73,49 @@ public class ReconfirmingTest
     {
         Assert.True(Thermostat.WindingDown(0, 0, 0.7));
         Assert.False(Thermostat.WindingDown(0.5, 0.3, 0.4));
+    }
+}
+
+public class ThermostatGrainTest : Orleans.TestKit.TestKitBase
+{
+    private sealed class Fizzles : PartyTown.Services.SystemOne.ISystemOneJudge
+    {
+        public Task<PartyTown.Services.SystemOne.SystemOneAnswers> AskAsync(string state, IReadOnlyDictionary<string, PartyTown.Services.SystemOne.SystemOneQuestion> questions, CancellationToken ct)
+        {
+            var answers = new PartyTown.Services.SystemOne.SystemOneAnswers();
+            answers.Nouls["fizzling"] = 0.9;
+            return Task.FromResult(answers);
+        }
+    }
+
+    [Fact]
+    public async Task AWindingDownRead_DoesntOutliveTheTalk()
+    {
+        var room = Guid.NewGuid();
+        var party = Guid.NewGuid();
+        var time = new PlacesTest.ManualTime();
+        var who = Guid.NewGuid();
+        var lines = Enumerable.Range(1, 5).Select(i => new PartyTown.Model.ChatMessage
+        {
+            MessageId = i, SenderId = who, SenderType = "assistant", Content = "ok", SendAt = time.GetUtcNow().ToUnixTimeMilliseconds(),
+        }).ToList();
+        var chat = Silo.AddProbe<PartyTown.Grains.IChatGroupGrain>(room);
+        chat.Setup(c => c.GetPartyIdAsync()).ReturnsAsync(party);
+        chat.Setup(c => c.GetRecentMessagesAsync(Moq.It.IsAny<int>())).ReturnsAsync(() => lines.ToList());
+        Silo.AddProbe<PartyTown.Grains.IPartyGrain>(party).Setup(p => p.GetCastAsync())
+            .ReturnsAsync((IReadOnlyList<PartyTown.Model.CastMember>)new List<PartyTown.Model.CastMember> { new() { Id = who, Name = "Bo" } });
+        Silo.AddService<PartyTown.Services.SystemOne.ISystemOneJudge>(new Fizzles());
+        Silo.AddService<TimeProvider>(time);
+        var thermostat = await Silo.CreateGrainAsync<ConversationThermostatGrain>(room);
+
+        Assert.True(await thermostat.IsWindingDownAsync());
+        Assert.True((await thermostat.PeekAsync()).Stale);
+
+        time.Advance(ConversationThermostatGrain.ReadLasts + TimeSpan.FromMinutes(1));
+        Assert.Equal(ThermostatRead.None, await thermostat.PeekAsync());
+
+        lines = lines.Take(2).ToList();
+        Assert.False(await thermostat.IsWindingDownAsync());
+        Assert.Equal(ThermostatRead.None, await thermostat.GetReadAsync());
     }
 }

@@ -34,6 +34,8 @@ Decisions inside that formula:
   personas — the world stays *alive* while you're away, and wall-clock is the only clock
   end-users can intuit. (Rejected: ordinal decay — fades per subsequent Capture — which
   would pause forgetting when the Party pauses. Defensible, but opaque to users.)
+> Amended by [ADR 0071](0071-rooms-weigh-once.md): the pick is now the memory System One samples in the Gravity call (or, with no view from the judge, the salience floor's), and it is strengthened when it surfaces, as before.
+
 - **Strengthening fires on the Decision phase's *pick* only** — not on mere surfacing in
   the prompt. Attention strengthens; exposure doesn't.
 - **No valence on Recollections.** Feeling lives on the participatory layer (**Stance**,

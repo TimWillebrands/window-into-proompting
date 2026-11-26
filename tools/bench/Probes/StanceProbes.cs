@@ -1,4 +1,3 @@
-using System.Text;
 using PartyTown.Model;
 using PartyTown.Services.Memory;
 using PartyTown.Services.ResponsePipeline;
@@ -7,7 +6,7 @@ namespace PartyTown.Bench.Probes;
 
 public static class StanceProbes
 {
-    [Probe("Where you stand: Vlad appraises a cold-open twice — once carrying intrinsic Stances (a monotone line toward Sam + an ambivalent fold toward Denise), once with none. Read the composed prompt for the '# Where you stand' block and the contrast fold, then judge whether the WITH-stance reasoning/voice takes colour the WITHOUT-stance run lacks.")]
+    [Probe("Where you stand: Vlad answers a cold open in the Speaking phase, 3 samples twice: once carrying intrinsic Stances (a monotone line toward Sam + an ambivalent fold toward Denise), once with none; the voice may pass, as it may on a group line that doesn't name him. Read the composed prompt for the '# Where you stand' block and the contrast fold, then judge whether the WITH-stance lines take colour the WITHOUT-stance lines lack.")]
     public static async Task Stance_WhereYouStand(Bench bench)
     {
         var history = BenchCast.ColdOpenHistory(
@@ -30,11 +29,11 @@ public static class StanceProbes
         bench.Observe("vlad.stanceBlock (rendered block, for eyeballing the fold)",
             StanceBlock.Render(stanceLines));
 
-        await RunDecision(bench, BenchCast.Vlad, history, stanceLines, label: "withStance");
-        await RunDecision(bench, BenchCast.Vlad, history, stances: null, label: "noStance");
+        await RunVoice(bench, BenchCast.Vlad, history, stanceLines, label: "withStance");
+        await RunVoice(bench, BenchCast.Vlad, history, stances: null, label: "noStance");
     }
 
-    [Probe("Full #91 loop (real AGE): Vlad acquires a Stance toward Denise in party A, the curator promotes it to Intrinsic, and in a fresh party B — where Denise herself speaks the very cheer the Stance is about — the union read surfaces it and colours Vlad's live appraisal of HER line. Read partyB.recalledStances (did it travel?) and the withIntrinsic-vs-noStance decision diff (does the travelled weariness actually bend his read of Denise?).", RequiresMemory = true)]
+    [Probe("Full #91 loop (real AGE): Vlad acquires a Stance toward Denise in party A, the curator promotes it to Intrinsic, and in a fresh party B — where Denise herself speaks the very cheer the Stance is about — the union read surfaces it and colours what Vlad says to HER line. Read partyB.recalledStances (did it travel?) and the withIntrinsic-vs-noStance lines (does the travelled weariness actually bend his answer to Denise?).", RequiresMemory = true)]
     public static async Task Stance_IntrinsicTravelsToNewParty(Bench bench)
     {
         var repo = bench.Memory;
@@ -70,7 +69,7 @@ public static class StanceProbes
         if (recalled.Count == 0)
             bench.Observe("WARNING",
                 "no Stances recalled in party B — promotion or the cross-Party union read did not travel; "
-                + "the decision below has nothing to colour and the loop is broken.");
+                + "the lines below have nothing to colour and the loop is broken.");
 
         var stanceLines = recalled.Select(StanceBlock.FormatLine).ToList();
         bench.Observe("partyB.stanceBlock (rendered '# Where you stand')", StanceBlock.Render(stanceLines));
@@ -80,41 +79,26 @@ public static class StanceProbes
             "okay okay NEW room, fresh start, i love it!! who's bringing the energy today — let's actually make something happen!");
         bench.Observe("partyB.scenario (Denise — the Stance's target — speaking)", new { history[0].Content });
 
-        await RunDecision(bench, BenchCast.Vlad, history, stanceLines, label: "partyB.withIntrinsic");
-        await RunDecision(bench, BenchCast.Vlad, history, stances: null, label: "partyB.noStance");
+        await RunVoice(bench, BenchCast.Vlad, history, stanceLines, label: "partyB.withIntrinsic");
+        await RunVoice(bench, BenchCast.Vlad, history, stances: null, label: "partyB.noStance");
     }
 
-    private static async Task RunDecision(
+    private const int Samples = 3;
+
+    private static async Task RunVoice(
         Bench bench,
         SelfView self,
         IReadOnlyList<ChatMessage> history,
         IReadOnlyList<string>? stances,
         string label)
     {
-        var service = new PersonaDecisionService(bench.Router, bench.Logger("PersonaDecisionService"));
-
-        var urge = UrgeMath.CalculateResponseUrge(self, history, totalAiRoundsInGroup: 0);
-        bench.Observe($"{label}.{self.Name}.urge", new { urge.Total, urge.ColdOpenScore, urge.ChaosScore });
-
-        var raw = new StringBuilder();
-        var result = await service.ShouldRespondAsync(
-            self,
-            history,
-            BenchCast.All,
-            totalAiRoundsInGroup: 0,
-            onEvent: (_, data, _) => { raw.Append(data); return Task.CompletedTask; },
-            cancellationToken: bench.Cancellation,
-            recollections: null,
-            stances: stances);
-
-        bench.Observe($"{label}.{self.Name}.decision", new
+        var lines = new List<string?>();
+        for (var i = 0; i < Samples; i++)
         {
-            result.Respond,
-            result.Instruction,
-            result.Reason,
-        });
-
-        if (raw.Length > 0)
-            bench.Observe($"{label}.{self.Name}.rawStream", raw.ToString());
+            var result = await new SpeakingSession(bench.Router, BenchCast.All).GenerateResponseOnlyAsync(
+                self, history, (_, _, _) => Task.CompletedTask, bench.Cancellation, stances: stances, pass: Passing.Cue);
+            lines.Add(result.Passed ? Passing.Mark : result.Message);
+        }
+        bench.Observe($"{label}.{self.Name}.lines", lines);
     }
 }

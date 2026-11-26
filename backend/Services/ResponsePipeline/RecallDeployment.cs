@@ -7,14 +7,13 @@ public static class RecallDeployment
     public const double AutoDeploySalienceFloor = 0.7;
 
     public static (RecalledMemory? Memory, bool AutoDeployed) ResolvePick(
-        int? modelPick,
-        bool responding,
+        Gravity.Weighed weighed,
         IReadOnlyList<RecalledMemory> recalled)
     {
-        if (modelPick is int pick && pick >= 1 && pick <= recalled.Count)
+        if (weighed.Memory is int pick && pick >= 1 && pick <= recalled.Count)
             return (recalled[pick - 1], false);
 
-        if (!responding)
+        if (weighed.RecallWeighed)
             return (null, false);
 
         var auto = recalled.FirstOrDefault(m =>

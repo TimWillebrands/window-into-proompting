@@ -1,6 +1,6 @@
 # Response pipeline: Decision phase, then Speaking phase
 
-> Status: accepted.
+> Status: superseded by [ADR 0071](0071-rooms-weigh-once.md): Reflex weighs, System One picks the memory, and one Speaking call voices the reply and may pass.
 
 A Persona's **Response pipeline** runs as two distinct LLM calls. The **Decision phase** judges whether the persona has something worth saying and shapes what to bring to it. The **Speaking phase** — conditional on the Decision phase choosing to respond — drafts the actual chat message. The Decision phase shapes the Speaking phase via a structured handoff; the Speaking phase never sees the raw "should I respond" question.
 

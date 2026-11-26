@@ -18,12 +18,14 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         string? turnInstruction = null,
         string? memoryToReference = null,
         IReadOnlyList<string>? stances = null,
-        string? gutReaction = null,
+        string? feeling = null,
         string? presence = null,
         IReadOnlyList<string>? avoidWords = null,
         bool inPerson = false,
         double? gravity = null,
-        bool opening = false)
+        bool opening = false,
+        RepairHint? repair = null,
+        string? pass = null)
     {
         var others = allParticipants.Where(p => p.Id != persona.Id).ToList();
         var nameById = allParticipants.ToDictionary(p => p.Id, p => p.Name);
@@ -51,8 +53,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         var guidanceParts = new List<string>();
         if (opening)
             guidanceParts.Add(Opening(inPerson));
-        if (!string.IsNullOrWhiteSpace(gutReaction))
-            guidanceParts.Add($"How this moment hits you: {gutReaction.Trim()}");
+        if (!string.IsNullOrWhiteSpace(feeling))
+            guidanceParts.Add($"How this moment hits you: {feeling.Trim()}");
         if (!string.IsNullOrWhiteSpace(turnInstruction))
             guidanceParts.Add($"What you mean to get across: {turnInstruction.Trim()} Say it your own way, and leave out whatever you already said lately.");
         if (!string.IsNullOrWhiteSpace(memoryToReference))
@@ -63,6 +65,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
                 : $" {JoinNames(subjects)} {(subjects.Count == 1 ? "is" : "are")} right here in the room — say it to {(subjects.Count == 1 ? subjects[0] : "them")} directly, not about them.";
             guidanceParts.Add($"A memory that may be on your mind: \"{memoryToReference.Trim()}\". Only if it fits what's being said now, work a specific from it in; otherwise leave it.{addressCue}");
         }
+        if (repair is { } missed)
+            guidanceParts.Add(Repair(missed));
         var lastOther = history.LastOrDefault(m => m.SenderId != persona.Id && !string.IsNullOrWhiteSpace(m.Content));
         if (avoidWords is { Count: > 0 })
             guidanceParts.Add($"Leave these words out this time, they've gone stale here: {string.Join(", ", avoidWords.Take(8))}.");
@@ -70,6 +74,8 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         var length = UtteranceRhythm.Pick(UtteranceRhythm.Words(lastOther?.Content), Random.Shared.NextDouble(), gravity);
         guidanceParts.Add(UtteranceRhythm.Cue(length));
         guidanceParts.Add(OnlyTheLine(persona.Name, inPerson, opening));
+        if (!string.IsNullOrWhiteSpace(pass))
+            guidanceParts.Add(pass);
         if (guidanceParts.Count > 0)
         {
             messages.Add(new LlmChatMessage
@@ -93,10 +99,12 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
         generateSpan?.SetTag("output.length", result.Content.Length);
         await onEvent(MessageStreamEvent.GenerationComplete, "finished", true);
 
+        var passed = Passing.IsMark(result.Content);
+        generateSpan?.SetTag("speech.passed", passed);
         return new SpeakingResult
         {
-            Stop = false,
-            Message = SpeechCleanup.DropObviousVocative(
+            Passed = passed,
+            Message = passed ? null : SpeechCleanup.DropObviousVocative(
                 SpeechCleanup.DropEcho(SpeechCleanup.Clean(result.Content, persona.Name), lastOther?.Content),
                 lastOtherName),
             Reasoning = result.Reasoning,
@@ -104,6 +112,9 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
             Length = length,
         };
     }
+
+    public static string Repair(RepairHint missed)
+        => $"Just before you spoke, {missed.MissedSenderName} said: \"{missed.MissedContent.Trim()}\". You hadn't seen it when you wrote your last line; pick it up if that's natural.";
 
     public static string Opening(bool inPerson) => inPerson
         ? "Nobody just spoke to you. You're the one bringing this up now, so open it yourself: don't answer what they said last."
@@ -188,7 +199,7 @@ public sealed class SpeakingSession(ILlmRouterGrain router, IReadOnlyList<Partic
 
 public sealed record class SpeakingResult
 {
-    public bool Stop { get; init; }
+    public bool Passed { get; init; }
     public string? Message { get; init; }
     public string? Reasoning { get; init; }
     public ChatMessageMetadata? Metadata { get; init; }

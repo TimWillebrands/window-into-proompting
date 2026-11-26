@@ -231,17 +231,4 @@ public class LlmCallTest
 
         Assert.Equal("Hello", result.Content);
     }
-
-    private sealed record Pick(string? Name, int Score);
-
-    [Theory]
-    [InlineData("""{"name":"a","score":2}""")]
-    [InlineData("```json\n{\"name\":\"a\",\"score\":2}\n```")]
-    [InlineData("Sure! {\"name\":\"a\",\"score\":2,}")]
-    public void TryDeserialize_ClimbsTheLadder(string raw)
-        => Assert.Equal(new Pick("a", 2), LlmJsonParsing.TryDeserialize<Pick>(raw, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
-
-    [Fact]
-    public void TryDeserialize_NullWhenHopeless()
-        => Assert.Null(LlmJsonParsing.TryDeserialize<Pick>("no json here", new JsonSerializerOptions(JsonSerializerDefaults.Web)));
 }

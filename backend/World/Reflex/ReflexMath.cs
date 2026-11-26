@@ -25,6 +25,8 @@ public static class ReflexMath
     public const int MaxTries = 3;
     public static readonly TimeSpan ExchangeHolds = TimeSpan.FromMinutes(3);
 
+    public static bool FocusYields(Percept p) => p.WindingDown && !p.FromHuman;
+
     public static bool Late(Percept p, long now) => p.Deadline is { } deadline && now > deadline;
 
     public static double Load(double availability, bool onShift, bool away, bool occupied, bool talkingElsewhere, bool distressed = false)

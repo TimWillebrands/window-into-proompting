@@ -10,9 +10,10 @@ public sealed class InFlightGeneration(CancellationTokenSource cts)
     public CancellationTokenSource Cts { get; } = cts;
 
     private readonly object _lock = new();
-    private InFlightPhase _phase = InFlightPhase.Decision;
-    private string _gutReaction = string.Empty;
-    private string _wouldSayPreview = string.Empty;
+    private InFlightPhase _phase = InFlightPhase.Weighing;
+    private string _feeling = string.Empty;
+    private string _intent = string.Empty;
+    private string _replyingTo = string.Empty;
     private readonly StringBuilder _generatedText = new();
     private int _generatedChars;
 
@@ -20,13 +21,14 @@ public sealed class InFlightGeneration(CancellationTokenSource cts)
     private string _interruptingMessage = string.Empty;
     private string _interruptingSenderName = string.Empty;
 
-    public void MarkGenerationStarted(string gutReaction, string wouldSayPreview)
+    public void MarkGenerationStarted(string? feeling, string? intent, string? replyingTo = null)
     {
         lock (_lock)
         {
             _phase = InFlightPhase.Speaking;
-            _gutReaction = gutReaction ?? string.Empty;
-            _wouldSayPreview = wouldSayPreview ?? string.Empty;
+            _feeling = feeling ?? string.Empty;
+            _intent = intent ?? string.Empty;
+            _replyingTo = replyingTo ?? string.Empty;
         }
     }
 
@@ -65,8 +67,9 @@ public sealed class InFlightGeneration(CancellationTokenSource cts)
         {
             return new InFlightSnapshot(
                 _phase,
-                _gutReaction,
-                _wouldSayPreview,
+                _feeling,
+                _intent,
+                _replyingTo,
                 _generatedText.ToString(),
                 _generatedChars / CharsPerTokenEstimate,
                 _raceCancelled,
@@ -76,23 +79,33 @@ public sealed class InFlightGeneration(CancellationTokenSource cts)
     }
 }
 
-public enum InFlightPhase { Decision, Speaking }
+public enum InFlightPhase { Weighing, Speaking }
+
+public readonly record struct RepairHint(
+    int MissedMessageId,
+    string MissedSenderName,
+    string MissedContent);
 
 public readonly record struct InFlightSnapshot(
     InFlightPhase Phase,
-    string GutReaction,
-    string WouldSayPreview,
+    string Feeling,
+    string Intent,
+    string ReplyingTo,
     string GeneratedText,
     int GeneratedTokens,
     bool RaceCancelled,
     string InterruptingMessage,
     string InterruptingSenderName);
 
-public sealed class InFlightStore
+public sealed class InFlightStore(TimeProvider? time = null)
 {
+    public static readonly TimeSpan RepairHintLasts = TimeSpan.FromMinutes(10);
+
     private readonly ConcurrentDictionary<(Guid chatGroupId, int messageId), InFlightGeneration> _inFlight = new();
 
-    private readonly ConcurrentDictionary<Guid, RepairHint> _pendingRepairByGroup = new();
+    private readonly ConcurrentDictionary<Guid, (RepairHint Hint, DateTimeOffset At)> _pendingRepairByGroup = new();
+
+    private DateTimeOffset Now => (time ?? TimeProvider.System).GetUtcNow();
 
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _reading = new();
 
@@ -139,13 +152,11 @@ public sealed class InFlightStore
     }
 
     public RepairHint? ConsumeRepairHint(Guid chatGroupId)
-    {
-        return _pendingRepairByGroup.TryRemove(chatGroupId, out var hint) ? hint : null;
-    }
+        => _pendingRepairByGroup.TryRemove(chatGroupId, out var held) && Now - held.At <= RepairHintLasts ? held.Hint : null;
 
     public void SetRepairHint(Guid chatGroupId, RepairHint hint)
     {
-        _pendingRepairByGroup[chatGroupId] = hint;
+        _pendingRepairByGroup[chatGroupId] = (hint, Now);
     }
 
     public Task CancelAllAsync()

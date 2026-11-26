@@ -58,17 +58,17 @@ public sealed class RaceTrigger(
             raceSpan?.SetTag("in_flight.phase", snap.Phase.ToString());
             raceSpan?.SetTag("in_flight.tokens", snap.GeneratedTokens);
 
-            if (snap.Phase == InFlightPhase.Decision)
+            if (snap.Phase == InFlightPhase.Weighing)
             {
-                raceSpan?.SetTag("race.outcome", "cancel-decision");
+                raceSpan?.SetTag("race.outcome", "cancel-before-speaking");
                 _logger.LogInformation(
-                    "Race: persona {Name} cancelling in-flight DECISION (msg {Mid}) on new {NewMid}",
+                    "Race: persona {Name} cancelling in-flight turn before it spoke (msg {Mid}) on new {NewMid}",
                     persona.Name, inFlightMessageId, triggeringMessage.MessageId);
                 gen.CancelForRace(
                     triggeringMessage.Content ?? string.Empty,
                     await ResolveSenderNameAsync());
                 await RecordOutcomeAsync(chatGroupGrain, persona,
-                    triggeringMessage.MessageId, "cancel-decision", null, null);
+                    triggeringMessage.MessageId, "cancel-before-speaking", null, null);
                 continue;
             }
 
@@ -95,9 +95,7 @@ public sealed class RaceTrigger(
                         persona.Chattiness, persona.Impulsivity);
                 salience = await salienceService.ScoreAsync(
                     selfView,
-                    snap.GutReaction,
-                    snap.WouldSayPreview,
-                    snap.GeneratedText,
+                    snap,
                     triggeringMessage,
                     await ResolveSenderNameAsync(),
                     ct);
