@@ -11,7 +11,7 @@ Personas aren't scripted. Their behaviour comes from modelled cognitive processe
 
 Vocabulary, not knobs: name what you're building in these terms before touching a mechanism. Full definitions are in `CONTEXT.md`.
 
-**Relevance Realization (RR)**: the one faculty behind every "what matters now?" judgement, realized by balancing opposing pulls, never by a fixed rule. It runs as six instances:
+**Relevance Realization (RR)**: the one faculty behind every "what matters now?" judgement, realized by balancing opposing pulls, never by a fixed rule. It runs as seven instances:
 
 | Instance | Timescale | Question |
 | --- | --- | --- |
@@ -21,6 +21,7 @@ Vocabulary, not knobs: name what you're building in these terms before touching 
 | Initiative | min, stimulus-free | Nothing asks anything of me: what's worth doing? |
 | Recall | days, backward | Which past moments belong in this beat? |
 | Capture | days, forward | What's worth remembering at all? |
+| Taking stock | hours, backward, own deeds | What does what I've been doing add up to, and is it working? |
 
 - **Weigh ⇄ voice**: System One weighs (probabilities, sampled, no prose); the LLM voices and may decline. Ask which one a change is first (ADR 0019).
 - **Opponent processing**: keep tensions as tensions (recent ⇄ relevant, speak ⇄ hold back, finish ⇄ interrupt, explore ⇄ exploit). Never fold them into one formula or an argmax.
@@ -54,6 +55,7 @@ Paths are from the repo root. Find symbols by name, since line numbers drift.
 | Initiative | `backend/World/PersonaLifeGrain.cs` (`Pull`, `ChoiceTemperature`), `backend/World/Apps/*`, `backend/World/Self/Hooks.cs` | integer pulls prune the menu, System One samples, voicing may decline |
 | Recall | `backend/World/Self/PersonaRecall.cs` (every beat), `backend/Services/Memory/SalienceMath.cs`, `RecallRanking.cs` | weight × decay + use bonus × refractory, two arms, 3-day horizon, then the recall dampers |
 | Capture | `backend/Services/Memory/MemoryExtractor.cs`, `backend/World/LullCaptureGrain.cs` | System One gate, then LLM extraction |
+| Taking stock | `backend/World/Self/TakingStock.cs` (`Grip`, `TakingStock`), `PersonaLifeGrain` | (1 − Grip)² × ripe², Grip asked as its loss in Initiative's call, nothing waiting on the menu; free-text look back over deeds and what is on offer; its Upshot (what they see, what they stop, no plan) kept |
 | Who acts next | `backend/World/ClockPolicy.cs`, `WorldClockGrain.cs` | weighted by Chattiness, idle time, notifications, availability |
 
 - **System One**: `backend/Services/SystemOne/SystemOne.cs` (`ISystemOneJudge`, `SampleChoice`). Always there (ADR 0044): never branch on "no judge". A missing answer means "no view", so keep the caller's fallback.

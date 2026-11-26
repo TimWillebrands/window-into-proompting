@@ -74,7 +74,7 @@ public static partial class WorkProbes
             totals.ToDictionary(kv => kv.Key, kv => new { kv.Value.Replies, kv.Value.Work, kv.Value.Plan, kv.Value.Report }));
     }
 
-    private static readonly Company Works = new() { Id = Guid.NewGuid(), Name = "The Works", Mandate = "builds small software that works", Kind = CompanyKinds.Cdu };
+    internal static readonly Company Works = new() { Id = Guid.NewGuid(), Name = "The Works", Mandate = "builds small software that works", Kind = CompanyKinds.Cdu };
 
     private static CduExchange Asked(Guid who, string name, string kind, string text, string reply, int commits = 0) => new()
     {

@@ -413,7 +413,7 @@ public sealed class DiaryApp(IGrainFactory grains, IWorldLlm llm, WorldMemory me
     public static readonly TimeSpan Anyway = TimeSpan.FromHours(6);
 
     public static int Lived(IEnumerable<WorldActivity> recentOwn, long? lastEntryAt)
-        => recentOwn.Count(a => a.Action is not ("rest" or "diary" or PersonaLifeGrain.LookAction) && (lastEntryAt is null || a.Ts > lastEntryAt));
+        => recentOwn.Count(a => a.Action is not ("rest" or "diary" or PersonaLifeGrain.LookAction or Self.TakingStock.Action) && (lastEntryAt is null || a.Ts > lastEntryAt));
 
     public static bool Due(int lived, long? lastEntryAt, DateTimeOffset now)
         => lastEntryAt is not { } at || lived >= Worth || now.ToUnixTimeMilliseconds() - at >= Anyway.TotalMilliseconds;

@@ -117,7 +117,7 @@ _Avoid_: catch-up, backlog, missed-message-marker.
 ### Relevance realization
 
 **Relevance Realization**:
-The one faculty behind every "what matters right now?" judgement a **Persona** makes (term from John Vervaeke — deeper background is outside this glossary). Relevance is never computed from a fixed rule; it is realized by balancing opposing pulls (recent ⇄ relevant, speak ⇄ hold back, finish ⇄ interrupt). Six instances of it run in this project, at their own timescales:
+The one faculty behind every "what matters right now?" judgement a **Persona** makes (term from John Vervaeke — deeper background is outside this glossary). Relevance is never computed from a fixed rule; it is realized by balancing opposing pulls (recent ⇄ relevant, speak ⇄ hold back, finish ⇄ interrupt). Seven instances of it run in this project, at their own timescales:
 
 - **Interruption** (milliseconds) — is the new message worth abandoning my in-flight reply? Scored as **Salience** during the **Stop-signal race**.
 - **Urge** (seconds) — is this beat worth speaking into? Feeds the **Decision phase**.
@@ -129,6 +129,7 @@ The one faculty behind every "what matters right now?" judgement a **Persona** m
 _Avoid_: relevance scoring, importance ranking, attention.
 
 **Reflex**:
+- **Taking stock** (hours, backward, over their own deeds) — what does what I've been doing add up to, and is my way of going at it working?
 The instance of **Relevance Realization** between a stimulus and a response. Initiative's twin: Initiative asks what's worth doing with nothing going on, Reflex asks what to do about what just happened. It comes before the **Decision phase** and may answer for it. See [ADR 0031](docs/adr/0031-reflex-stimulus-driven-attention.md).
 _Avoid_: trigger, event handler, reaction.
 
@@ -171,6 +172,18 @@ _Avoid_: attachment score, place rating, loyalty.
 **Haunt**:
 A **Place** a **Persona**'s **Belonging** is strong for: "one of your places". A run-down body is pulled back to it; a well one is only reminded, and offered somewhere it hasn't been in a while. Their own **Home** is never one.
 _Avoid_: favourite, regular spot, third place.
+
+**Grip**:
+How far what a **Persona** has been doing lately is getting them somewhere. Weighed in **Initiative**'s own System One call, beside **Lack** and **Arena fit**, and asked as its loss (they keep doing the same thing and it isn't getting them anywhere), because that wording separates best on the judge. Little grip is what makes **Taking stock** likely; it has no baseline, so a Persona who is always stuck still feels it. Grounded in error dynamics: affect tracks the rate at which things are working out (Kiverstein, Miller & Rietveld 2019, "The feeling of grip"). See [ADR 0069](docs/adr/0069-taking-stock.md).
+_Avoid_: progress score, success rate, frustration.
+
+**Taking stock**:
+The instance of **Relevance Realization** that looks back over a **Persona**'s own doings: what do they add up to, and is my way of going at it working? Hours, backward, in their own voice, as free text. It looks *at* the way they've been going about things instead of *through* it (Vervaeke's transparency to opacity), and asks the concrete question, what would get me somewhere, not how am I doing (constructive repetitive thought, not rumination; Watkins 2008). Its chance on a **Life** turn is the want of **Grip**, squared, times how long it's been, squared, and only when nothing waiting is on the menu. It sees what they could do from here, and "nothing" is the usual answer. One that came to nothing, or landed where the last one did, doubles the wait before the next. A Life turn that takes stock picks no **Affordance**; its notes are in the state for the next act only. See [ADR 0069](docs/adr/0069-taking-stock.md).
+_Avoid_: reflection, self-evaluation, review, journaling (that's the Diary).
+
+**Upshot**:
+The one line a **Persona** comes away from **Taking stock** with: what they see now and what they'll stop doing, never a plan or a time. Planned upshots named acts the world doesn't have, set new times to break, and steered one option for hours; they break the frame, and what comes instead is picked from the menu's **Affordances** on the next turn. On their mind for eight hours in every prompt that speaks as them, and kept as their own memory. Only the upshot is kept, never the notes: a memory that only describes a habit feeds it.
+_Avoid_: summary, conclusion, takeaway.
 
 **Recall**:
 Surfacing past knowing into a **Persona**'s present beat — the backward-facing instance of **Relevance Realization**, ranked by **Salience**. The **Decision phase** receives what surfaces and carries at most one **Recollection** into the **Speaking phase**.

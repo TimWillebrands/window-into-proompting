@@ -94,6 +94,9 @@ public sealed class PersonaLifeGrain(
         var reserves = await ReservesAsync(partyId, personaId, self.Name, me, snapshot);
         var onShift = await OnShiftAsync(partyId, personaId);
         var distress = reserves is { } lived ? Bio.Distress(lived) : null;
+        var mine = await SelfStateAsync(partyId, personaId);
+        var deeds = TakingStock.Since(own, mine?.StockAt ?? 0, now);
+        var ripe = TakingStock.Ripeness(mine, deeds, now);
         var ctx = new LifeContext(
             partyId, self, cast,
             cast.Where(c => c.DefaultDriver == DriverKind.User).Select(c => c.Id).ToHashSet(),
@@ -122,6 +125,7 @@ public sealed class PersonaLifeGrain(
         var options = LifeMenu.Seat(
             perceptions.Select(p => p.Affordances.Where(a => !(lookedAlready && a.Look))),
             a => Pull(a) + Random.Shared.NextDouble(), distress, MaxOptions, MaxOptionsPerApp, Bio.Needs(reserves), reserves?.Strain ?? 0);
+        var mayStock = TakingStock.May(lookedAlready, nudge, distress, ripe, options);
         if (distress is not null)
             logger.LogInformation("Relief {Persona}: {Options}", self.Name,
                 options.Where(o => o.Meets == distress).Select(o => o.Label).DefaultIfEmpty("nothing on the menu").Aggregate((a, b) => $"{a} | {b}"));
@@ -153,6 +157,9 @@ public sealed class PersonaLifeGrain(
         sb.AppendLine();
         sb.AppendLine("# On your mind");
         sb.AppendLine(memories.Count == 0 ? "(nothing in particular)" : string.Join("\n", memories.Take(3).Select(m => $"- {m.Snippet}")));
+        var notesAt = sb.Length;
+        if (TakingStock.Notes(mine, own, ctx.Now) is { } notes) sb.AppendLine($"\n{notes}");
+        var notesLength = sb.Length - notesAt;
         if (!string.IsNullOrWhiteSpace(ties)) sb.AppendLine($"\n{ties.Trim()}");
         if (stances.Count > 0)
         {
@@ -167,6 +174,7 @@ public sealed class PersonaLifeGrain(
         foreach (var p in perceptions)
             sb.AppendLine($"## {p.Title}\n{p.Block}\n");
         var world = sb.ToString();
+        var lookingBack = world.Remove(notesAt, notesLength);
         sb.AppendLine("# Options");
         string Read(Affordance a) => Skills.SkillRules.Toward(Desires.DesireRules.Toward(a.Label, ctx.WantAbout(a.TargetId)), Skills.SkillRules.Match(skills, a.Label));
         for (var i = 0; i < options.Count; i++)
@@ -182,6 +190,7 @@ public sealed class PersonaLifeGrain(
             ["next"] = new ChoiceQuestion($"Which option would {self.Name}, being who they are, most plausibly choose next?", optionMap),
         };
         if (!lookedAlready) questions[Desires.Lack.Key] = Desires.Lack.Question(self.Name);
+        if (mayStock) questions[Grip.Key] = Grip.Question(self.Name);
         var here = me is { IsWalking: false, Asleep: false } ? snapshot?.Places.FirstOrDefault(p => p.Id == me.PlaceId && p.Kind != Places.PlaceKinds.Locale) : null;
         var look = here is null ? null : Places.ArenaFit.Signature(here, now.ToUnixTimeMilliseconds());
         var lastTook = here is null ? default : _felt.GetValueOrDefault(here.Id);
@@ -198,6 +207,16 @@ public sealed class PersonaLifeGrain(
             if (lack - usual.Mean >= Desires.Lack.Jump(usual) / 2) logger.LogInformation("Lack {Persona} p={P:F2} usual={U:F2}±{S:F2} ({Judge})", self.Name, lack, usual.Mean, usual.Spread, judgedBy);
             _lackUsual[judgedBy] = usual.After(lack);
             if (felt) LackNow(partyId, personaId, self, sb.ToString(), now);
+        }
+        if (mayStock && answers.Nouls.TryGetValue(Grip.Key, out var stuck))
+        {
+            var grip = Grip.FromLoss(stuck);
+            var chance = TakingStock.Chance(grip, ripe);
+            var drawn = Random.Shared.NextDouble() < chance;
+            if (chance >= TakingStock.Logged)
+                logger.LogInformation("Stock {Persona} grip={Grip:F2} ripe={Ripe:F2} chance={Chance:F2}{Drawn}", self.Name, grip, ripe, chance, drawn ? " → taking stock" : string.Empty);
+            if (drawn && await TakeStockAsync(partyId, self, mine, TakingStock.Material(lookingBack, deeds, options.Select(Read), rest, now), ct) is { } stocked)
+                return (stocked, false);
         }
         answers.Damp("next", key => int.TryParse(key, out var i) && i >= 1 && i <= options.Count ? Left(options[i - 1]) : 1);
         var choice = int.TryParse(answers.SampleChoice("next", ChoiceTemperature), out var c) ? c : 0;
@@ -241,6 +260,42 @@ public sealed class PersonaLifeGrain(
         {
             logger.LogWarning(ex, "Life {Persona} failed acting on {Label}", self.Name, picked.Label);
             return (Activity(personaId, self.Name, app.Id, "error", $"tried to {picked.Label}: {WorldStream.Clip(ex.Message, 120)}", thought), false);
+        }
+    }
+
+    private async Task<WorldActivity?> TakeStockAsync(Guid partyId, CastMember self, SelfState? mine, string material, CancellationToken ct)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TakingStock.Budget);
+            var text = await llm.For(self.Id).CompleteAsync(JobComplexity.CharacterThoughts, TakingStock.Brief(WorldLlm.Identity(self)), material, cts.Token, TakingStock.Temperature);
+            if (text is null) return null;
+            var read = TakingStock.Read(text);
+            var stock = TakingStock.Against(read, mine, DateTimeOffset.UtcNow);
+            await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, self.Id)).TakeStockAsync(stock.Notes, stock.Upshot);
+            var activity = Activity(self.Id, self.Name, "life", TakingStock.Action, TakingStock.Summary, stock.Upshot);
+            if (stock.Upshot is { } upshot)
+                _ = memory.CaptureAsync(new Services.Memory.Moment(partyId, Services.Memory.MomentSources.Stock, activity.Id,
+                    new List<Services.Memory.MomentLine> { new(self.Id, TakingStock.Remembered(upshot), activity.Ts) }, 0,
+                    new List<ParticipantView> { new(self.Id, self.Name, self.DefaultDriver) }), CancellationToken.None);
+            logger.LogInformation("Stock {Persona}: {Upshot}", self.Name, stock.Nothing ? read.Nothing ? "came to nothing" : $"came back to the same ({read.Upshot})" : stock.Upshot ?? "(no So: line)");
+            return activity;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Taking stock failed for {Persona}", self.Name);
+            return null;
+        }
+    }
+
+    private async Task<SelfState?> SelfStateAsync(Guid partyId, Guid personaId)
+    {
+        try { return await GrainFactory.GetGrain<IPersonaSelfGrain>(WorldKeys.Life(partyId, personaId)).GetStateAsync(); }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Self state failed for {Persona}", personaId);
+            return null;
         }
     }
 

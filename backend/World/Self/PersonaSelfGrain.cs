@@ -109,6 +109,13 @@ public sealed partial class PersonaSelfGrain(
         await state.WriteStateAsync();
     }
 
+    public async Task TakeStockAsync(string? notes, string? upshot)
+    {
+        TakingStock.Record(state.State, string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(), string.IsNullOrWhiteSpace(upshot) ? null : upshot.Trim(),
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        await state.WriteStateAsync();
+    }
+
     public async Task TellAsync(string label)
     {
         var told = Hooks.Told(label, state.State.Openers);
@@ -710,6 +717,7 @@ public static class SelfRender
             hungry = body.Hunger >= Hunger.Hungry;
             if (SelfRender.Drift(SelfMath.Valence(day, now), day.ValenceSource) is { } drift) lines.Add(drift);
             if (OwnHappenings.Line(day, now) is { } own) lines.Add(own);
+            if (TakingStock.Line(day, now) is { } upshot) lines.Add(upshot);
             if (!string.IsNullOrWhiteSpace(day.Preoccupation)) lines.Add($"Nagging at you (your own life, not this conversation): {day.Preoccupation}");
             if (day.Threads.Count > 0) lines.Add($"Going on in your life lately: {string.Join("; ", day.Threads)}");
             if (day.Resolved.Count > 0) lines.Add($"Finally settled: {string.Join("; ", day.Resolved)}");
@@ -766,6 +774,7 @@ public interface IPersonaSelfGrain : IGrainWithStringKey
     [Alias("TellAsync")] Task TellAsync(string label);
     [Alias("AddOpenerAsync")] Task AddOpenerAsync(string story);
     [Alias("HappenAsync")] Task HappenAsync(string text);
+    [Alias("TakeStockAsync")] Task TakeStockAsync(string? notes, string? upshot);
     [Alias("GetAvailabilityAsync")] Task<double> GetAvailabilityAsync();
     [Alias("GetDayWindowAsync")] Task<DayWindow> GetDayWindowAsync();
     [Alias("ShiftValenceAsync")] Task ShiftValenceAsync(double better, string where);
@@ -828,6 +837,11 @@ public sealed class SelfState
     [Id(35)] public long AiledAt { get; set; }
     [Id(39)] public double BatteryRate { get; set; } = SelfMath.AlonePerHour;
     [Id(45)] public Dictionary<Guid, PlaceTie> Places { get; set; } = new();
+    [Id(46)] public string? StockNotes { get; set; }
+    [Id(47)] public string? Upshot { get; set; }
+    [Id(48)] public long StockNotesAt { get; set; }
+    [Id(49)] public long StockAt { get; set; }
+    [Id(50)] public int StockFruitless { get; set; }
 }
 
 [GenerateSerializer, Alias("PartyTown.World.Self.DayBeat")]

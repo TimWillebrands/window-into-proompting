@@ -353,8 +353,14 @@ public partial class WorldLifeTest : IClassFixture<WorldLifeTest.Fixture>
         public static volatile string Post = "Scripted post";
         public static readonly ConcurrentQueue<string> Prompts = new();
 
+        public static volatile Func<string, string, string?>? Text;
+
         public Task<string?> CompleteAsync(JobComplexity preferred, string system, string user, CancellationToken ct, double? temperature = null)
-            => Task.FromResult<string?>(null);
+        {
+            if (Text?.Invoke(system, user) is not { } said) return Task.FromResult<string?>(null);
+            Prompts.Enqueue(user);
+            return Task.FromResult<string?>(said);
+        }
 
         public static Func<string, JsonObject?>? Json;
 

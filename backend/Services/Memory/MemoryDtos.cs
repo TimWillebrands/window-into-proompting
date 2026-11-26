@@ -100,6 +100,7 @@ public static class MomentSources
     public const string World = "world";
     public const string Import = "import";
     public const string Work = "work";
+    public const string Stock = "stock";
 
     public static string OfKind(string? chatGroupKind) => chatGroupKind switch
     {
