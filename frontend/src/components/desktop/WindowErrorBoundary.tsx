@@ -93,7 +93,6 @@ interface FallbackProps {
     onClose?: () => void;
 }
 
-// Chunk gone after a deploy; lazy() caches the failure, so only reload helps.
 const STALE_CHUNK =
     /dynamically imported module|Importing a module script failed|Unable to preload CSS/i;
 
