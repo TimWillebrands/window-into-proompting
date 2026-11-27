@@ -1010,6 +1010,7 @@ public sealed partial class PlacesGrain(
             b.ActivityUntil = null;
         }
         foreach (var b in state.State.Bodies.Values.Where(b => b.PoseUntil <= now)) EndPose(b);
+        await SweepExpiredShelterHoldsAsync(now);
         await GoneQuietAsync(now);
         var mishapDue = state.State.NextMishapAt;
         MaybeMishap(now);
@@ -1293,6 +1294,18 @@ public interface IPlacesGrain : IGrainWithGuidKey
     [Alias("RemoveThingAsync")] Task<bool> RemoveThingAsync(Guid participantId, Guid placeId, string furniId);
 
     [Alias("SetPlaceStyleAsync")] Task<bool> SetPlaceStyleAsync(Guid participantId, Guid placeId, string? wall, string? floor);
+
+    [Alias("AddShelterSlotAsync")] Task<ShelterSlot?> AddShelterSlotAsync(Guid placeId, string name, bool open);
+
+    [AlwaysInterleave, Alias("GetShelterSlotsAsync")] Task<List<ShelterSlot>> GetShelterSlotsAsync(Guid placeId);
+
+    [Alias("TakeShelterSlotAsync")] Task<bool> TakeShelterSlotAsync(Guid placeId, Guid slotId, Guid who, string whoName);
+
+    [Alias("ReleaseShelterSlotAsync")] Task<bool> ReleaseShelterSlotAsync(Guid placeId, Guid slotId, Guid? by, string? byName);
+
+    [Alias("LosePowerAsync")] Task<bool> LosePowerAsync(Guid placeId);
+
+    [Alias("RestorePowerAsync")] Task<bool> RestorePowerAsync(Guid placeId);
 
     [Alias("CreatePlaceAsync")] Task<Place?> CreatePlaceAsync(Guid? madeBy, string description, PlaceDraft draft);
 

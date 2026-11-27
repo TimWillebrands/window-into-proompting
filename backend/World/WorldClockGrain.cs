@@ -145,6 +145,9 @@ public sealed class WorldClockGrain(
         }
     }
 
+    public Task<Dictionary<Guid, long>> GetNotifiedAsync()
+        => Task.FromResult(state.State.NotifiedAt.ToDictionary(kv => kv.Key, kv => kv.Value));
+
     public async Task NotifyAsync(List<Guid> personaIds)
     {
         if (personaIds.Count == 0) return;
@@ -489,6 +492,7 @@ public interface IWorldClockGrain : IGrainWithGuidKey
     [Alias("TickNowAsync")] Task<bool> TickNowAsync(Guid? personaId, string? nudge);
     [Alias("GetActivitiesAsync")] Task<List<WorldActivity>> GetActivitiesAsync(int limit, Guid? personaId);
     [Alias("RecordAsync")] Task RecordAsync(WorldActivity activity);
+    [AlwaysInterleave, Alias("GetNotifiedAsync")] Task<Dictionary<Guid, long>> GetNotifiedAsync();
     [Alias("FindPlayerAsync")] Task<Guid?> FindPlayerAsync(string clerkUserId);
     [Alias("ClaimPlayerAsync")] Task<Guid?> ClaimPlayerAsync(string clerkUserId, string name);
     [Alias("TakePersonaAsync")] Task<bool> TakePersonaAsync(string clerkUserId, Guid personaId);
